@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "bulkhead": "bin/bulkhead.js"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test --experimental-strip-types src/*.test.ts",
