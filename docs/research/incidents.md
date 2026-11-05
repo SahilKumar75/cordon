@@ -23,6 +23,8 @@ Points where sources disagree, to be resolved against the postmortem text by the
 
 Claim recorded with limited support: that this was the first malicious npm release carrying provenance the attacker did not forge. Only one article we found makes that claim. Treat it as a single source claim and do not repeat it in the README or the pitch.
 
-Unverified, from secondary write ups only: a persistence daemon that wipes files when the stolen GitHub token is revoked. If confirmed, the guard's rotation advice should say to remove persistence before revoking tokens. Relevant to design rule 3 (worms can destroy files when interrupted).
+Unverified, from secondary write ups only: a persistence daemon that wipes files when the stolen GitHub token is revoked. Relevant to design rule 3 (worms can destroy files when interrupted).
+
+Team instruction, 6 Nov 2026, applied to the guard's advice: remove persistence daemons and IDE or coding agent hooks before revoking any tokens, then rotate credentials. This holds whether or not the wiper detail above is confirmed.
 
 Use in Bulkhead: the timestamps above are the reference case for the replay timeline, built from OSV and npm registry data and labelled as a replay.

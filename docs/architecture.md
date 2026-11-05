@@ -181,8 +181,8 @@ CREATE TABLE cursors (
 ## Guard (packages/guard, CLI named bulkhead)
 
 Configuration from env, overridable by flags:
-1. GUARD_FAIL_MODE: open or closed. Required, no default until the team decides; the guard refuses to start without it.
-2. GUARD_MIN_AGE_DAYS: 0 or unset disables the minimum age check.
+1. GUARD_FALLBACK_MIN_AGE_DAYS: N for the age fallback (below). The team sets N in docs/decisions.md. Until then, when the variable is unset, the guard uses a placeholder of 3 days, prints a warning that the placeholder is in use, and sets fallback.placeholder true in the report.
+2. GUARD_MIN_AGE_DAYS: optional minimum age that applies on every run, even when the Sealed list loads. 0 or unset disables it.
 3. CHAIN_ID, RPC_URL, REGISTRY_ADDRESS: where the Sealed list lives.
 4. GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR: the fallback list.
 5. GUARD_REPORT_URL and GUARD_REPORTER_PRIVATE_KEY: both unset means nothing is sent anywhere.
@@ -191,7 +191,7 @@ Configuration from env, overridable by flags:
 Loading the Sealed list, in order:
 1. Chain: page through sealedKeys and keep status Sealed. listSource chain. The chain result is not cached.
 2. Signed snapshot from GUARD_SNAPSHOT_URL, then the last good copy in GUARD_CACHE_DIR. Accepted only when verifyMessage passes for GUARD_SNAPSHOT_SIGNER, chainId equals CHAIN_ID, registry equals REGISTRY_ADDRESS, and generatedAt is within GUARD_SNAPSHOT_MAX_AGE_SECONDS. Every accepted snapshot fetched from the URL replaces the cached copy. listSource snapshot; the report states the snapshot age.
-3. Neither: listSource none. failMode closed gives outcome unavailable; failMode open gives outcome allowed with a warning in advice.
+3. Neither (chain unreachable, and no snapshot that passes every check, including one older than GUARD_SNAPSHOT_MAX_AGE_SECONDS): listSource none, and the age fallback runs. The guard reads publish times from NPM_REGISTRY_URL and blocks every version younger than N days, listing them under tooYoung. Versions older than N days are allowed. A version whose publish time cannot be read is treated as younger than N and blocked. The report carries fallback { minAgeDays, placeholder } and a warning in advice that the Sealed list was not checked. When the list loads, fallback is null.
 
 Reading lockfiles:
 1. npm-shrinkwrap.json first, then package-lock.json, matching what npm ci uses.
@@ -205,7 +205,10 @@ Commands (exit codes: allowed 0, blocked 1, unavailable 2):
 4. bulkhead rollback [--lockfile path]: for each blocked package, reads its registry metadata and proposes the highest earlier version that is neither Sealed nor too young, as an npm overrides snippet. Writes no files.
 5. bulkhead sidecar --lockfile path --service name --port n: rechecks every POLL_INTERVAL_SECONDS. GET /health answers 200 when allowed and 503 when blocked or unavailable. GET /status answers ServiceStatus. Sends changes signed when reporting is configured.
 
-Whenever a blocked version has alreadyInstalled true (audit, sidecar, or a lockfile whose node_modules already holds it), advice includes: rotate every credential that was reachable when that version was installed, including npm tokens, cloud keys, CI secrets and SSH keys. A runtime stop does not undo theft that happened at install time.
+Whenever a blocked version has alreadyInstalled true (audit, sidecar, or a lockfile whose node_modules already holds it), advice includes, in this order:
+1. First remove persistence: background daemons or services the package installed, and IDE or coding agent hooks, extensions and config it added. Some payloads destroy files when a stolen token is revoked, so this comes before any revocation.
+2. Then rotate every credential that was reachable when that version was installed, including npm tokens, cloud keys, CI secrets and SSH keys.
+3. A runtime stop does not undo theft that happened at install time.
 
 ## Dashboard (apps/dashboard, Next.js App Router)
 
@@ -221,8 +224,8 @@ Every simulated detector, verdict, stopwatch and exfiltration is labelled simula
 ## Demo (demo/)
 
 1. mockRegistry (MOCK_REGISTRY_PORT, runs as a container on the sandbox network and published to the host): the npm registry endpoints npm needs for packuments and tarballs, plus GET /_changes?since=seq (RegistryChange[]), POST /_demo/publish (DemoPublishRequest) and POST /_demo/reset. Storage under demo/mockRegistry/storage, ignored by git.
-2. poisonedPackage: @bulkheaddemo/colorkit. Version 1.4.0 has no scripts. Version 1.4.1 has a postinstall that reads only the CANARY_TOKEN env value, writes it to a file in the OS temp folder, and posts it to CANARY_SINK_URL. Nothing else. Never a workspace member, never installed outside the sandbox or the demo services.
-3. canarySink (CANARY_SINK_PORT, runs as a container on the sandbox network and published to the host): POST /collect stores what arrives; GET /received?token= answers { received, at }; GET /received lists everything. Labelled simulated exfiltration.
+2. poisonedPackage: @bulkheaddemo/colorkit. Version 1.4.0 has no scripts. Version 1.4.1 has a dependency free postinstall that reads only the CANARY_TOKEN env value, writes it to a file in the OS temp folder, and posts it to CANARY_SINK_URL only when that URL's host is localhost, 127.0.0.1 or canarysink (the container name); any other host means it does nothing. Nothing else. Outside the pnpm workspace, never installed outside the sandbox or the demo services.
+3. canarySink: a dependency free Node script outside the pnpm workspace. It runs either as a container on the internal sandbox network (for sandboxCanary) or on the host bound to 127.0.0.1 only (for the demo services). It is never reachable from outside the machine. POST /collect stores what arrives; GET /received?token= answers { received, at }; GET /received lists everything. Labelled simulated exfiltration.
 4. services: ordersApi, searchApi and notifyWorker, each a tiny HTTP service outside the pnpm workspace with its own package-lock.json resolved from mockRegistry, each behind a guard sidecar and answering 503 with a plain message while its sidecar is unhealthy. searchApi stays on 1.4.0 to show that sealing is per version.
 
 Demo quorum is 2 of 3 detectors.
@@ -240,13 +243,13 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 7. DETECTORS_URL, WATCHER_PORT, DATABASE_PATH, SNAPSHOT_SIGNER_PRIVATE_KEY, SNAPSHOT_PATH, GUARD_REPORTER_ADDRESSES: watcher.
 8. NPM_REGISTRY_URL: watcher, guard.
 9. POLL_INTERVAL_SECONDS: watcher, guard sidecar.
-10. GUARD_FAIL_MODE, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard.
+10. GUARD_FALLBACK_MIN_AGE_DAYS, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard.
 11. MOCK_REGISTRY_PORT, CANARY_SINK_PORT: demo.
 12. NEXT_PUBLIC_*: dashboard.
 
 ## Open decisions for the team
 
-1. GUARD_FAIL_MODE default: open or closed. No default is set until the team answers.
+1. N for the age fallback: placeholder 3 days until the team sets it in docs/decisions.md.
 2. Dispute window length and other team decisions are recorded by the team in docs/decisions.md.
 3. Chainlink CRE is first in the cut order. Its supported networks are still unconfirmed.
 
@@ -255,3 +258,4 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 1. Historical replay is timeline only, labelled as a replay, and never writes to the main registry (team, 5 Nov 2026).
 2. The May 2026 malicious release with valid provenance is verified: see docs/research/incidents.md.
 3. Foundry and Docker are installed and running on the build machine.
+4. Unavailable Sealed list: the guard uses the age fallback, neither failing open nor closed (team, 6 Nov 2026).

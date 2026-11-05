@@ -8,8 +8,6 @@ export const detectorIds = ["staticScripts", "sandboxCanary", "advisoryFeed"] as
 
 export const timelineKinds = ["published", "verdict", "sealed", "guardBlocked", "unsealed", "resealed"] as const
 
-export const failModes = ["open", "closed"] as const
-
 export const guardOutcomes = ["allowed", "blocked", "unavailable"] as const
 
 export const listSources = ["chain", "snapshot", "none"] as const

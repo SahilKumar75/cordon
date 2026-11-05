@@ -1,7 +1,6 @@
 import type { z } from "zod";
 import type {
   detectorIds,
-  failModes,
   guardOutcomes,
   listSources,
   sealStatusNames,
@@ -37,7 +36,6 @@ export type Hex32 = `0x${string}`;
 export type SealStatusName = (typeof sealStatusNames)[number];
 export type DetectorId = (typeof detectorIds)[number];
 export type TimelineKind = (typeof timelineKinds)[number];
-export type FailMode = (typeof failModes)[number];
 export type GuardOutcome = (typeof guardOutcomes)[number];
 export type ListSource = (typeof listSources)[number];
 

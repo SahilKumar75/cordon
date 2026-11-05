@@ -21,8 +21,8 @@ Read docs/architecture.md before touching code. packages/shared holds the types,
 5. A registry takedown does not clean existing installs. The audit command scans lockfiles, caches and Docker layers for Sealed versions.
 6. The guard downloads the full Sealed list and checks locally.
 7. Abuse resistance: evidence hash, quorum of distinct detector keys, dispute window, guardian multisig unseal, seal rate limit. A false seal is an outage we caused.
-8. Chain outage falls back to a cached signed Sealed list. Fail open or closed is a config value with no default until the team decides.
-9. A runtime stop cannot undo install time theft. If a Sealed version was already installed, the guard advises credential rotation.
+8. Chain outage falls back to a cached signed Sealed list. When neither the chain nor a fresh signed snapshot is available, the age fallback blocks versions younger than N days and allows older ones. N (GUARD_FALLBACK_MIN_AGE_DAYS) and the staleness limit are config values. N is set by the team in docs/decisions.md; until then the guard uses a placeholder of 3 and says so every time it does.
+9. A runtime stop cannot undo install time theft. If a Sealed version was already installed, the guard advises removing persistence daemons and IDE or agent hooks first, then rotating credentials.
 10. Optional minimum package age.
 11. Timeline timestamps for publish, first verdict, quorum on chain and guard block, shown as a stopwatch.
 12. For each blocked version the guard proposes a rollback to the last safe version. It never edits files on its own.

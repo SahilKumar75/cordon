@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   detectorIds,
-  failModes,
   guardOutcomes,
   listSources,
   productName,
@@ -144,7 +143,7 @@ export const guardReportSchema = z.object({
   lockfile: z.string(),
   checkedAt: z.string().datetime(),
   listSource: z.enum(listSources),
-  failMode: z.enum(failModes),
+  fallback: z.object({ minAgeDays: z.number().int().positive(), placeholder: z.boolean() }).nullable(),
   packagesChecked: z.number().int().nonnegative(),
   blocked: z.array(guardBlockSchema),
   tooYoung: z.array(packageVersionSchema.extend({ publishedAt: z.string().datetime() })),
