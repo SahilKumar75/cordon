@@ -1,0 +1,13 @@
+{
+  "queryUrl": "https://registry.npmjs.org/@tanstack%2freact-router",
+  "method": "GET",
+  "fetchedAt": "2026-11-05T18:49:51Z",
+  "extract": "name and the time entries for the affected versions, values unchanged",
+  "response": {
+    "name": "@tanstack/react-router",
+    "time": {
+      "1.169.5": "2026-05-11T19:20:42.105Z",
+      "1.169.8": "2026-05-11T19:26:17.716Z"
+    }
+  }
+}
