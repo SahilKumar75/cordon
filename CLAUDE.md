@@ -1,6 +1,8 @@
 # Bulkhead
 
-Circuit breaker for npm dependencies. Independent detectors vote that a package version is malicious; at quorum an onchain registry marks that version Sealed; a guard in installs, CI and running services blocks Sealed versions before they execute. ETHGlobal Mumbai 2026, From Scratch track. Submission deadline Sat 7 Nov 2026, 09:00 IST. The product name lives only in productName in packages/shared/src/constants.ts.
+Circuit breaker for npm dependencies. Independent detectors vote that a package version is malicious; at quorum an onchain registry marks that version Sealed; a guard in installs, CI and running services blocks Sealed versions before they execute. ETHGlobal Mumbai 2026, From Scratch track. Submission deadline Sat 7 Nov 2026, 09:00 IST.
+
+The product name lives only in productName in packages/shared/src/constants.ts. Recorded exceptions, because npm and the shell need literal names: package names (bulkhead, @bulkhead/shared and siblings), the CLI name bulkhead, and the demo scope @bulkheaddemo. Renaming means changing productName and these names together.
 
 Read docs/architecture.md before touching code. packages/shared holds the types, schemas, hashing and ABIs every part uses. Change shared first, then callers. The full team brief is docs/prompts/bulkhead.md.
 
@@ -14,14 +16,21 @@ Read docs/architecture.md before touching code. packages/shared holds the types,
 ## Design rules
 1. Block before execution: check every lockfile version, transitive included, before download, and install with scripts disabled.
 2. Provenance and signatures are never an allow signal.
-3. Seal per version, never per package.
-4. The guard downloads the full Sealed list and checks locally.
-5. Abuse resistance: evidence hash, quorum of distinct detector keys, dispute window, guardian multisig unseal, seal rate limit.
-6. Chain outage falls back to a cached signed Sealed list. Fail open or closed is a config value with no default until the team decides.
-7. If a Sealed version was already installed, the guard advises credential rotation.
-8. Optional minimum package age.
-9. Timeline timestamps for publish, first verdict, quorum on chain and guard block, shown as a stopwatch.
-10. npm only. Typosquatting and dependency confusion are out of scope.
+3. Worms can destroy files if blocked mid run. Every sandbox is disposable and isolated from real files and secrets, so killing it harms nothing.
+4. Seal per version, never per package.
+5. A registry takedown does not clean existing installs. The audit command scans lockfiles, caches and Docker layers for Sealed versions.
+6. The guard downloads the full Sealed list and checks locally.
+7. Abuse resistance: evidence hash, quorum of distinct detector keys, dispute window, guardian multisig unseal, seal rate limit. A false seal is an outage we caused.
+8. Chain outage falls back to a cached signed Sealed list. Fail open or closed is a config value with no default until the team decides.
+9. A runtime stop cannot undo install time theft. If a Sealed version was already installed, the guard advises credential rotation.
+10. Optional minimum package age.
+11. Timeline timestamps for publish, first verdict, quorum on chain and guard block, shown as a stopwatch.
+12. For each blocked version the guard proposes a rollback to the last safe version. It never edits files on its own.
+13. Historical incident replay is timeline only, labelled as a replay, and never writes to the main registry.
+14. npm only. Typosquatting and dependency confusion are out of scope.
+
+## Cut order
+If time runs short, cut in this order: Chainlink CRE, the minimum age option, the runtime sidecar. Never cut SealRegistry, the guard install check, or the stopwatch demo.
 
 ## Stack
 Solidity 0.8.24, Foundry, OpenZeppelin v5. TypeScript on Node 22 (.nvmrc), Fastify, zod, viem, node:sqlite. Next.js App Router, Tailwind, wagmi. Docker for the sandbox. pnpm workspaces with the store inside the repo. Chain only from env, default Base Sepolia. Nothing depends on Arc Studio until the team confirms the mentor answer.

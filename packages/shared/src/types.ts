@@ -19,6 +19,7 @@ import type {
   packageVersionSchema,
   registryChangeSchema,
   replayRequestSchema,
+  replayTimelineSchema,
   reportAckSchema,
   scanRequestSchema,
   scanResponseSchema,
@@ -43,6 +44,7 @@ export type ListSource = (typeof listSources)[number];
 export type PackageVersion = z.infer<typeof packageVersionSchema>;
 export type ScanRequest = z.infer<typeof scanRequestSchema>;
 export type ReplayRequest = z.infer<typeof replayRequestSchema>;
+export type ReplayTimeline = z.infer<typeof replayTimelineSchema>;
 export type Finding = z.infer<typeof findingSchema>;
 export type Evidence = z.infer<typeof evidenceSchema>;
 export type Verdict = z.infer<typeof verdictSchema>;

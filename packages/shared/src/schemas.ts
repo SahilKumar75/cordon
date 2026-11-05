@@ -28,6 +28,20 @@ export const replayRequestSchema = z.object({
   advisoryId: z.string().min(1),
 });
 
+export const replayTimelineSchema = z.object({
+  replay: z.literal(true),
+  advisoryId: z.string().min(1),
+  advisoryUrl: z.string().url(),
+  packages: z.array(packageVersionSchema).min(1),
+  events: z.array(
+    z.object({
+      label: z.string().min(1),
+      at: z.string().datetime(),
+      sourceUrl: z.string().url(),
+    }),
+  ),
+});
+
 export const findingSchema = z.object({
   rule: z.string().min(1),
   detail: z.string(),

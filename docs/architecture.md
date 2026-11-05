@@ -103,7 +103,7 @@ interface ISealRegistry {
 ## Detectors service (services/detectors, Fastify on DETECTORS_PORT)
 
 1. POST /scan, body ScanRequest, response ScanResponse. Runs staticScripts on the tarball, sandboxCanary only when the tarball comes from the demo registry (below), and advisoryFeed on the name and version. Writes each Evidence to EVIDENCE_DIR/{evidenceHash}.json. Each malicious result goes to the signer.
-2. POST /replay, body ReplayRequest, response ScanResponse. advisoryFeed only, for a real historical advisory. It never downloads or runs the real package and never writes to REGISTRY_ADDRESS.
+2. POST /replay, body ReplayRequest, response ReplayTimeline. Timeline only, for a real historical advisory: every event comes from a machine readable public source (OSV advisory published and modified times, npm registry publish times) and carries its sourceUrl. It never downloads or runs the real package, never submits a verdict, and never writes to REGISTRY_ADDRESS or any other chain. Every replay is labelled as a replay wherever it is shown.
 3. GET /evidence/:evidenceHash, response Evidence.
 4. GET /detectors, response DetectorInfo[]. Every demo detector has simulated true.
 5. GET /health, response { ok: true }.
@@ -214,7 +214,7 @@ Whenever a blocked version has alreadyInstalled true (audit, sidecar, or a lockf
 3. /seal/[key]: evidence per detector, timeline with hash chain check in the browser against the signed head, tx links. Data: watcher /timeline and /snapshot, detectors /evidence.
 4. /services: guard sidecar status per service. Data: watcher /services.
 5. /guardian: unseal and reseal through the connected wallet, with the dispute window countdown. Data: SealRegistry.
-6. /demo, only when NEXT_PUBLIC_DEMO is true: publish the poisoned demo version, run a replay, reset. Data: mockRegistry /_demo routes, detectors /replay.
+6. /demo, only when NEXT_PUBLIC_DEMO is true: publish the poisoned demo version, reset, and show a historical replay timeline labelled as a replay, kept visually apart from the live stopwatch. Data: mockRegistry /_demo routes, detectors /replay.
 
 Every simulated detector, verdict, stopwatch and exfiltration is labelled simulated wherever it appears. Every status shows text plus an icon. Every chain action links to NEXT_PUBLIC_EXPLORER_URL. Chain from defineAppChain with the NEXT_PUBLIC_ chain variables.
 
@@ -247,8 +247,11 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 ## Open decisions for the team
 
 1. GUARD_FAIL_MODE default: open or closed. No default is set until the team answers.
-2. Dispute window length. A false seal stays an outage until the window ends, so a short window (for example one hour) limits the damage; a long one gives more review time.
-3. Historical replay. Replay never downloads real malware and never writes to the main registry, so only advisoryFeed can judge a real incident. Either a second registry deployment with quorum 1 takes replay votes, or the replay only shows the timeline it would have produced.
-4. The claim in the brief that a malicious release with valid provenance happened in May 2026 is unverified until the research agent links a source.
-5. Foundry is not installed (only foundryup is present). The Docker CLI is installed but its daemon is not running. Both are needed in Phase 1.
-6. Chainlink CRE is first in the cut order. Its supported networks are still unconfirmed.
+2. Dispute window length and other team decisions are recorded by the team in docs/decisions.md.
+3. Chainlink CRE is first in the cut order. Its supported networks are still unconfirmed.
+
+## Settled
+
+1. Historical replay is timeline only, labelled as a replay, and never writes to the main registry (team, 5 Nov 2026).
+2. The May 2026 malicious release with valid provenance is verified: see docs/research/incidents.md.
+3. Foundry and Docker are installed and running on the build machine.
