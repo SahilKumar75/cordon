@@ -20,4 +20,10 @@ ETHGlobal asks every team to document where and how AI tools were used. We used 
 
 ## Bulkhead, Phase 0
 
-Entries are added per file as they are created.
+1. docs/prompts/bulkhead.md: the team's prompt, saved word for word.
+2. CLAUDE.md: AI generated. Style rules and slop list copied word for word from the team's prompt; product, safety and design rules condensed from docs/prompts/bulkhead.md.
+3. README.md stub, package.json, pnpm-workspace.yaml, .npmrc, .gitignore, .env.example: AI generated. The workspace excludes demo/poisonedPackage and disables install scripts.
+4. docs/rules.md: stack section updated by AI for the scope change.
+5. packages/shared/src (constants, schemas, types, hashing, chain, abis/sealRegistry, hashing tests): AI generated.
+6. docs/architecture.md: AI generated. Interface choices made by the AI and open for team review: the constructor makes the guardian multisig the admin; a vote that would exceed the daily seal limit reverts; votes on an Unsealed key revert so only the guardian can reseal; the watcher is the only timeline writer; demo quorum 2 of 3.
+7. .claude/agents (contracts, detectors, watcher, guard, dashboard, research, reviewer, docs): AI generated from the team's agent list.

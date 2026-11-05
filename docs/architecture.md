@@ -22,7 +22,7 @@ Every part of Bulkhead talks through the types, schemas, hashing and ABI in pack
 5. dashboard: apps/dashboard/.
 6. demo: demo/ (mockRegistry, poisonedPackage, canarySink, services). Built in Phase 2 by the orchestrator or a demo subagent briefed from this file.
 7. research: docs/research/.
-8. docs: README.md, docs/ except decisions.md, prompts/ and research/.
+8. docs: README.md, docs/architecture.md, docs/demo.md, docs/limits.md, docs/rules.md.
 9. reviewer: reads everything, edits nothing.
 10. orchestrator: packages/shared/, root files, CLAUDE.md, .claude/agents/, docs/ai_usage.md.
 
