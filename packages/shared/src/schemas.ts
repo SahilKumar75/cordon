@@ -50,6 +50,15 @@ export const verdictSchema = z.object({
   submittedAt: z.string().datetime(),
 });
 
+export const attestationSchema = verdictSchema.merge(packageVersionSchema);
+
+export const registryChangeSchema = packageVersionSchema.extend({
+  seq: z.number().int().nonnegative(),
+  publishedAt: z.string().datetime(),
+  tarballUrl: z.string().url(),
+  integrity: z.string().min(1),
+});
+
 export const scanResponseSchema = packageVersionSchema.extend({
   key: hex32Schema,
   verdicts: z.array(verdictSchema),

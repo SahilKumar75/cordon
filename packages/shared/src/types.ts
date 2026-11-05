@@ -9,11 +9,13 @@ import type {
 } from "./constants.ts";
 import type {
   apiErrorSchema,
+  attestationSchema,
   evidenceSchema,
   findingSchema,
   guardBlockSchema,
   guardReportSchema,
   packageVersionSchema,
+  registryChangeSchema,
   scanRequestSchema,
   scanResponseSchema,
   sealEntrySchema,
@@ -39,6 +41,8 @@ export type Finding = z.infer<typeof findingSchema>;
 export type Evidence = z.infer<typeof evidenceSchema>;
 export type Verdict = z.infer<typeof verdictSchema>;
 export type ScanResponse = z.infer<typeof scanResponseSchema>;
+export type Attestation = z.infer<typeof attestationSchema>;
+export type RegistryChange = z.infer<typeof registryChangeSchema>;
 export type SealEntry = z.infer<typeof sealEntrySchema>;
 export type SealedSnapshot = z.infer<typeof sealedSnapshotSchema>;
 export type SignedSnapshot = z.infer<typeof signedSnapshotSchema>;
