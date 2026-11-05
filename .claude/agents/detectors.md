@@ -12,9 +12,9 @@ Inputs: docs/architecture.md (Detectors service), packages/shared, docs/research
 
 Outputs:
 1. staticScripts: static read of install scripts and the files they call. Never executes package code.
-2. sandboxCanary: disposable Docker run exactly as the architecture describes. No host path is ever mounted. Fake secrets only.
-3. advisoryFeed: OSV malicious package advisories for exact npm name and version, advisory URL kept in evidence. Replay never downloads the real package.
-4. signer: one wallet per detector key, submits only malicious verdicts, skips when already voted or sealed.
+2. sandboxCanary: disposable Docker run exactly as the architecture describes, only for tarballs from MOCK_REGISTRY_URL. No host path is ever mounted; the tarball goes in with docker cp. Fake secrets and a per run CANARY_TOKEN only.
+3. advisoryFeed: OSV malicious package advisories for exact npm name and version, advisory URL kept in evidence. Replay never downloads the real package and never writes to REGISTRY_ADDRESS.
+4. signer: one wallet per detector key, submits only malicious verdicts, skips when already voted or sealed, keeps a pending queue and retries every 60 seconds until the vote lands.
 5. server.ts: routes from the architecture, zod at the boundary, ApiError responses.
 
 Done when: typecheck and tests pass; staticScripts flags the demo 1.4.1 tarball and passes 1.4.0; advisoryFeed parses a recorded OSV response for a real advisory; signer tests mock only the RPC edge.

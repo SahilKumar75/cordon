@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { verifyMessage } from "viem";
-import { zeroHash } from "./constants.ts";
+import { productName, zeroHash } from "./constants.ts";
 import { evidenceHashOf, sealKeyOf, snapshotDigestOf, timelineEventHashOf } from "./hashing.ts";
 import type { Evidence, SealedSnapshot, TimelineEvent } from "./types.ts";
 
@@ -52,12 +52,13 @@ test("timeline event hash excludes its own hash and covers the previous hash", (
 test("a signed snapshot verifies only for its signer and content", async () => {
   const account = privateKeyToAccount(generatePrivateKey());
   const snapshot: SealedSnapshot = {
-    product: "Bulkhead",
+    product: productName,
     chainId: 84532,
     registry: "0x0000000000000000000000000000000000000001",
     blockNumber: 10,
     generatedAt: "2026-11-06T10:00:06.000Z",
     entries: [],
+    timelineHeads: [],
   };
   const digest = snapshotDigestOf(snapshot);
   const signature = await account.signMessage({ message: { raw: digest } });

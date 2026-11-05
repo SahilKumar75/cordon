@@ -133,6 +133,7 @@ export const sealRegistryAbi = [
   },
   { type: "error", name: "InvalidConfig", inputs: [] },
   { type: "error", name: "EmptyEvidence", inputs: [] },
+  { type: "error", name: "InvalidEcosystem", inputs: [] },
   {
     type: "error",
     name: "DuplicateVote",

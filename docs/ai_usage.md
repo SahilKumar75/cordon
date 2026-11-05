@@ -27,3 +27,4 @@ ETHGlobal asks every team to document where and how AI tools were used. We used 
 5. packages/shared/src (constants, schemas, types, hashing, chain, abis/sealRegistry, hashing tests): AI generated.
 6. docs/architecture.md: AI generated. Interface choices made by the AI and open for team review: the constructor makes the guardian multisig the admin; a vote that would exceed the daily seal limit reverts; votes on an Unsealed key revert so only the guardian can reseal; the watcher is the only timeline writer; demo quorum 2 of 3.
 7. .claude/agents (contracts, detectors, watcher, guard, dashboard, research, reviewer, docs): AI generated from the team's agent list.
+8. An AI reviewer agent audited Phase 0 and reported 24 findings. The AI applied 21 of them to the architecture, shared package, env, workspace, agent files and README. The AI applied them on its own judgment; the team has not reviewed them yet. Three that touch CLAUDE.md wait for the team.

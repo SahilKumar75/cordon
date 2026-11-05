@@ -1,6 +1,6 @@
 import { encodeAbiParameters, keccak256, toBytes } from "viem";
 import { ecosystem } from "./constants.ts";
-import type { Evidence, Hex32, SealedSnapshot, TimelineEvent } from "./types.ts";
+import type { Evidence, GuardReport, Hex32, SealedSnapshot, TimelineEvent } from "./types.ts";
 
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -31,4 +31,8 @@ export function timelineEventHashOf({ hash: _hash, ...event }: TimelineEvent): H
 
 export function snapshotDigestOf(snapshot: SealedSnapshot): Hex32 {
   return hashJson(snapshot);
+}
+
+export function guardReportDigestOf(report: GuardReport): Hex32 {
+  return hashJson(report);
 }

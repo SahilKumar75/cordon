@@ -1,40 +1,47 @@
 # Architecture
 
-Every part of Bulkhead talks through the types, schemas, hashing and ABI in packages/shared. If a contract, service or page needs a different shape, change packages/shared first, then the callers. The Solidity interface below must match packages/shared/src/abis/sealRegistry.ts exactly; contract code may add entries inherited from OpenZeppelin.
+Every part of Bulkhead talks through the types, schemas, hashing and ABI in packages/shared. If a contract, service or page needs a different shape, change packages/shared first, then the callers. The Solidity interface below, including the inherited AccessControlUnauthorizedAccount error, must match packages/shared/src/abis/sealRegistry.ts exactly; the compiled contract may add further OpenZeppelin entries.
+
+The product name lives in productName. The only other places it appears are package names (bulkhead, @bulkhead/shared and siblings), the CLI name bulkhead, and the demo scope @bulkheaddemo, because npm and the shell need literal names there.
 
 ## Flow
 
 1. A version is published to an npm registry (the demo uses demo/mockRegistry).
 2. The watcher sees it on the registry changes feed, records a published timeline event, and asks the detectors service to scan it.
-3. Each detector writes signed evidence. Each detector that finds the version malicious submits a verdict to SealRegistry from its own key, with the evidence hash.
+3. Each detector writes evidence. Each detector that finds the version malicious submits a verdict to SealRegistry from its own key, with the evidence hash.
 4. When distinct detector votes reach the quorum, SealRegistry marks that exact version Sealed and emits Sealed.
-5. The watcher reads registry events, extends the timeline, and publishes a signed snapshot of the Sealed list.
-6. The guard reads the full Sealed list (chain first, signed snapshot second) and checks every lockfile version locally. Installs and CI stop before anything is downloaded. Running services stop serving through the sidecar. The guard proposes a rollback, advises credential rotation when the version was already installed, and reports the block to the watcher.
+5. The watcher reads registry events, extends the timeline, and publishes a signed snapshot of the Sealed list and the timeline heads.
+6. The guard reads the full Sealed list (chain first, signed snapshot second) and checks every lockfile version locally. Installs and CI stop before anything is downloaded. Running services stop serving through the sidecar. The guard proposes a rollback, advises credential rotation when the version was already installed, and sends a signed report of the block to the watcher when configured.
 7. The dashboard shows attestations, the Sealed list, service status, and a stopwatch from publish to first verdict to quorum to first block.
 8. A guardian multisig can unseal after the dispute window and can reseal.
+
+## Cut order
+
+If time runs short, cut in this order: Chainlink CRE, the minimum age option, the runtime sidecar. Never cut SealRegistry, the guard install check, or the stopwatch demo.
 
 ## Ownership
 
 1. contracts: contracts/.
 2. detectors: services/detectors/.
-3. watcher: services/watcher/, and cre/ if the CRE path survives the cut order.
+3. watcher: services/watcher/, and cre/ if CRE survives the cut order.
 4. guard: packages/guard/.
 5. dashboard: apps/dashboard/.
-6. demo: demo/ (mockRegistry, poisonedPackage, canarySink, services). Built in Phase 2 by the orchestrator or a demo subagent briefed from this file.
+6. demo: demo/ (mockRegistry, poisonedPackage, canarySink, services). Built in Phase 2 by the orchestrator or a subagent briefed from this file.
 7. research: docs/research/.
-8. docs: README.md, docs/architecture.md, docs/demo.md, docs/limits.md, docs/rules.md.
+8. docs: README.md, docs/demo.md, docs/limits.md, docs/rules.md.
 9. reviewer: reads everything, edits nothing.
-10. orchestrator: packages/shared/, root files, CLAUDE.md, .claude/agents/, docs/ai_usage.md.
+10. orchestrator: packages/shared/, docs/architecture.md, docs/ai_usage.md, CLAUDE.md, .claude/agents/, and root config files (package.json, pnpm-workspace.yaml, .npmrc, .nvmrc, tsconfig.base.json, .gitignore, .env.example).
 
 docs/decisions.md belongs to the team and no agent edits it.
 
 ## Identity and hashing (packages/shared/src/hashing.ts)
 
-1. sealKeyOf(name, version) = keccak256(abi.encode(string "npm", string name, string version)). Same as SealRegistry.keyOf. Name and version are taken exactly as they appear in the lockfile or registry.
+1. sealKeyOf(name, version) = keccak256(abi.encode(string "npm", string name, string version)). Same as SealRegistry.keyOf. Name is the real package name (for an npm alias, the target name), and version is exactly as in the lockfile or registry.
 2. evidenceHashOf(evidence) = keccak256 of the evidence JSON with keys sorted at every level.
-3. timelineEventHashOf(event) = keccak256 of the event JSON without its own hash field. Events for one key form a chain: each event's prevHash is the previous event's hash, the first uses zeroHash.
-4. snapshotDigestOf(snapshot) = keccak256 of the snapshot JSON. The watcher signs it with signMessage over the raw digest; the guard checks it with verifyMessage against GUARD_SNAPSHOT_SIGNER.
+3. timelineEventHashOf(event) = keccak256 of the event JSON without its own hash field. Events for one key form a chain: each event's prevHash is the previous event's hash, the first uses zeroHash. The latest hash per key (the head) goes into every signed snapshot, so rewriting history breaks a signature that was already published.
+4. snapshotDigestOf(snapshot) and guardReportDigestOf(report) hash the JSON the same way. Signatures are signMessage over the raw digest and are checked with verifyMessage.
 5. Provenance attestations and npm signatures are never read as an allow signal anywhere.
+6. defineAppChain builds the viem chain from env for detectors, watcher, guard and dashboard.
 
 ## SealRegistry (Solidity 0.8.24, OpenZeppelin v5 AccessControl)
 
@@ -57,6 +64,7 @@ interface ISealRegistry {
 
     error InvalidConfig();
     error EmptyEvidence();
+    error InvalidEcosystem();
     error DuplicateVote(bytes32 key, address detector);
     error AlreadySealed(bytes32 key);
     error KeyUnsealed(bytes32 key);
@@ -64,6 +72,7 @@ interface ISealRegistry {
     error NotUnsealed(bytes32 key);
     error DisputeWindowOpen(uint64 opensAt);
     error SealRateLimited(uint64 day);
+    error AccessControlUnauthorizedAccount(address account, bytes32 neededRole);
 
     function DETECTOR_ROLE() external view returns (bytes32);
     function GUARDIAN_ROLE() external view returns (bytes32);
@@ -82,9 +91,9 @@ interface ISealRegistry {
 }
 ```
 
-1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint16 maxSealsPerDay). The guardian (a multisig) gets DEFAULT_ADMIN_ROLE and GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, or maxSealsPerDay is 0.
-2. submitVerdict, DETECTOR_ROLE only, in this order: evidenceHash zero reverts EmptyEvidence; status Sealed reverts AlreadySealed; status Unsealed reverts KeyUnsealed (only the guardian can reseal); a repeat vote reverts DuplicateVote. Then the vote is recorded, firstVoteAt is set on the first vote, votes goes up by one, and VerdictSubmitted is emitted.
-3. When votes reach quorum: if seals already made in the current UTC day (block.timestamp / 1 days) equal maxSealsPerDay, the whole call reverts SealRateLimited and the detector retries later. Otherwise status becomes Sealed, sealedAt is set, the key is appended to the sealed key list once, and Sealed is emitted.
+1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint16 maxSealsPerDay). The guardian (a multisig) gets GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. Nobody gets DEFAULT_ADMIN_ROLE, so the detector set and quorum are frozen for the life of the deployment; rotating a detector key means a new deployment. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, the guardian is zero, or maxSealsPerDay is 0.
+2. submitVerdict, DETECTOR_ROLE only, in this order: ecosystem other than "npm" reverts InvalidEcosystem; evidenceHash zero reverts EmptyEvidence; status Sealed reverts AlreadySealed; status Unsealed reverts KeyUnsealed (only the guardian can reseal); a repeat vote reverts DuplicateVote. Then the vote is recorded, firstVoteAt is set on the first vote, votes goes up by one, and VerdictSubmitted is emitted.
+3. When votes reach quorum: if seals already made in the current UTC day (block.timestamp / 1 days) equal maxSealsPerDay, the whole call reverts SealRateLimited and the signer retries later (see Detectors). Otherwise status becomes Sealed, sealedAt is set, the key is appended to the sealed key list once, and Sealed is emitted.
 4. unseal, GUARDIAN_ROLE only: status must be Sealed (else NotSealed) and block.timestamp at least sealedAt + disputeWindow (else DisputeWindowOpen with the opening time). Sets Unsealed and unsealedAt, emits Unsealed.
 5. reseal, GUARDIAN_ROLE only: status must be Unsealed (else NotUnsealed). Sets Sealed and a new sealedAt, emits Resealed. Not rate limited.
 6. Versions are independent: sealing one version of a package never changes another version's key.
@@ -93,34 +102,41 @@ interface ISealRegistry {
 
 ## Detectors service (services/detectors, Fastify on DETECTORS_PORT)
 
-1. POST /scan, body ScanRequest, response ScanResponse. Runs staticScripts and sandboxCanary on the tarball, and advisoryFeed on the name and version. Writes each Evidence to EVIDENCE_DIR/{evidenceHash}.json. For each malicious result the signer submits submitVerdict from that detector's key, skipping when hasVoted or isSealed is already true.
-2. POST /replay, body { advisoryId }, response ScanResponse. advisoryFeed only, for a real historical advisory. It never downloads or runs the real package.
+1. POST /scan, body ScanRequest, response ScanResponse. Runs staticScripts on the tarball, sandboxCanary only when the tarball comes from the demo registry (below), and advisoryFeed on the name and version. Writes each Evidence to EVIDENCE_DIR/{evidenceHash}.json. Each malicious result goes to the signer.
+2. POST /replay, body ReplayRequest, response ScanResponse. advisoryFeed only, for a real historical advisory. It never downloads or runs the real package and never writes to REGISTRY_ADDRESS.
 3. GET /evidence/:evidenceHash, response Evidence.
-4. GET /detectors, response [{ id, address, simulated }]. Every demo detector has simulated true.
+4. GET /detectors, response DetectorInfo[]. Every demo detector has simulated true.
 5. GET /health, response { ok: true }.
 
-staticScripts: reads package.json from the tarball without executing anything. Flags preinstall, install, postinstall and prepare scripts, and the files they call, when they touch the network (http, https, net, dns, fetch, curl, wget), environment variables (process.env, shell variables) or a shell (child_process, exec, spawn, sh).
+staticScripts: downloads the tarball and reads package.json and the files its scripts call, without executing anything. Flags preinstall, install, postinstall and prepare scripts that touch the network (http, https, net, dns, fetch, curl, wget), environment variables (process.env, shell variables) or a shell (child_process, exec, spawn, sh).
 
-sandboxCanary: runs npm install of the tarball in a fresh Docker container from SANDBOX_IMAGE (official Node 22 Alpine image pinned by digest). No volume mounts of any host path. Fake secrets in env, including a random canary token per run. Network limited to an internal Docker network holding only the canary sink and the mock registry. All capabilities dropped, the no new privileges option set, memory and process limits, 60 second timeout, container removed afterwards. Malicious when CANARY_SINK_URL reports the run's token as received.
+sandboxCanary:
+1. Runs only when the tarball URL's origin equals MOCK_REGISTRY_URL. Any other tarball gets no sandbox run and no sandbox verdict, so real public packages are never executed here.
+2. A fresh Docker container from SANDBOX_IMAGE (official Node 22 Alpine image pinned by digest) per run, removed afterwards. No volume or bind mount of any host path. The tarball goes in with docker cp.
+3. Network: an internal Docker network with no route out, holding only the sandbox, the mockRegistry container and the canarySink container.
+4. Fake secrets in env only, including CANARY_TOKEN, a random value per run injected by the sandbox and never set anywhere else.
+5. All capabilities dropped, the no new privileges option set, memory and process limits, 60 second timeout. A blocked or killed run destroys only the disposable container.
+6. Malicious when canarySink reports that run's CANARY_TOKEN as received.
 
-advisoryFeed: queries OSV (OSV_API_URL) for malicious package advisories (MAL ids) matching the exact npm name and version. The evidence keeps the advisory URL. Sources are verified by the research agent before use.
+advisoryFeed: queries OSV (OSV_API_URL) for malicious package advisories (MAL ids) matching the exact npm name and version. Evidence keeps the advisory URL. Sources are verified by the research agent before use.
 
-signer: one viem wallet per detector key (STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY). Detector keys stay distinct so the quorum means distinct signers.
+signer: one viem wallet per detector key (STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY), so the quorum means distinct signers. Skips when hasVoted or isSealed is already true. Every malicious verdict first goes to a pending file under EVIDENCE_DIR/pending and is retried every 60 seconds until it lands, with DuplicateVote and AlreadySealed counted as done. SealRateLimited and network failures stay pending.
 
 ## Watcher (services/watcher, Fastify on WATCHER_PORT, SQLite at DATABASE_PATH)
 
 1. registry poller: every POLL_INTERVAL_SECONDS reads GET {NPM_REGISTRY_URL}/_changes?since={seq} (RegistryChange[]), stores publishes, and appends a published timeline event.
-2. scheduler: sends each new publish to POST {DETECTORS_URL}/scan, one at a time.
+2. scheduler: sends each new publish to POST {DETECTORS_URL}/scan, one at a time, and retries a failed request on the next tick.
 3. chain poller: reads VerdictSubmitted, Sealed, Unsealed and Resealed logs from REGISTRY_ADDRESS and appends verdict, sealed, unsealed and resealed events with the tx hash as ref and the block time as at.
-4. publisher: after any Sealed, Unsealed or Resealed log, builds a SealedSnapshot, signs it with SNAPSHOT_SIGNER_PRIVATE_KEY, writes SNAPSHOT_PATH and serves it.
-5. Guard reports: each blocked entry in a posted GuardReport appends a guardBlocked event with the service name (or "ci") as actor.
+4. publisher: every POLL_INTERVAL_SECONDS builds a SealedSnapshot (CHAIN_ID, REGISTRY_ADDRESS, latest block, entries, timeline heads), signs it with SNAPSHOT_SIGNER_PRIVATE_KEY, writes SNAPSHOT_PATH and serves it. Fresh signatures keep generatedAt meaningful for the guard's age limit.
+5. Guard reports: POST /reports accepts only a SignedGuardReport whose signer is in GUARD_REPORTER_ADDRESSES. Each blocked entry appends a guardBlocked event with the service name (or "ci") as actor.
+6. simulated on Verdict, Attestation and Stopwatch is true when the detector reports simulated or the registry is the demo registry.
 
 HTTP API:
 1. GET /snapshot, response SignedSnapshot.
 2. GET /attestations, response Attestation[] newest first.
 3. GET /timeline/:key, response TimelineEvent[] in chain order.
 4. GET /stopwatch, response Stopwatch[]; GET /stopwatch/:key, response Stopwatch.
-5. POST /reports, body GuardReport, response { recorded: number }.
+5. POST /reports, body SignedGuardReport, response ReportAck.
 6. GET /services, response ServiceStatus[].
 7. GET /health, response { ok: true }.
 
@@ -164,39 +180,50 @@ CREATE TABLE cursors (
 
 ## Guard (packages/guard, CLI named bulkhead)
 
-Configuration from env, overridable by flags: GUARD_FAIL_MODE (open or closed, required, no default until the team decides; the guard refuses to start without it), GUARD_MIN_AGE_DAYS (0 or unset disables), RPC_URL and REGISTRY_ADDRESS, GUARD_SNAPSHOT_URL and GUARD_SNAPSHOT_SIGNER, GUARD_CACHE_DIR, GUARD_REPORT_URL (unset means nothing is sent anywhere).
+Configuration from env, overridable by flags:
+1. GUARD_FAIL_MODE: open or closed. Required, no default until the team decides; the guard refuses to start without it.
+2. GUARD_MIN_AGE_DAYS: 0 or unset disables the minimum age check.
+3. CHAIN_ID, RPC_URL, REGISTRY_ADDRESS: where the Sealed list lives.
+4. GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR: the fallback list.
+5. GUARD_REPORT_URL and GUARD_REPORTER_PRIVATE_KEY: both unset means nothing is sent anywhere.
+6. NPM_REGISTRY_URL: only for minimum age and rollback.
 
 Loading the Sealed list, in order:
-1. Chain: page through sealedKeys, keep status Sealed, cache to GUARD_CACHE_DIR. listSource chain.
-2. Signed snapshot from GUARD_SNAPSHOT_URL, or the cached copy, accepted only if verifyMessage passes for GUARD_SNAPSHOT_SIGNER. listSource snapshot; the report states the snapshot age.
+1. Chain: page through sealedKeys and keep status Sealed. listSource chain. The chain result is not cached.
+2. Signed snapshot from GUARD_SNAPSHOT_URL, then the last good copy in GUARD_CACHE_DIR. Accepted only when verifyMessage passes for GUARD_SNAPSHOT_SIGNER, chainId equals CHAIN_ID, registry equals REGISTRY_ADDRESS, and generatedAt is within GUARD_SNAPSHOT_MAX_AGE_SECONDS. Every accepted snapshot fetched from the URL replaces the cached copy. listSource snapshot; the report states the snapshot age.
 3. Neither: listSource none. failMode closed gives outcome unavailable; failMode open gives outcome allowed with a warning in advice.
 
-Commands (exit codes from guardExitCodes: allowed 0, blocked 1, unavailable 2):
-1. bulkhead check [--lockfile path] [--service name]: reads package-lock.json (lockfile versions 2 and 3), takes every entry under packages including transitive ones, computes each seal key and matches locally. With a minimum age, reads publish times from the registry and lists versions younger than the limit under tooYoung, which blocks. Prints the GuardReport and posts it to GUARD_REPORT_URL when set.
-2. bulkhead install [--lockfile path]: runs check, then npm ci with --ignore-scripts only when the outcome is allowed.
-3. bulkhead audit [--path dir]... [--cache dir] [--docker image]: scans package-lock.json files under each path, the npm cache index, and node_modules package.json files inside the layers of a saved Docker image. Every hit has alreadyInstalled true.
-4. bulkhead rollback [--lockfile path]: for each blocked package, reads its registry metadata and proposes the highest earlier version that is neither Sealed nor too young, as an npm overrides snippet. Writes no files.
-5. bulkhead sidecar --lockfile path --service name --port n: rechecks every POLL_INTERVAL_SECONDS. GET /health answers 200 when allowed and 503 when blocked or unavailable under failMode closed. GET /status answers ServiceStatus. Reports changes to GUARD_REPORT_URL.
+Reading lockfiles:
+1. npm-shrinkwrap.json first, then package-lock.json, matching what npm ci uses.
+2. Lockfile versions 2 and 3: every entry under packages, transitive ones included. For an npm alias the entry's name field is the real package and is used for the key.
+3. Lockfile version 1, a missing lockfile, or an unreadable one gives outcome unavailable, never allowed.
 
-Whenever a blocked version has alreadyInstalled true (audit, sidecar, or a lockfile whose node_modules already holds it), advice includes: rotate every credential that was reachable when that version was installed, including npm tokens, cloud keys, CI secrets and SSH keys.
+Commands (exit codes: allowed 0, blocked 1, unavailable 2):
+1. bulkhead check [--lockfile path] [--service name]: reads the lockfile, computes each seal key and matches locally. With a minimum age, reads publish times from NPM_REGISTRY_URL and lists versions younger than the limit under tooYoung, which blocks. Prints the GuardReport and sends it signed when reporting is configured.
+2. bulkhead install [--lockfile path]: runs check, then npm ci with --ignore-scripts only when the outcome is allowed.
+3. bulkhead audit [--path dir]... [--cache dir] [--docker image]: scans lockfiles under each path, the npm cache index, and node_modules package.json files inside the layers of a saved Docker image. Every hit has alreadyInstalled true.
+4. bulkhead rollback [--lockfile path]: for each blocked package, reads its registry metadata and proposes the highest earlier version that is neither Sealed nor too young, as an npm overrides snippet. Writes no files.
+5. bulkhead sidecar --lockfile path --service name --port n: rechecks every POLL_INTERVAL_SECONDS. GET /health answers 200 when allowed and 503 when blocked or unavailable. GET /status answers ServiceStatus. Sends changes signed when reporting is configured.
+
+Whenever a blocked version has alreadyInstalled true (audit, sidecar, or a lockfile whose node_modules already holds it), advice includes: rotate every credential that was reachable when that version was installed, including npm tokens, cloud keys, CI secrets and SSH keys. A runtime stop does not undo theft that happened at install time.
 
 ## Dashboard (apps/dashboard, Next.js App Router)
 
-1. /: stopwatch for the latest seal (publish, first verdict, quorum, first block, with the gap between each) and the live attestation feed. Data: watcher /stopwatch, /attestations.
+1. /: stopwatch for the latest seal (publish, first verdict, quorum, first block, and the gap between each) and the live attestation feed. Data: watcher /stopwatch, /attestations.
 2. /sealed: every sealed key with status. Data: SealRegistry sealedKeys, watcher /snapshot for names.
-3. /seal/[key]: evidence per detector, timeline with hash chain check in the browser, tx links. Data: watcher /timeline, detectors /evidence.
+3. /seal/[key]: evidence per detector, timeline with hash chain check in the browser against the signed head, tx links. Data: watcher /timeline and /snapshot, detectors /evidence.
 4. /services: guard sidecar status per service. Data: watcher /services.
 5. /guardian: unseal and reseal through the connected wallet, with the dispute window countdown. Data: SealRegistry.
-6. /demo, only when NEXT_PUBLIC_DEMO is true: publish the poisoned demo version, run a replay, reset. Every detector and every exfiltration on this page is labelled simulated.
+6. /demo, only when NEXT_PUBLIC_DEMO is true: publish the poisoned demo version, run a replay, reset. Data: mockRegistry /_demo routes, detectors /replay.
 
-Every status shows text plus an icon. Every chain action links to NEXT_PUBLIC_EXPLORER_URL. Chain from defineBulkheadChain with the NEXT_PUBLIC_ chain variables.
+Every simulated detector, verdict, stopwatch and exfiltration is labelled simulated wherever it appears. Every status shows text plus an icon. Every chain action links to NEXT_PUBLIC_EXPLORER_URL. Chain from defineAppChain with the NEXT_PUBLIC_ chain variables.
 
 ## Demo (demo/)
 
-1. mockRegistry (MOCK_REGISTRY_PORT): the npm registry endpoints npm needs for packuments and tarballs, plus GET /_changes?since=seq (RegistryChange[]), POST /_demo/publish { name, version } and POST /_demo/reset. Storage under demo/mockRegistry/storage, ignored by git.
-2. poisonedPackage: @bulkheaddemo/colorkit. Version 1.4.0 has no scripts. Version 1.4.1 has a postinstall that reads only the BULKHEAD_CANARY env value, writes it to a file in the OS temp folder, and posts it to CANARY_SINK_URL. Nothing else. Never a workspace member, never installed outside the sandbox or the demo services.
-3. canarySink (CANARY_SINK_PORT): POST /collect stores what arrives; GET /received?token= answers { received, at }; GET /received lists everything. Labelled simulated exfiltration.
-4. services: ordersApi, searchApi and notifyWorker, each a tiny HTTP service with its own package-lock.json on @bulkheaddemo/colorkit, each behind a guard sidecar and answering 503 with a plain message while its sidecar is unhealthy. searchApi stays on 1.4.0 to show that sealing is per version.
+1. mockRegistry (MOCK_REGISTRY_PORT, runs as a container on the sandbox network and published to the host): the npm registry endpoints npm needs for packuments and tarballs, plus GET /_changes?since=seq (RegistryChange[]), POST /_demo/publish (DemoPublishRequest) and POST /_demo/reset. Storage under demo/mockRegistry/storage, ignored by git.
+2. poisonedPackage: @bulkheaddemo/colorkit. Version 1.4.0 has no scripts. Version 1.4.1 has a postinstall that reads only the CANARY_TOKEN env value, writes it to a file in the OS temp folder, and posts it to CANARY_SINK_URL. Nothing else. Never a workspace member, never installed outside the sandbox or the demo services.
+3. canarySink (CANARY_SINK_PORT, runs as a container on the sandbox network and published to the host): POST /collect stores what arrives; GET /received?token= answers { received, at }; GET /received lists everything. Labelled simulated exfiltration.
+4. services: ordersApi, searchApi and notifyWorker, each a tiny HTTP service outside the pnpm workspace with its own package-lock.json resolved from mockRegistry, each behind a guard sidecar and answering 503 with a plain message while its sidecar is unhealthy. searchApi stays on 1.4.0 to show that sealing is per version.
 
 Demo quorum is 2 of 3 detectors.
 
@@ -208,19 +235,20 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 2. DEPLOYER_PRIVATE_KEY, GUARDIAN_ADDRESS, DETECTOR_ADDRESSES, QUORUM, DISPUTE_WINDOW_SECONDS, MAX_SEALS_PER_DAY, ETHERSCAN_API_KEY: contracts.
 3. REGISTRY_ADDRESS: detectors, watcher, guard.
 4. STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY, DETECTORS_PORT, EVIDENCE_DIR, SANDBOX_IMAGE, OSV_API_URL: detectors.
-5. CANARY_SINK_URL: detectors, poisonedPackage.
-6. DETECTORS_URL, NPM_REGISTRY_URL, WATCHER_PORT, DATABASE_PATH, SNAPSHOT_SIGNER_PRIVATE_KEY, SNAPSHOT_PATH: watcher. NPM_REGISTRY_URL is also read by the guard for minimum age and rollback.
-7. POLL_INTERVAL_SECONDS: watcher, guard sidecar.
-8. WATCHER_URL: guard defaults for GUARD_SNAPSHOT_URL and GUARD_REPORT_URL in the demo.
-9. GUARD_FAIL_MODE, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_REPORT_URL, GUARD_CACHE_DIR, SIDECAR_PORT: guard.
-10. MOCK_REGISTRY_PORT, CANARY_SINK_PORT: demo.
-11. NEXT_PUBLIC_*: dashboard.
+5. MOCK_REGISTRY_URL: detectors (sandbox allow rule).
+6. CANARY_SINK_URL: detectors, poisonedPackage.
+7. DETECTORS_URL, WATCHER_PORT, DATABASE_PATH, SNAPSHOT_SIGNER_PRIVATE_KEY, SNAPSHOT_PATH, GUARD_REPORTER_ADDRESSES: watcher.
+8. NPM_REGISTRY_URL: watcher, guard.
+9. POLL_INTERVAL_SECONDS: watcher, guard sidecar.
+10. GUARD_FAIL_MODE, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard.
+11. MOCK_REGISTRY_PORT, CANARY_SINK_PORT: demo.
+12. NEXT_PUBLIC_*: dashboard.
 
 ## Open decisions for the team
 
 1. GUARD_FAIL_MODE default: open or closed. No default is set until the team answers.
 2. Dispute window length. A false seal stays an outage until the window ends, so a short window (for example one hour) limits the damage; a long one gives more review time.
-3. Historical replay and quorum. Replay must not download real malware, so only advisoryFeed can vote on a real incident. Either the replay runs on a separate registry deployment with quorum 1, or it only shows the timeline it would have produced.
+3. Historical replay. Replay never downloads real malware and never writes to the main registry, so only advisoryFeed can judge a real incident. Either a second registry deployment with quorum 1 takes replay votes, or the replay only shows the timeline it would have produced.
 4. The claim in the brief that a malicious release with valid provenance happened in May 2026 is unverified until the research agent links a source.
 5. Foundry is not installed (only foundryup is present). The Docker CLI is installed but its daemon is not running. Both are needed in Phase 1.
 6. Chainlink CRE is first in the cut order. Its supported networks are still unconfirmed.

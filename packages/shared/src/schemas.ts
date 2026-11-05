@@ -11,7 +11,7 @@ import {
 
 export const hex32Schema = z.string().regex(/^0x[0-9a-f]{64}$/);
 export const addressSchema = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
-export const hexSchema = z.string().regex(/^0x[0-9a-fA-F]*$/);
+const signatureSchema = z.string().regex(/^0x[0-9a-fA-F]+$/);
 
 export const packageVersionSchema = z.object({
   name: z.string().min(1).max(214),
@@ -22,6 +22,10 @@ export const scanRequestSchema = packageVersionSchema.extend({
   tarballUrl: z.string().url(),
   integrity: z.string().min(1),
   publishedAt: z.string().datetime(),
+});
+
+export const replayRequestSchema = z.object({
+  advisoryId: z.string().min(1),
 });
 
 export const findingSchema = z.object({
@@ -46,11 +50,18 @@ export const verdictSchema = z.object({
   detectorAddress: addressSchema,
   evidenceHash: hex32Schema,
   malicious: z.boolean(),
+  simulated: z.boolean(),
   txHash: hex32Schema.nullable(),
   submittedAt: z.string().datetime(),
 });
 
 export const attestationSchema = verdictSchema.merge(packageVersionSchema);
+
+export const detectorInfoSchema = z.object({
+  id: z.enum(detectorIds),
+  address: addressSchema,
+  simulated: z.boolean(),
+});
 
 export const registryChangeSchema = packageVersionSchema.extend({
   seq: z.number().int().nonnegative(),
@@ -58,6 +69,8 @@ export const registryChangeSchema = packageVersionSchema.extend({
   tarballUrl: z.string().url(),
   integrity: z.string().min(1),
 });
+
+export const demoPublishRequestSchema = packageVersionSchema;
 
 export const scanResponseSchema = packageVersionSchema.extend({
   key: hex32Schema,
@@ -77,12 +90,13 @@ export const sealedSnapshotSchema = z.object({
   blockNumber: z.number().int().nonnegative(),
   generatedAt: z.string().datetime(),
   entries: z.array(sealEntrySchema),
+  timelineHeads: z.array(z.object({ key: hex32Schema, hash: hex32Schema })),
 });
 
 export const signedSnapshotSchema = z.object({
   snapshot: sealedSnapshotSchema,
   signer: addressSchema,
-  signature: hexSchema,
+  signature: signatureSchema,
 });
 
 export const timelineEventSchema = z.object({
@@ -97,6 +111,7 @@ export const timelineEventSchema = z.object({
 
 export const stopwatchSchema = packageVersionSchema.extend({
   key: hex32Schema,
+  simulated: z.boolean(),
   publishedAt: z.string().datetime(),
   firstVerdictAt: z.string().datetime().nullable(),
   sealedAt: z.string().datetime().nullable(),
@@ -122,6 +137,16 @@ export const guardReportSchema = z.object({
   rollback: z.array(z.object({ name: z.string(), from: z.string(), to: z.string().nullable() })),
   advice: z.array(z.string()),
   outcome: z.enum(guardOutcomes),
+});
+
+export const signedGuardReportSchema = z.object({
+  report: guardReportSchema,
+  signer: addressSchema,
+  signature: signatureSchema,
+});
+
+export const reportAckSchema = z.object({
+  recorded: z.number().int().nonnegative(),
 });
 
 export const serviceStatusSchema = z.object({

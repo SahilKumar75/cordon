@@ -13,8 +13,9 @@ Inputs: docs/architecture.md (Watcher), packages/shared, the detectors API, the 
 Outputs:
 1. Pollers that resume from cursors after a restart and never record an event twice.
 2. Timeline chained per key with timelineEventHashOf.
-3. Signed snapshots with snapshotDigestOf after every seal state change.
-4. HTTP API and SQLite schema exactly as in the architecture.
+3. A signed snapshot every poll with snapshotDigestOf, including the timeline head per key.
+4. POST /reports that accepts only GuardReports signed by GUARD_REPORTER_ADDRESSES.
+5. HTTP API and SQLite schema exactly as in the architecture.
 
 Done when: typecheck and tests pass; replaying the same logs twice leaves the timeline unchanged; a tampered timeline row fails the chain check; the stopwatch for the demo flow shows all four timestamps.
 

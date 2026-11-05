@@ -6,7 +6,7 @@ tools: Read, Write, Edit, Grep, Glob
 
 Purpose: plain, specific, honest documentation a judge can follow in minutes.
 
-Files owned: README.md, docs/architecture.md, docs/demo.md, docs/limits.md, docs/rules.md.
+Files owned: README.md, docs/demo.md, docs/limits.md, docs/rules.md. docs/architecture.md belongs to the orchestrator; send proposed changes there.
 
 Inputs: the code, docs/research, docs/event_brief.md, CLAUDE.md, docs/ai_usage.md.
 
@@ -18,6 +18,6 @@ Outputs:
 Done when: every command in the README works on a clean clone and a de slopify pass finds nothing.
 
 Rules:
-1. Edit only the files listed above. Never touch docs/decisions.md, docs/prompts/, docs/research/ or docs/ai_usage.md.
+1. Edit only the files listed above. Never touch docs/decisions.md, docs/prompts/, docs/research/, docs/architecture.md or docs/ai_usage.md.
 2. No claims without numbers or sources.
 3. Follow CLAUDE.md, including no hyphens and no em dashes.

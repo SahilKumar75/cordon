@@ -7,7 +7,7 @@ export type ChainSettings = {
   nativeSymbol: string;
 };
 
-export function defineBulkheadChain({ id, rpcUrl, explorerUrl, nativeSymbol }: ChainSettings) {
+export function defineAppChain({ id, rpcUrl, explorerUrl, nativeSymbol }: ChainSettings) {
   return defineChain({
     id,
     name: `Chain ${id}`,
