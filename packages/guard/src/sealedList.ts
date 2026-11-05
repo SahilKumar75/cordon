@@ -57,7 +57,7 @@ async function snapshotProblem(signed: SignedSnapshot, settings: ListSettings): 
 }
 
 function snapshotAgeOf(signed: SignedSnapshot, settings: ListSettings): number {
-  return Math.floor((settings.now().getTime() - Date.parse(signed.snapshot.generatedAt)) / 1000);
+  return Math.max(0, Math.floor((settings.now().getTime() - Date.parse(signed.snapshot.generatedAt)) / 1000));
 }
 
 async function fetchSnapshot(settings: ListSettings): Promise<unknown> {

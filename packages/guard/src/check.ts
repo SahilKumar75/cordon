@@ -72,14 +72,13 @@ async function findTooYoung(entries: LockEntry[], days: number, readPackument: P
   const tooYoung: TooYoung[] = young.map(({ entry, publishedAt }) => ({
     name: entry.name,
     version: entry.version,
-    publishedAt: (publishedAt ?? now).toISOString(),
+    publishedAt: publishedAt?.toISOString() ?? null,
   }));
   const unreadable = young.filter(({ publishedAt }) => publishedAt === null).map(({ entry }) => `${entry.name}@${entry.version}`);
   return { tooYoung, unreadable };
 }
 
-function listAdvice(list: SealedList, fallback: GuardReport["fallback"]): string[] {
-  if (list.source === "snapshot") return [`Sealed list from a signed snapshot generated ${list.snapshotAgeSeconds} seconds ago.`];
+function fallbackAdvice(fallback: GuardReport["fallback"]): string[] {
   if (!fallback) return [];
   const placeholder = fallback.placeholder
     ? [`N is the placeholder of ${fallback.minAgeDays} days until the team sets GUARD_FALLBACK_MIN_AGE_DAYS.`]
@@ -101,6 +100,7 @@ function baseReport(settings: GuardSettings, lockfile: string, checkedAt: string
     lockfile,
     checkedAt,
     listSource: "none",
+    snapshotAgeSeconds: null,
     fallback: null,
     packagesChecked: 0,
     blocked: [],
@@ -129,12 +129,13 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
   return {
     ...report,
     listSource: list.source,
+    snapshotAgeSeconds: list.snapshotAgeSeconds,
     fallback,
     packagesChecked: read.entries.length,
     blocked,
     tooYoung,
     rollback,
-    advice: [...listAdvice(list, fallback), ...unreadableAdvice, ...adviceFor(blocked)],
+    advice: [...fallbackAdvice(fallback), ...unreadableAdvice, ...adviceFor(blocked)],
     outcome: blocked.length || tooYoung.length ? "blocked" : "allowed",
   };
 }

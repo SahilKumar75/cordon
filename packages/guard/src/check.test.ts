@@ -13,6 +13,8 @@ import {
   sealedName,
   sealedVersion,
   settingsFor,
+  sign,
+  snapshotOf,
   stubFetch,
   tempDir,
   writeInstalled,
@@ -41,6 +43,7 @@ test("a Sealed transitive version blocks", async () => {
   guardReportSchema.parse(report);
   assert.equal(report.outcome, "blocked");
   assert.equal(report.listSource, "chain");
+  assert.equal(report.snapshotAgeSeconds, null);
   assert.equal(report.fallback, null);
   assert.equal(report.packagesChecked, 2);
   assert.deepEqual(report.blocked.map(({ name, version, key }) => [name, version, key]), [[sealedName, sealedVersion, sealedKey]]);
@@ -59,6 +62,20 @@ test("the neighbouring version of a Sealed package is allowed", async () => {
   writeLockfile(dir, { [`node_modules/${sealedName}`]: { version: "1.4.0" } });
   const report = await checkLockfile(settingsFor(dir, { transport: sealedChain }));
   assert.equal(report.outcome, "allowed");
+  assert.deepEqual(report.advice, []);
+});
+
+test("a report from a signed snapshot carries the snapshot age and no age advice", async () => {
+  const signer = privateKeyToAccount(generatePrivateKey());
+  const snapshotUrl = "http://watcher.test/snapshot";
+  const dir = tempDir();
+  writeLockfile(dir, { [`node_modules/${sealedName}`]: { version: sealedVersion } });
+  const fetchFn = stubFetch({ [snapshotUrl]: await sign(signer, snapshotOf()) });
+  const report = await checkLockfile(settingsFor(dir, { transport: failingTransport, snapshotUrl, snapshotSigner: signer.address, fetchFn }));
+  guardReportSchema.parse(report);
+  assert.equal(report.listSource, "snapshot");
+  assert.equal(report.snapshotAgeSeconds, 60);
+  assert.equal(report.outcome, "blocked");
   assert.deepEqual(report.advice, []);
 });
 
@@ -115,9 +132,14 @@ test("with no list, the age fallback blocks young and undated versions and allow
   guardReportSchema.parse(report);
   assert.equal(report.listSource, "none");
   assert.deepEqual(report.fallback, { minAgeDays: 5, placeholder: false });
-  assert.deepEqual(report.tooYoung.map(({ name }) => name).sort(), ["fresh", "undated"]);
+  assert.deepEqual(
+    report.tooYoung.map(({ name, publishedAt }) => [name, publishedAt]).sort(),
+    [["fresh", daysAgo(1)], ["undated", null]],
+  );
+  assert.equal(report.snapshotAgeSeconds, null);
   assert.equal(report.outcome, "blocked");
   assert.match(report.advice[0] ?? "", /Sealed list was not checked/);
+  assert.ok(report.advice.some((line) => line.includes("Publish time could not be read for undated@0.1.0")));
   assert.ok(!settings.warnings.some((warning) => warning.includes("placeholder")));
 });
 

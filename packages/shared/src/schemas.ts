@@ -88,6 +88,7 @@ export const demoPublishRequestSchema = packageVersionSchema;
 export const scanResponseSchema = packageVersionSchema.extend({
   key: hex32Schema,
   verdicts: z.array(verdictSchema),
+  failures: z.array(z.object({ detector: z.enum(detectorIds), error: z.string() })),
 });
 
 export const sealEntrySchema = packageVersionSchema.extend({
@@ -146,7 +147,8 @@ export const guardReportSchema = z.object({
   fallback: z.object({ minAgeDays: z.number().int().positive(), placeholder: z.boolean() }).nullable(),
   packagesChecked: z.number().int().nonnegative(),
   blocked: z.array(guardBlockSchema),
-  tooYoung: z.array(packageVersionSchema.extend({ publishedAt: z.string().datetime() })),
+  snapshotAgeSeconds: z.number().int().nonnegative().nullable(),
+  tooYoung: z.array(packageVersionSchema.extend({ publishedAt: z.string().datetime().nullable() })),
   rollback: z.array(z.object({ name: z.string(), from: z.string(), to: z.string().nullable() })),
   advice: z.array(z.string()),
   outcome: z.enum(guardOutcomes),

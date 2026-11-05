@@ -150,6 +150,7 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     lockfile: [...settings.paths, ...settings.cacheDirs, ...settings.dockerImages].join(", "),
     checkedAt: settings.now().toISOString(),
     listSource: list.source,
+    snapshotAgeSeconds: list.snapshotAgeSeconds,
     fallback: null,
     packagesChecked: found.length,
     blocked,

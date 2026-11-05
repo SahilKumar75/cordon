@@ -102,8 +102,8 @@ interface ISealRegistry {
 
 ## Detectors service (services/detectors, Fastify on DETECTORS_PORT)
 
-1. POST /scan, body ScanRequest, response ScanResponse. Runs staticScripts on the tarball, sandboxCanary only when the tarball comes from the demo registry (below), and advisoryFeed on the name and version. Writes each Evidence to EVIDENCE_DIR/{evidenceHash}.json. Each malicious result goes to the signer.
-2. POST /replay, body ReplayRequest, response ReplayTimeline. Timeline only, for a real historical advisory: every event comes from a machine readable public source (OSV advisory published and modified times, npm registry publish times) and carries its sourceUrl. It never downloads or runs the real package, never submits a verdict, and never writes to REGISTRY_ADDRESS or any other chain. Every replay is labelled as a replay wherever it is shown.
+1. POST /scan, body ScanRequest, response ScanResponse. Detectors run independently: one that fails (for example OSV unreachable) is listed under failures and the others still report and vote. Runs staticScripts on the tarball, sandboxCanary only when the tarball comes from the demo registry (below), and advisoryFeed on the name and version. Writes each Evidence to EVIDENCE_DIR/{evidenceHash}.json. Each malicious result goes to the signer.
+2. POST /replay, body ReplayRequest, response ReplayTimeline. Timeline only, for a real historical advisory: every event comes from a machine readable public source (OSV advisory published and modified times, and publish times from the public npm registry, never NPM_REGISTRY_URL) and carries its sourceUrl. Reading registry metadata never downloads a tarball. It never downloads or runs the real package, never submits a verdict, and never writes to REGISTRY_ADDRESS or any other chain. Every replay is labelled as a replay wherever it is shown.
 3. GET /evidence/:evidenceHash, response Evidence.
 4. GET /detectors, response DetectorInfo[]. Every demo detector has simulated true.
 5. GET /health, response { ok: true }.
@@ -112,15 +112,15 @@ staticScripts: downloads the tarball and reads package.json and the files its sc
 
 sandboxCanary:
 1. Runs only when the tarball URL's origin equals MOCK_REGISTRY_URL. Any other tarball gets no sandbox run and no sandbox verdict, so real public packages are never executed here.
-2. A fresh Docker container from SANDBOX_IMAGE (official Node 22 Alpine image pinned by digest) per run, removed afterwards. No volume or bind mount of any host path. The tarball goes in with docker cp.
+2. A fresh Docker container from SANDBOX_IMAGE (official Node 22 Alpine image pinned by digest; the service refuses an unpinned image) per run, removed afterwards. No volume or bind mount of any host path. The tarball goes in with docker cp and is installed offline from the file, so the sandbox needs no registry.
 3. Network: an internal Docker network with no route out, holding only the sandbox, the mockRegistry container and the canarySink container.
 4. Fake secrets in env only, including CANARY_TOKEN, a random value per run injected by the sandbox and never set anywhere else.
 5. All capabilities dropped, the no new privileges option set, memory and process limits, 60 second timeout. A blocked or killed run destroys only the disposable container.
-6. Malicious when canarySink reports that run's CANARY_TOKEN as received.
+6. Malicious when canarySink reports that run's CANARY_TOKEN as received. The service asks the sink through docker exec, because the internal network is not reachable from the host. The sink container gets the same limits and no published ports. The demo setup script builds the sink image before the first run.
 
-advisoryFeed: queries OSV (OSV_API_URL) for malicious package advisories (MAL ids) matching the exact npm name and version. Evidence keeps the advisory URL. Sources are verified by the research agent before use.
+advisoryFeed: queries OSV (OSV_API_URL is the base URL, the service appends the v1 paths) for malicious package advisories (MAL ids) matching the exact npm name and version. Evidence keeps the advisory URL. Sources are verified by the research agent before use.
 
-signer: one viem wallet per detector key (STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY), so the quorum means distinct signers. Skips when hasVoted or isSealed is already true. Every malicious verdict first goes to a pending file under EVIDENCE_DIR/pending and is retried every 60 seconds until it lands, with DuplicateVote and AlreadySealed counted as done. SealRateLimited and network failures stay pending.
+signer: one viem wallet per detector key (STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY), so the quorum means distinct signers. Skips when hasVoted or isSealed is already true. Every malicious verdict first goes to a pending file under EVIDENCE_DIR/pending and is retried every 60 seconds until it lands, with DuplicateVote, AlreadySealed and KeyUnsealed counted as done. SealRateLimited and network failures stay pending.
 
 ## Watcher (services/watcher, Fastify on WATCHER_PORT, SQLite at DATABASE_PATH)
 
@@ -190,8 +190,8 @@ Configuration from env, overridable by flags:
 
 Loading the Sealed list, in order:
 1. Chain: page through sealedKeys and keep status Sealed. listSource chain. The chain result is not cached.
-2. Signed snapshot from GUARD_SNAPSHOT_URL, then the last good copy in GUARD_CACHE_DIR. Accepted only when verifyMessage passes for GUARD_SNAPSHOT_SIGNER, chainId equals CHAIN_ID, registry equals REGISTRY_ADDRESS, and generatedAt is within GUARD_SNAPSHOT_MAX_AGE_SECONDS. Every accepted snapshot fetched from the URL replaces the cached copy. listSource snapshot; the report states the snapshot age.
-3. Neither (chain unreachable, and no snapshot that passes every check, including one older than GUARD_SNAPSHOT_MAX_AGE_SECONDS): listSource none, and the age fallback runs. The guard reads publish times from NPM_REGISTRY_URL and blocks every version younger than N days, listing them under tooYoung. Versions older than N days are allowed. A version whose publish time cannot be read is treated as younger than N and blocked. The report carries fallback { minAgeDays, placeholder } and a warning in advice that the Sealed list was not checked. When the list loads, fallback is null.
+2. Signed snapshot from GUARD_SNAPSHOT_URL, then the last good copy in GUARD_CACHE_DIR. Accepted only when verifyMessage passes for GUARD_SNAPSHOT_SIGNER, chainId equals CHAIN_ID, registry equals REGISTRY_ADDRESS, and generatedAt is within GUARD_SNAPSHOT_MAX_AGE_SECONDS. Every accepted snapshot fetched from the URL replaces the cached copy. listSource snapshot; the report sets snapshotAgeSeconds (null for other sources).
+3. Neither (chain unreachable, and no snapshot that passes every check, including one older than GUARD_SNAPSHOT_MAX_AGE_SECONDS): listSource none, and the age fallback runs. The guard reads publish times from NPM_REGISTRY_URL and blocks every version younger than N days, listing them under tooYoung. Versions older than N days are allowed. A version whose publish time cannot be read is treated as younger than N and blocked, listed in tooYoung with publishedAt null. The report carries fallback { minAgeDays, placeholder } and a warning in advice that the Sealed list was not checked. When the list loads, fallback is null.
 
 Reading lockfiles:
 1. npm-shrinkwrap.json first, then package-lock.json, matching what npm ci uses.
