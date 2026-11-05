@@ -73,6 +73,7 @@ test("scan stores evidence, votes for malicious results and serves the evidence 
   assert.equal(byDetector.staticScripts?.malicious, true);
   assert.equal(byDetector.sandboxCanary?.malicious, true);
   assert.equal(byDetector.advisoryFeed?.malicious, false);
+  assert.deepEqual(scan.failures, []);
   assert.equal(state.sent.length, 2);
   const stored = await app.inject({ method: "GET", url: `/evidence/${byDetector.sandboxCanary?.evidenceHash}` });
   assert.equal(evidenceSchema.parse(stored.json()).detector, "sandboxCanary");
@@ -85,6 +86,28 @@ test("tarballs outside the mock registry get no sandbox verdict", async () => {
   const { app } = await setup(edge, async () => assert.fail("sandbox must not run"));
   const response = await app.inject({ method: "POST", url: "/scan", payload: outside });
   assert.deepEqual(scanResponseSchema.parse(response.json()).verdicts.map(({ detector }) => detector), ["staticScripts", "advisoryFeed"]);
+});
+
+test("an unreachable OSV is listed as a failure while staticScripts still reports and votes", async () => {
+  const osvDown: FetchLike = async (input, init) => (String(input).startsWith("https://api.osv.dev") ? Promise.reject(new TypeError("fetch failed")) : networkEdge(input, init));
+  const { app, state } = await setup(osvDown);
+  const response = await app.inject({ method: "POST", url: "/scan", payload: scanBody });
+  assert.equal(response.statusCode, 200);
+  const scan = scanResponseSchema.parse(response.json());
+  assert.deepEqual(scan.failures, [{ detector: "advisoryFeed", error: "fetch failed" }]);
+  assert.deepEqual(scan.verdicts.map(({ detector, malicious }) => `${detector}:${malicious}`), ["staticScripts:true", "sandboxCanary:true"]);
+  assert.equal(state.sent.length, 2);
+});
+
+test("a tarball fetch error fails only the detectors that need the tarball", async () => {
+  const tarballGone: FetchLike = async (input, init) => (String(input) === tarballUrl ? new Response("gone", { status: 404 }) : networkEdge(input, init));
+  const { app } = await setup(tarballGone);
+  const response = await app.inject({ method: "POST", url: "/scan", payload: scanBody });
+  assert.equal(response.statusCode, 200);
+  const scan = scanResponseSchema.parse(response.json());
+  assert.deepEqual(scan.failures.map(({ detector }) => detector), ["staticScripts", "sandboxCanary"]);
+  assert.match(scan.failures[0]?.error ?? "", /status 404/);
+  assert.deepEqual(scan.verdicts.map(({ detector }) => detector), ["advisoryFeed"]);
 });
 
 test("invalid bodies and unknown evidence answer with ApiError", async () => {

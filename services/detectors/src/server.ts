@@ -13,6 +13,7 @@ import {
   replayRequestSchema,
   scanRequestSchema,
   sealKeyOf,
+  type DetectorId,
   type Evidence,
   type ScanResponse,
 } from "@bulkhead/shared";
@@ -46,13 +47,22 @@ export function buildServer(deps: DetectorsDeps) {
 
   app.post("/scan", async (request): Promise<ScanResponse> => {
     const scan = scanRequestSchema.parse(request.body);
-    const tarball = await downloadTarball(scan.tarballUrl, scan.integrity, deps.fetchImpl);
-    const sandbox = isSandboxEligible(scan.tarballUrl, deps.mockRegistryUrl) ? [scanSandbox(scan, tarball, deps.sandboxImage, deps.docker)] : [];
-    const evidences: Evidence[] = await Promise.all([scanStatic(scan, tarball), ...sandbox, scanAdvisories(scan, deps.osvApiUrl, deps.fetchImpl)]);
+    const tarball = downloadTarball(scan.tarballUrl, scan.integrity, deps.fetchImpl);
+    const sandbox = isSandboxEligible(scan.tarballUrl, deps.mockRegistryUrl);
+    const runs: [DetectorId, Promise<Evidence>][] = [
+      ["staticScripts", tarball.then((bytes) => scanStatic(scan, bytes))],
+      ...(sandbox ? [["sandboxCanary", tarball.then((bytes) => scanSandbox(scan, bytes, deps.sandboxImage, deps.docker))] as [DetectorId, Promise<Evidence>]] : []),
+      ["advisoryFeed", scanAdvisories(scan, deps.osvApiUrl, deps.fetchImpl)],
+    ];
+    const settled = await Promise.allSettled(runs.map(([, run]) => run));
+    const evidences = settled.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+    const failures = settled.flatMap((result, index) =>
+      result.status === "rejected" ? [{ detector: runs[index]?.[0] as DetectorId, error: result.reason instanceof Error ? result.reason.message : String(result.reason) }] : [],
+    );
     await mkdir(deps.evidenceDir, { recursive: true });
     await Promise.all(evidences.map((evidence) => writeFile(join(deps.evidenceDir, `${evidenceHashOf(evidence)}.json`), JSON.stringify(evidence, null, 2))));
     const verdicts = await Promise.all(evidences.map((evidence) => deps.signer.submit(evidence)));
-    return { name: scan.name, version: scan.version, key: sealKeyOf(scan.name, scan.version), verdicts };
+    return { name: scan.name, version: scan.version, key: sealKeyOf(scan.name, scan.version), verdicts, failures };
   });
 
   app.post("/replay", async (request) => replayAdvisory(replayRequestSchema.parse(request.body).advisoryId, deps.osvApiUrl, deps.fetchImpl));
