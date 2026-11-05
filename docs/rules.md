@@ -1,4 +1,4 @@
-# ETHGlobal Mumbai rules that apply to Sluice
+# ETHGlobal Mumbai rules that apply to this project
 
 Source: ethglobal.com/events/mumbai/info/details and info/start, read 5 Nov 2026.
 
@@ -37,8 +37,7 @@ Source: ethglobal.com/events/mumbai/info/details and info/start, read 5 Nov 2026
 
 ## Stack after the event brief
 
-1. Chain stays Base Sepolia, set only by env (CHAIN_ID, RPC_URL, EXPLORER_URL, NATIVE_SYMBOL and their NEXT_PUBLIC_ twins), so a switch to Arc Testnet is a config change.
-2. Partner prize target: Chainlink CRE. Arc waits for the mentor answer. Arkiv is dropped.
-3. A CRE workflow is a second publish path to the oracle. The watcher's direct publish stays so the demo never depends on CRE.
-4. SQLite stores tracked papers and reports.
-5. x402 and ERC 8004 are dropped.
+1. Project changed from Sluice to Bulkhead on 5 Nov 2026 (docs/prompts/bulkhead.md). Sluice is archived under the git tag sluice_archived.
+2. Chain stays Base Sepolia, set only by env (CHAIN_ID, RPC_URL, EXPLORER_URL, NATIVE_SYMBOL and their NEXT_PUBLIC_ twins).
+3. Partner prize target: Chainlink CRE, first in the cut order. Nothing depends on Arc Studio until the mentor answers. Arkiv is dropped.
+4. x402 and ERC 8004 are dropped.

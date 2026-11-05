@@ -17,10 +17,13 @@ coverage/
 *.sqlite3
 *.db
 *.db-journal
-uploads/
-*.pdf
-!data/fixtures/**/*.pdf
-data/reports/
+
+/data/
+/evidence/
+/snapshots/
+demo/canarySink/received/
+demo/mockRegistry/storage/
+*.tgz
 
 .DS_Store
 .claude/settings.local.json

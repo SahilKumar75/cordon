@@ -2,4 +2,7 @@ packages:
   - packages/*
   - services/*
   - apps/*
-  - data
+  - demo/mockRegistry
+  - demo/canarySink
+  - demo/services/*
+  - "!demo/poisonedPackage"
