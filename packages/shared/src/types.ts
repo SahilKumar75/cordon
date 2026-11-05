@@ -1,0 +1,50 @@
+import type { z } from "zod";
+import type {
+  detectorIds,
+  failModes,
+  guardOutcomes,
+  listSources,
+  sealStatusNames,
+  timelineKinds,
+} from "./constants.ts";
+import type {
+  apiErrorSchema,
+  evidenceSchema,
+  findingSchema,
+  guardBlockSchema,
+  guardReportSchema,
+  packageVersionSchema,
+  scanRequestSchema,
+  scanResponseSchema,
+  sealEntrySchema,
+  sealedSnapshotSchema,
+  serviceStatusSchema,
+  signedSnapshotSchema,
+  stopwatchSchema,
+  timelineEventSchema,
+  verdictSchema,
+} from "./schemas.ts";
+
+export type Hex32 = `0x${string}`;
+export type SealStatusName = (typeof sealStatusNames)[number];
+export type DetectorId = (typeof detectorIds)[number];
+export type TimelineKind = (typeof timelineKinds)[number];
+export type FailMode = (typeof failModes)[number];
+export type GuardOutcome = (typeof guardOutcomes)[number];
+export type ListSource = (typeof listSources)[number];
+
+export type PackageVersion = z.infer<typeof packageVersionSchema>;
+export type ScanRequest = z.infer<typeof scanRequestSchema>;
+export type Finding = z.infer<typeof findingSchema>;
+export type Evidence = z.infer<typeof evidenceSchema>;
+export type Verdict = z.infer<typeof verdictSchema>;
+export type ScanResponse = z.infer<typeof scanResponseSchema>;
+export type SealEntry = z.infer<typeof sealEntrySchema>;
+export type SealedSnapshot = z.infer<typeof sealedSnapshotSchema>;
+export type SignedSnapshot = z.infer<typeof signedSnapshotSchema>;
+export type TimelineEvent = z.infer<typeof timelineEventSchema>;
+export type Stopwatch = z.infer<typeof stopwatchSchema>;
+export type GuardBlock = z.infer<typeof guardBlockSchema>;
+export type GuardReport = z.infer<typeof guardReportSchema>;
+export type ServiceStatus = z.infer<typeof serviceStatusSchema>;
+export type ApiError = z.infer<typeof apiErrorSchema>;
