@@ -6,6 +6,4 @@ export const reportVersion = 1
 
 export const evidenceSources = ["crossref", "openalex", "simulation"] as const
 
-export const publishModes = ["direct", "cre"] as const
-
-export const doiPattern = /10\.\d{4,9}\/[^\s"<>]+/i
+export const doiPattern = /10\.\d{4,9}\/[^\s"<>]*[^\s"<>.,;:)\]]/i

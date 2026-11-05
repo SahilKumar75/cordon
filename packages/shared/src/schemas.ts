@@ -26,16 +26,24 @@ export const advisorySchema = z.object({
   notes: z.array(z.string()),
 });
 
-export const reportSchema = z.object({
-  version: z.literal(reportVersion),
-  paperId: z.string().min(1),
-  paperHash: hex32Schema,
-  checkedAt: z.string().datetime(),
-  dbVersion: z.string().min(1),
-  references: z.array(referenceCheckSchema),
-  summary: reportSummarySchema,
-  advisory: advisorySchema.nullable(),
-});
+export const reportSchema = z
+  .object({
+    version: z.literal(reportVersion),
+    paperId: z.string().min(1),
+    paperHash: hex32Schema,
+    checkedAt: z.string().datetime(),
+    dbVersion: z.string().min(1),
+    references: z.array(referenceCheckSchema),
+    summary: reportSummarySchema,
+    advisory: advisorySchema.nullable(),
+  })
+  .refine(
+    ({ references, summary }) =>
+      summary.total === references.length &&
+      summary.retractedCount === references.filter((reference) => reference.retracted).length &&
+      summary.status === (summary.retractedCount > 0 ? "Flagged" : "Clean"),
+    { message: "summary does not match references" },
+  );
 
 export const verifyRequestSchema = z.object({
   paperId: z.string().min(1),

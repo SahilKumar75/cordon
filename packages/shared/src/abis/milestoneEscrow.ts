@@ -40,6 +40,7 @@ export const milestoneEscrowAbi = [
           { name: "amounts", type: "uint256[]" },
           { name: "nextMilestone", type: "uint256" },
           { name: "released", type: "uint256" },
+          { name: "createdAt", type: "uint64" },
         ],
       },
     ],
@@ -50,6 +51,13 @@ export const milestoneEscrowAbi = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "GUARDIAN_ROLE",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bytes32" }],
   },
   {
     type: "function",
@@ -110,7 +118,7 @@ export const milestoneEscrowAbi = [
       { name: "status", type: "uint8" },
     ],
   },
-  { type: "error", name: "PaperNotFlagged", inputs: [{ name: "paperHash", type: "bytes32" }] },
+  { type: "error", name: "PaperIsClean", inputs: [{ name: "paperHash", type: "bytes32" }] },
   { type: "error", name: "DisputeWindowOpen", inputs: [{ name: "opensAt", type: "uint64" }] },
   { type: "error", name: "TransferFailed", inputs: [] },
   {

@@ -8,7 +8,7 @@ Purpose: turn a reference list or PDF into a deterministic report with one entry
 
 Files owned: services/verifier/ (package.json, tsconfig.json, src/extract.ts, src/resolve.ts, src/retraction.ts, src/report.ts, src/server.ts, tests).
 
-Inputs: docs/architecture.md (Report, SQLite, Verifier HTTP API), packages/shared, data/schema.sql, data/fixtures, env VERIFIER_PORT, DATABASE_PATH, UPLOAD_DIR, CROSSREF_MAILTO.
+Inputs: docs/architecture.md (Report, SQLite, Verifier HTTP API), packages/shared, data/schema.sql, data/fixtures, env VERIFIER_PORT, DATABASE_PATH, UPLOAD_DIR, CROSSREF_MAILTO, DEMO_FEED_ENABLED.
 
 Outputs:
 1. extract.ts: references and DOIs from a PDF or a list, using doiPattern from shared.
@@ -20,6 +20,6 @@ Done when: typecheck passes, tests pass using recorded Crossref and OpenAlex res
 
 Rules:
 1. Edit only files under services/verifier/. Never touch other paths.
-2. Unresolved references never flag on their own. Advisory output never changes status.
+2. Unresolved references never flag on their own. Advisory output never changes status. simulatedRetractions are rejected unless DEMO_FEED_ENABLED is true.
 3. Never invent papers or DOIs.
 4. Follow CLAUDE.md style rules.

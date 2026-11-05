@@ -10,18 +10,15 @@ function stableStringify(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function normalizeIdentifier(identifier: string): string {
-  return identifier
+export function paperHashOf(paperId: string): Hex32 {
+  const normalized = paperId
     .trim()
     .toLowerCase()
     .replace(/^https?:\/\/(dx\.)?doi\.org\//, "")
     .replace(/^doi:\s*/, "");
+  return keccak256(toBytes(normalized));
 }
 
-export function paperHashOf(paperId: string): Hex32 {
-  return keccak256(toBytes(normalizeIdentifier(paperId)));
-}
-
-export function hashReport(report: Report): Hex32 {
-  return keccak256(toBytes(stableStringify(report)));
+export function hashReport({ advisory: _advisory, ...hardChecks }: Report): Hex32 {
+  return keccak256(toBytes(stableStringify(hardChecks)));
 }

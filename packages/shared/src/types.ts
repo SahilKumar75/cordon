@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { evidenceSources, paperStatusNames, publishModes } from "./constants.ts";
+import type { evidenceSources, paperStatusNames } from "./constants.ts";
 import type {
   advisorySchema,
   apiErrorSchema,
@@ -17,7 +17,6 @@ import type {
 export type Hex32 = `0x${string}`;
 export type PaperStatusName = (typeof paperStatusNames)[number];
 export type EvidenceSource = (typeof evidenceSources)[number];
-export type PublishMode = (typeof publishModes)[number];
 
 export type ReferenceCheck = z.infer<typeof referenceCheckSchema>;
 export type ReportSummary = z.infer<typeof reportSummarySchema>;
@@ -30,19 +29,3 @@ export type Publication = z.infer<typeof publicationSchema>;
 export type DemoRetractRequest = z.infer<typeof demoRetractRequestSchema>;
 export type DemoRetraction = z.infer<typeof demoRetractionSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
-
-export type OracleRecord = {
-  status: number;
-  reportHash: Hex32;
-  dbVersion: string;
-  updatedAt: bigint;
-};
-
-export type Grant = {
-  funder: `0x${string}`;
-  researcher: `0x${string}`;
-  paperHash: Hex32;
-  amounts: readonly bigint[];
-  nextMilestone: bigint;
-  released: bigint;
-};

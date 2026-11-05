@@ -8,7 +8,7 @@ const report: Report = {
   paperId: "10.1000/example",
   paperHash: paperHashOf("10.1000/example"),
   checkedAt: "2026-11-05T12:00:00.000Z",
-  dbVersion: "crossref 2026-11-05",
+  dbVersion: "crossref+openalex@20261105",
   references: [
     {
       raw: "Example reference",
@@ -35,6 +35,11 @@ test("report hash changes when a reference changes", () => {
     references: [{ ...report.references[0]!, retracted: true }],
   };
   assert.notEqual(hashReport(flagged), hashReport(report));
+});
+
+test("report hash ignores advisory notes", () => {
+  const withAdvisory: Report = { ...report, advisory: { label: "advisory", notes: ["claim looks overstated"] } };
+  assert.equal(hashReport(withAdvisory), hashReport(report));
 });
 
 test("paper hash treats doi url, prefix and case as the same paper", () => {

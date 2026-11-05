@@ -113,7 +113,7 @@ Total listed: $175,000 across 12 partners. Cont marks Continuity only tracks, wh
 5. 0G Chain and 0G Storage.
 6. EF alt mempool devnets for EIP 8141.
 7. ENSv2 on Ethereum mainnet or Sepolia.
-8. Chainlink CRE: supported networks not confirmed. docs.chain.link/cre returned 404 to our fetcher. Must be checked before Phase 1.
+8. Chainlink CRE: supported networks not confirmed. docs.chain.link/cre returned 404 to our fetcher. Must be checked before Phase 2.
 
 ## Fit for Sluice
 
@@ -128,6 +128,8 @@ Total listed: $175,000 across 12 partners. Cont marks Continuity only tracks, wh
 7. Weak or no fit: 0G (advisory model calls are removable by design, which 0G says it does not want), World IDKit, ENSv2, Uniswap, 1inch, Definitive, Chainlink CCIP.
 
 ### Recommendation
+
+Superseded by the team's decision in docs/rules.md, section Stack after the event brief: Base Sepolia, Chainlink CRE only, Arc pending a mentor answer, Arkiv dropped.
 
 1. Target three: Chainlink CRE, Arc stablecoin escrow, Arkiv from scratch.
 2. Deploy on Arc Testnet (chain ID 5042002). Native gas is USDC, so a payable escrow on Arc already holds USDC and needs no ERC20 change. CHAIN_ID and RPC_URL stay env driven.
