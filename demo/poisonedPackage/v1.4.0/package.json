@@ -1,0 +1,8 @@
+{
+  "name": "@bulkheaddemo/colorkit",
+  "version": "1.4.0",
+  "description": "Demo package for Bulkhead. Clean version.",
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT"
+}

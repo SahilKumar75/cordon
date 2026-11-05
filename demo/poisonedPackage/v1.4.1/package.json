@@ -1,0 +1,11 @@
+{
+  "name": "@bulkheaddemo/colorkit",
+  "version": "1.4.1",
+  "description": "Demo package for Bulkhead. Simulated poisoned version: its postinstall sends a fake canary token to a local sink only.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "license": "MIT"
+}

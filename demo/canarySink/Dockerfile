@@ -1,0 +1,7 @@
+ARG NODE_IMAGE
+FROM ${NODE_IMAGE}
+WORKDIR /sink
+COPY server.js .
+ENV HOST=0.0.0.0 CANARY_SINK_PORT=8080
+USER node
+CMD ["node", "server.js"]
