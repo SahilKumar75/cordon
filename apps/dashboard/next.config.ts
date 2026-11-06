@@ -1,9 +1,13 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseEnv } from "node:util";
 import type { NextConfig } from "next";
 
 const rootEnv = resolve(process.cwd(), "../../.env");
-if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
+const publicEntries = existsSync(rootEnv)
+  ? Object.entries(parseEnv(readFileSync(rootEnv, "utf8"))).filter(([name]) => name.startsWith("NEXT_PUBLIC_"))
+  : [];
+for (const [name, value] of publicEntries) process.env[name] ??= value;
 
 const upstreams = {
   watcher: process.env.NEXT_PUBLIC_WATCHER_URL,
