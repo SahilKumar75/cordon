@@ -87,17 +87,30 @@ The full script will be in docs/demo.md.
 
 The testnet deployment is pending. Contract addresses and explorer links will be added here.
 
+One command deploys to the chain in .env once the deployer holds at least 0.012 ETH:
+
+```sh
+bash ops/deployTestnet.sh
+```
+
+It checks that RPC_URL serves CHAIN_ID, tops up the detector, guardian and snapshot signer accounts to 0.002 ETH each, deploys SealRegistry with the QUORUM, DISPUTE_WINDOW_SECONDS and MAX_SEALS_PER_DAY in .env, writes REGISTRY_ADDRESS, REGISTRY_START_BLOCK and the dashboard values into .env and demo/demo.env, reads the settings and roles back from the chain, and submits the source to Sourcify. It prints addresses and explorer links only, never keys. Run it again for a fresh SealRegistry before each recorded take.
+
 ## CROPS
 
-Lead property: censorship resistant. The guard keeps blocking sealed versions when our watcher and the chain RPC are both unreachable, from the last signed snapshot it cached, and the demo shows that moment with the RPC switched off.
+Lead property: censorship resistant. What the demo shows: with the chain RPC switched off, `cordon check` still blocks @cordondemo/colorkit 1.4.1 from the watcher's signed snapshot; with our watcher stopped as well, it still blocks it from the signed snapshot it cached, and exits 1 both times. The P and S lines below describe how the code works; the video does not show them.
 
-C: we run the watcher (signed snapshots, timeline) and, in the demo, all three detectors; users also depend on an RPC provider and Base Sepolia. If the watcher goes away the guard reads SealRegistry directly; if the RPC goes away it uses the cached signed snapshot until GUARD_SNAPSHOT_MAX_AGE_SECONDS; after that the age fallback blocks versions younger than N days.
+C: we run the watcher and, in the demo, all three detectors; users also depend on an RPC provider and Base Sepolia. Without the RPC and the watcher the guard uses its cached signed snapshot until GUARD_SNAPSHOT_MAX_AGE_SECONDS, then blocks versions younger than N days and says so.
 
-O: MIT license (LICENSE). Everything builds and runs from this repo with Node 22, pnpm, Foundry and Docker, using the commands above; no hosted service of ours is required.
+O: MIT license (LICENSE). Everything builds and runs from this repo with Node 22, pnpm, Foundry and Docker, using the commands above.
 
-P: the guard downloads every sealed key and matches the lockfile locally, so the RPC provider and the watcher never learn which packages a project uses. Guard reports go nowhere unless GUARD_REPORT_URL and a reporter key are set. The minimum age check, the age fallback and rollback ask the npm registry about named packages, as listed in docs/limits.md. The dashboard has no trackers or analytics, and its fonts are bundled at build time.
+P: the guard downloads every sealed key and matches the lockfile locally, so it sends no package name to the RPC provider or the watcher. The minimum age check, the age fallback and rollback ask the npm registry about named packages (docs/limits.md). Guard reports are sent only when GUARD_REPORT_URL and a reporter key are set. The dashboard has no trackers or analytics.
 
-S: every private key stays in the local .env, which git ignores and the fitness tests check. Trust assumptions: a seal needs a quorum of distinct detector keys; the snapshot is only trusted when its signer, chain, registry and age all check out; the demo uses a single guardian key for unseal and reseal, a single point of failure described in docs/limits.md.
+S: private keys stay in the local .env, which git ignores and the fitness tests check. A seal needs a quorum of distinct detector keys, and a snapshot is trusted only when its signer, chain, registry and age check out.
+
+Limits that weaken these properties:
+1. In the demo all three detectors are run by us, so a quorum of distinct keys is not a quorum of independent operators.
+2. The guardian is a single key, a single point of failure for unseal and reseal.
+3. Roles freeze at deploy: nobody holds the admin role, so changing a detector or the guardian means deploying a new SealRegistry and pointing every guard at it.
 
 ## Limits and honest claims
 
@@ -132,6 +145,10 @@ Data, advisory sources and servers:
 3. The official node:22-alpine Docker image, pinned by digest, for the sandbox and canary sink.
 4. Base Sepolia as the default testnet.
 5. Incident and paper sources are listed with access dates in [docs/research](docs/research).
+
+## Provenance
+
+Hacking began Thu 5 Nov 2026, 21:00 IST. Before that, between 16:51 and 17:02 IST, six commits prepared an earlier idea called Sluice: the event brief and rules, team prompts, a workspace scaffold, and a Sluice shared package, architecture and agent files. At 23:08 IST commit d384d82 deleted the Sluice code, architecture and agent files, and the Sluice work is archived under the tag `sluice_archived`. Every Cordon contract, service, package, interface and architecture file was first committed after 21:00 IST; the only earlier lines still in the tree are workspace configuration and planning text. The full list with timestamps is in [docs/provenance.md](docs/provenance.md). History has not been rewritten or squashed.
 
 ## AI usage
 
