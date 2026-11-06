@@ -37,7 +37,7 @@ Solidity 0.8.24, Foundry, OpenZeppelin v5. TypeScript on Node 22 (.nvmrc), Fasti
 
 ## Style rules
 1. No comments in any code file. Names carry the meaning.
-2. No dashes or hyphens in anything you write: prose, UI copy, README, docs, commit messages, identifiers and filenames. Use camelCase or underscores. Exempt: third party package names, CLI flags, lockfiles and tool mandated filenames such as pnpm-workspace.yaml. Arithmetic operators are fine.
+2. No dashes or hyphens in anything you write: prose, UI copy, README, docs, commit messages, identifiers and filenames. Use camelCase or underscores. Exempt: third party package names, CLI flags, lockfiles and tool mandated filenames such as pnpm-workspace.yaml. Arithmetic operators are fine. Verbatim quotes in research notes may keep the source's dashes when they are in quotation marks.
 3. No em dashes anywhere.
 4. Keep code short. Small functions, no speculative abstractions, no wrapper classes, no helper with a single caller.
 5. Handle errors once at boundaries with clear messages. No blanket try catch.
