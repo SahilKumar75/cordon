@@ -10,7 +10,7 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
         any other wallet. A false seal is an outage we caused, so the reason is recorded on chain as a hash.
       </PageHeader>
       <ChainGate>
-        <Guardian initialKey={typeof key === "string" ? key : ""} />
+        {(registry) => <Guardian registry={registry} initialKey={typeof key === "string" ? key : ""} />}
       </ChainGate>
     </>
   );

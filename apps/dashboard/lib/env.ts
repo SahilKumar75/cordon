@@ -1,4 +1,5 @@
-import { defineAppChain, type Hex32 } from "@bulkhead/shared";
+import { isAddress, type Address } from "viem";
+import { addressSchema, defineAppChain } from "@bulkhead/shared";
 
 const settings = {
   NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID,
@@ -15,8 +16,11 @@ export const missingSettings = Object.entries(settings)
   .map(([name]) => name);
 
 export const explorerUrl = (settings.NEXT_PUBLIC_EXPLORER_URL ?? "").replace(/\/$/, "");
-export const registryAddress = settings.NEXT_PUBLIC_REGISTRY_ADDRESS as Hex32 | undefined;
-export const snapshotSigner = process.env.NEXT_PUBLIC_SNAPSHOT_SIGNER as Hex32 | undefined;
+const asAddress = (value: string | undefined): Address | undefined =>
+  value && addressSchema.safeParse(value).success && isAddress(value, { strict: false }) ? value : undefined;
+
+export const registryAddress = asAddress(settings.NEXT_PUBLIC_REGISTRY_ADDRESS);
+export const snapshotSigner = asAddress(process.env.NEXT_PUBLIC_SNAPSHOT_SIGNER);
 export const demoEnabled = process.env.NEXT_PUBLIC_DEMO === "true";
 
 const chainId = Number(settings.NEXT_PUBLIC_CHAIN_ID);

@@ -21,5 +21,3 @@ export const formatDateTime = (at: number | string) =>
   new Date(at).toLocaleString([], { dateStyle: "medium", timeStyle: "medium" });
 
 export const shortHash = (value: string) => `${value.slice(0, 6)}…${value.slice(-4)}`;
-
-export const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;

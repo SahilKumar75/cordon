@@ -23,7 +23,13 @@ export async function request<T>(service: Service, path: string, schema: Schema<
       ? { cache: "no-store" }
       : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) },
   );
-  const payload: unknown = await response.json().catch(() => null);
+  const text = await response.text();
+  let payload: unknown = null;
+  try {
+    payload = JSON.parse(text);
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+  }
   if (!response.ok) {
     const reason = (payload as { error?: string } | null)?.error;
     throw new Error(

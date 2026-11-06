@@ -15,7 +15,7 @@ export default function SealedPage() {
         . Names come from the latest signed snapshot, because the chain stores only the seal key.
       </PageHeader>
       <ChainGate>
-        <SealedTable />
+        {(registry) => <SealedTable registry={registry} />}
       </ChainGate>
     </>
   );

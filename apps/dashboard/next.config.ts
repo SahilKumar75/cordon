@@ -8,7 +8,7 @@ if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 const upstreams = {
   watcher: process.env.NEXT_PUBLIC_WATCHER_URL,
   detectors: process.env.NEXT_PUBLIC_DETECTORS_URL,
-  registry: process.env.NEXT_PUBLIC_MOCK_REGISTRY_URL,
+  registry: process.env.NEXT_PUBLIC_DEMO === "true" ? process.env.NEXT_PUBLIC_MOCK_REGISTRY_URL : undefined,
 };
 
 const config: NextConfig = {

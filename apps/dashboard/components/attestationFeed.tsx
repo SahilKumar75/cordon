@@ -33,8 +33,10 @@ export function AttestationFeed() {
                 <span className="font-mono tabular-nums">{formatClock(item.submittedAt)}</span>
                 {item.txHash ? (
                   <ChainLink kind="tx" value={item.txHash} />
-                ) : (
+                ) : item.malicious ? (
                   <Status icon="pending" tone="muted">Not on chain yet</Status>
+                ) : (
+                  <Status icon="info" tone="muted">Not malicious, kept off chain</Status>
                 )}
               </div>
             </li>

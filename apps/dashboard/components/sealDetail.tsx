@@ -18,7 +18,11 @@ export function SealDetail({ sealKey }: { sealKey: Hex32 }) {
         <div className="space-y-3">
           <p className="break-all font-mono text-sm">{sealKey}</p>
           <div className="flex flex-wrap items-center gap-4">
-            {entry ? (
+            {snapshot.isPending ? (
+              <Status icon="clock" tone="muted">Loading the signed snapshot</Status>
+            ) : snapshot.isError ? (
+              <Status icon="warning" tone="accent">Signed snapshot did not load: {snapshot.error.message}</Status>
+            ) : entry ? (
               <SealStatus status={entry.status} />
             ) : (
               <Status icon="pending" tone="muted">Not in the latest signed snapshot</Status>

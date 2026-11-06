@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Address } from "viem";
 import type { SealStatusName } from "@bulkhead/shared";
 import { chain, explorerUrl, registryAddress } from "@/lib/env";
 import { shortHash } from "@/lib/format";
@@ -89,7 +90,7 @@ export function ChainLink({ kind, value, label }: { kind: "tx" | "address"; valu
   );
 }
 
-export function ChainGate({ children }: { children: ReactNode }) {
+export function ChainGate({ children }: { children: (registry: Address) => ReactNode }) {
   if (!chain || !registryAddress)
     return (
       <Notice icon="warning" tone="accent">
@@ -97,7 +98,7 @@ export function ChainGate({ children }: { children: ReactNode }) {
         NEXT_PUBLIC_EXPLORER_URL, NEXT_PUBLIC_NATIVE_SYMBOL and NEXT_PUBLIC_REGISTRY_ADDRESS, then rebuild.
       </Notice>
     );
-  return children;
+  return children(registryAddress);
 }
 
 type QueryLike<T> = { status: "pending" | "error" | "success"; error: { message: string; shortMessage?: string } | null; data: T | undefined };

@@ -10,7 +10,7 @@ export default function Home() {
         seconds.
       </PageHeader>
       <LatestStopwatch />
-      <SectionTitle note="Verdicts detectors submitted to SealRegistry, newest first.">Attestations</SectionTitle>
+      <SectionTitle note="Verdicts from detectors, newest first; malicious ones are submitted to SealRegistry.">Attestations</SectionTitle>
       <AttestationFeed />
     </>
   );

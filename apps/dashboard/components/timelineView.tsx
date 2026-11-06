@@ -1,19 +1,20 @@
 "use client";
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { verifyMessage } from "viem";
+import { isAddress, isHex, verifyMessage } from "viem";
 import {
   hex32Schema,
   snapshotDigestOf,
+  timelineEventHashOf,
   timelineEventSchema,
+  zeroHash,
   type Hex32,
   type SignedSnapshot,
   type TimelineKind,
 } from "@bulkhead/shared";
 import { usePolled } from "@/lib/api";
 import { chain, registryAddress, snapshotSigner } from "@/lib/env";
-import { formatDateTime, plural, shortHash } from "@/lib/format";
-import { verifyTimeline } from "@/lib/timeline";
+import { formatDateTime, shortHash } from "@/lib/format";
 import type { IconName } from "./icon";
 import { ChainLink, Notice, QueryState, Status } from "./ui";
 
@@ -28,7 +29,18 @@ const kindView: Record<TimelineKind, { label: string; icon: IconName }> = {
 
 export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: UseQueryResult<SignedSnapshot> }) {
   const timeline = usePolled("watcher", `/timeline/${sealKey}`, timelineEventSchema.array());
-  const head = snapshot.data?.snapshot.timelineHeads.find((item) => item.key === sealKey)?.hash as Hex32 | undefined;
+  const signed = snapshot.data;
+  const signatureValid = useQuery({
+    queryKey: ["snapshotSignature", signed?.signature],
+    enabled: signed !== undefined,
+    queryFn: () =>
+      signed !== undefined && isAddress(signed.signer, { strict: false }) && isHex(signed.signature)
+        ? verifyMessage({ address: signed.signer, message: { raw: snapshotDigestOf(signed.snapshot) }, signature: signed.signature })
+        : false,
+  });
+  const head = signed?.snapshot.timelineHeads.find((item) => item.key === sealKey)?.hash;
+  const checks = signed ? snapshotChecks(signed, signatureValid.data) : [];
+  const trusted = checks.length > 0 && checks.every((check) => check.ok === true);
   return (
     <QueryState
       query={timeline}
@@ -37,7 +49,12 @@ export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: 
       isEmpty={(events) => events.length === 0}
     >
       {(events) => {
-        const { linked, brokenAt, headIndex } = verifyTimeline(events, head);
+        const linked = events.map(
+          (event, index) =>
+            timelineEventHashOf(event) === event.hash && event.prevHash === (index === 0 ? zeroHash : events[index - 1]?.hash),
+        );
+        const brokenAt = linked.indexOf(false);
+        const headIndex = head ? events.findIndex((event) => event.hash === head) : -1;
         const newer = events.length - 1 - headIndex;
         return (
           <div className="space-y-4">
@@ -57,13 +74,36 @@ export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: 
               <Notice icon="warning" tone="accent">
                 The signed head for this version does not appear in this timeline.
               </Notice>
+            ) : !trusted ? (
+              <Notice icon="warning" tone="accent">
+                Every hash link checks out and event {headIndex + 1} matches the snapshot head, but the snapshot failed or skipped a check
+                below, so this head is not trusted.
+              </Notice>
             ) : (
               <Notice icon="check">
                 Hash chain intact. Event {headIndex + 1} matches the signed snapshot head
-                {newer > 0 ? `, and ${plural(newer, "newer event")} wait for the next signed snapshot.` : "."}
+                {newer > 0 ? `, and ${newer} newer event${newer === 1 ? "" : "s"} wait for the next signed snapshot.` : "."}
               </Notice>
             )}
-            {snapshot.data && <SnapshotCheck signed={snapshot.data} />}
+            {signed && (
+              <div className="border border-line p-4">
+                <p className="mb-3 text-sm text-muted">
+                  Signed snapshot at block {signed.snapshot.blockNumber}, generated {formatDateTime(signed.snapshot.generatedAt)}.
+                </p>
+                <ul className="space-y-2">
+                  {checks.map((check) => (
+                    <li key={check.text}>
+                      <Status
+                        icon={check.ok === null ? "info" : check.ok ? "check" : "warning"}
+                        tone={check.ok === false ? "accent" : check.ok === null ? "muted" : "ink"}
+                      >
+                        {check.text}
+                      </Status>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <ol className="divide-y divide-line border border-line bg-panel">
               {events.map((event, index) => (
                 <li key={event.hash} className="grid gap-2 p-4 sm:grid-cols-[2rem_1fr_auto] sm:items-start">
@@ -97,18 +137,19 @@ export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: 
   );
 }
 
-function SnapshotCheck({ signed }: { signed: SignedSnapshot }) {
-  const { snapshot, signer, signature } = signed;
-  const valid = useQuery({
-    queryKey: ["snapshotSignature", signature],
-    queryFn: () =>
-      verifyMessage({ address: signer as Hex32, message: { raw: snapshotDigestOf(snapshot) }, signature: signature as Hex32 }),
-  });
+function snapshotChecks({ snapshot, signer }: SignedSnapshot, signatureValid: boolean | undefined) {
   const same = (a: string, b: string | undefined) => a.toLowerCase() === b?.toLowerCase();
-  const rows: { ok: boolean | null; text: string }[] = [
+  const chainMatches = snapshot.chainId === chain?.id;
+  const registryMatches = same(snapshot.registry, registryAddress);
+  return [
     {
-      ok: valid.data ?? null,
-      text: valid.isPending ? "Checking the snapshot signature." : valid.data ? "Snapshot signature is valid." : "Snapshot signature does not verify.",
+      ok: signatureValid ?? null,
+      text:
+        signatureValid === undefined
+          ? "Checking the snapshot signature."
+          : signatureValid
+            ? "Snapshot signature is valid."
+            : "Snapshot signature does not verify.",
     },
     {
       ok: snapshotSigner ? same(signer, snapshotSigner) : null,
@@ -118,23 +159,13 @@ function SnapshotCheck({ signed }: { signed: SignedSnapshot }) {
           : `Signed by ${shortHash(signer)}, not the expected signer.`
         : "NEXT_PUBLIC_SNAPSHOT_SIGNER is not set, so the signer was not compared.",
     },
-    { ok: snapshot.chainId === chain?.id, text: `Snapshot names chain ${snapshot.chainId}${snapshot.chainId === chain?.id ? ", the configured chain" : ", not the configured chain"}.` },
-    { ok: same(snapshot.registry, registryAddress), text: `Snapshot names registry ${shortHash(snapshot.registry)}${same(snapshot.registry, registryAddress) ? ", the configured registry" : ", not the configured registry"}.` },
+    {
+      ok: chainMatches,
+      text: `Snapshot names chain ${snapshot.chainId}, ${chainMatches ? "the configured chain" : "not the configured chain"}.`,
+    },
+    {
+      ok: registryMatches,
+      text: `Snapshot names registry ${shortHash(snapshot.registry)}, ${registryMatches ? "the configured registry" : "not the configured registry"}.`,
+    },
   ];
-  return (
-    <div className="border border-line p-4">
-      <p className="mb-3 text-sm text-muted">
-        Signed snapshot at block {snapshot.blockNumber}, generated {formatDateTime(snapshot.generatedAt)}.
-      </p>
-      <ul className="space-y-2">
-        {rows.map((row) => (
-          <li key={row.text}>
-            <Status icon={row.ok === null ? "info" : row.ok ? "check" : "warning"} tone={row.ok === false ? "accent" : row.ok === null ? "muted" : "ink"}>
-              {row.text}
-            </Status>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }

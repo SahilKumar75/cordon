@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { useReadContract } from "wagmi";
-import { sealRegistryAbi, sealStatusNames, signedSnapshotSchema, type Hex32 } from "@bulkhead/shared";
+import type { Address } from "viem";
+import { sealRegistryAbi, sealStatusNames, signedSnapshotSchema } from "@bulkhead/shared";
 import { usePolled } from "@/lib/api";
 import { formatDateTime, shortHash } from "@/lib/format";
-import { registryAddress } from "@/lib/env";
 import { Notice, QueryState, SealStatus } from "./ui";
 
-export function SealedTable() {
-  const address = registryAddress as Hex32;
-  const count = useReadContract({ address, abi: sealRegistryAbi, functionName: "sealedKeyCount", query: { refetchInterval: 4000 } });
+export function SealedTable({ registry }: { registry: Address }) {
+  const count = useReadContract({ address: registry, abi: sealRegistryAbi, functionName: "sealedKeyCount", query: { refetchInterval: 4000 } });
   return (
     <QueryState
       query={count}
@@ -18,15 +17,14 @@ export function SealedTable() {
       empty="Nothing has been sealed on this registry yet."
       isEmpty={(total) => total === 0n}
     >
-      {(total) => <SealedRows total={total} />}
+      {(total) => <SealedRows registry={registry} total={total} />}
     </QueryState>
   );
 }
 
-function SealedRows({ total }: { total: bigint }) {
-  const address = registryAddress as Hex32;
+function SealedRows({ registry, total }: { registry: Address; total: bigint }) {
   const keys = useReadContract({
-    address,
+    address: registry,
     abi: sealRegistryAbi,
     functionName: "sealedKeys",
     args: [0n, total],

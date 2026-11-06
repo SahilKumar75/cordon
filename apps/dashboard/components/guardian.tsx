@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { keccak256, toBytes } from "viem";
+import { keccak256, toBytes, type Address } from "viem";
 import { useAccount, useConnect, useDisconnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { hex32Schema, sealRegistryAbi, sealStatusNames, type Hex32 } from "@bulkhead/shared";
-import { chain, registryAddress } from "@/lib/env";
+import { chain } from "@/lib/env";
 import { formatDateTime, formatGap } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { ChainLink, Notice, QueryState, SealStatus, Status } from "./ui";
 
-export function Guardian({ initialKey }: { initialKey: string }) {
+export function Guardian({ registry, initialKey }: { registry: Address; initialKey: string }) {
   const [key, setKey] = useState(initialKey);
   const valid = hex32Schema.safeParse(key).success;
   return (
@@ -29,7 +29,7 @@ export function Guardian({ initialKey }: { initialKey: string }) {
           That is not a seal key. It should be 0x followed by 64 lowercase hex characters.
         </Notice>
       )}
-      {valid && <SealControl sealKey={key as Hex32} />}
+      {valid && <SealControl registry={registry} sealKey={key as Hex32} />}
     </div>
   );
 }
@@ -72,8 +72,7 @@ function WalletBar() {
   );
 }
 
-function SealControl({ sealKey }: { sealKey: Hex32 }) {
-  const address = registryAddress as Hex32;
+function SealControl({ registry: address, sealKey }: { registry: Address; sealKey: Hex32 }) {
   const seal = useReadContract({ address, abi: sealRegistryAbi, functionName: "getSeal", args: [sealKey], query: { refetchInterval: 4000 } });
   const disputeWindow = useReadContract({ address, abi: sealRegistryAbi, functionName: "disputeWindow" });
   const { isConnected, chainId } = useAccount();
@@ -111,7 +110,12 @@ function SealControl({ sealKey }: { sealKey: Hex32 }) {
               {current.sealedAt > 0n && <span className="text-sm text-muted">Sealed {formatDateTime(Number(current.sealedAt) * 1000)}</span>}
             </div>
             {action === "unseal" &&
-              (opensAt === null ? (
+              (disputeWindow.error ? (
+                <Notice icon="warning" tone="accent">
+                  Could not read the dispute window, so unseal stays disabled:{" "}
+                  {(disputeWindow.error as { shortMessage?: string }).shortMessage ?? disputeWindow.error.message}
+                </Notice>
+              ) : opensAt === null ? (
                 <Status icon="clock" tone="muted">Reading the dispute window</Status>
               ) : opensAt > now ? (
                 <Status icon="clock" tone="accent">

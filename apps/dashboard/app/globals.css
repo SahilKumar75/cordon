@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-sans: var(--font-plexSans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plexMono), ui-monospace, monospace;
 }
 
 @theme {

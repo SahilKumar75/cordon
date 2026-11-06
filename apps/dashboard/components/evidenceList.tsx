@@ -42,8 +42,10 @@ function EvidenceCard({ verdict }: { verdict: Attestation }) {
         </div>
         {verdict.txHash ? (
           <ChainLink kind="tx" value={verdict.txHash} label={`Verdict tx ${shortHash(verdict.txHash)}`} />
-        ) : (
+        ) : verdict.malicious ? (
           <Status icon="pending" tone="muted">Verdict not on chain yet</Status>
+        ) : (
+          <Status icon="info" tone="muted">Not malicious, kept off chain</Status>
         )}
       </header>
       <div className="space-y-4 p-4">
