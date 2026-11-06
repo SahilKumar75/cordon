@@ -16,6 +16,7 @@ import {
   type DetectorId,
   type Evidence,
   type ScanResponse,
+  type Verdict,
 } from "@cordon/shared";
 import { replayAdvisory, scanAdvisories } from "./advisoryFeed.ts";
 import { isSandboxEligible, runDocker, scanSandbox, type DockerRunner } from "./sandboxCanary.ts";
@@ -61,7 +62,8 @@ export function buildServer(deps: DetectorsDeps) {
     );
     await mkdir(deps.evidenceDir, { recursive: true });
     await Promise.all(evidences.map((evidence) => writeFile(join(deps.evidenceDir, `${evidenceHashOf(evidence)}.json`), JSON.stringify(evidence, null, 2))));
-    const verdicts = await Promise.all(evidences.map((evidence) => deps.signer.submit(evidence)));
+    const verdicts: Verdict[] = [];
+    for (const evidence of evidences) verdicts.push(await deps.signer.submit(evidence));
     return { name: scan.name, version: scan.version, key: sealKeyOf(scan.name, scan.version), verdicts, failures };
   });
 
