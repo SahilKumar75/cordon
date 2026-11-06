@@ -180,6 +180,10 @@ CREATE TABLE cursors (
 );
 ```
 
+Three more tables, added during the build: verdicts (evidence hash and detector per vote, for /attestations), seals (name and version from Sealed events, so every snapshot lists every sealed key) and seen_reports (digests of accepted guard reports, so a replay is refused even when nothing was blocked). All tables use CREATE TABLE IF NOT EXISTS so a restart keeps data. schema.sql in services/watcher is the source of truth.
+
+Rules settled during the build: _changes?since=N returns changes with seq greater than N, starting from 0. A scan whose response lists failures counts as done and the failures are logged, so one detector that stays down never stalls the queue. A guard report dated more than 60 seconds in the future is refused. A service is healthy only when its last outcome is allowed. The guardBlocked key is recomputed from name and version, never taken from the report. Snapshot blockNumber is the last block the chain poller processed. CORS allows only DASHBOARD_ORIGIN. REGISTRY_START_BLOCK is the registry's deploy block for the first log query.
+
 ## Guard (packages/guard, CLI named bulkhead)
 
 Configuration from env, overridable by flags:
@@ -263,7 +267,7 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 4. STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY, DETECTORS_PORT, EVIDENCE_DIR, SANDBOX_IMAGE, OSV_API_URL: detectors.
 5. MOCK_REGISTRY_URL: detectors (sandbox allow rule).
 6. CANARY_SINK_URL: detectors, poisonedPackage.
-7. DETECTORS_URL, WATCHER_PORT, DATABASE_PATH, SNAPSHOT_SIGNER_PRIVATE_KEY, SNAPSHOT_PATH, GUARD_REPORTER_ADDRESSES: watcher.
+7. DETECTORS_URL, WATCHER_PORT, DATABASE_PATH, SNAPSHOT_SIGNER_PRIVATE_KEY, SNAPSHOT_PATH, GUARD_REPORTER_ADDRESSES, DASHBOARD_ORIGIN, REGISTRY_START_BLOCK: watcher. MOCK_REGISTRY_URL is also read by the watcher to mark demo publishes simulated.
 8. NPM_REGISTRY_URL: watcher, guard.
 9. POLL_INTERVAL_SECONDS: watcher, guard sidecar.
 10. GUARD_FALLBACK_MIN_AGE_DAYS, GUARD_ALLOW_GIT_DEPENDENCIES, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard.
