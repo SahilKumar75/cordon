@@ -135,6 +135,29 @@ Limits that weaken these properties:
 2. The guardian is a single key, a single point of failure for unseal and reseal.
 3. Roles freeze at deploy: nobody holds the admin role, so changing a detector or the guardian means deploying a new SealRegistry and pointing every guard at it.
 
+## Try it in your project
+
+Limits first: npm lockfile v2 and v3 only, one operator runs every detector and the guardian key today, and this is a testnet prototype. Do not rely on it to protect production.
+
+```sh
+git clone https://github.com/SahilKumar75/cordon && cd cordon
+pnpm install
+cp .env.example .env
+```
+
+Set CHAIN_ID, RPC_URL, REGISTRY_ADDRESS and REGISTRY_START_BLOCK in .env to the values in Deployment below, and GUARD_CACHE_DIR to a folder of your choice. Then, from the cordon folder:
+
+```sh
+set -a; . ./.env; set +a
+node packages/guard/bin/cordon.js check --lockfile /path/to/your/project
+```
+
+Exit code 0 means allowed, 1 blocked, 2 unavailable. `install` runs npm ci with scripts disabled only when the check allows it; `audit --path` scans folders, caches and Docker image exports for Sealed versions; `rollback` proposes the last safe version and edits nothing.
+
+## Related work
+
+Socket Firewall, Aikido SafeChain, Datadog scfw, Dependency Guardian and the ETHGlobal npmguard projects already block malicious npm packages at install time, and OSV with the OpenSSF malicious packages repository supplies the MAL advisories our advisory detector and CRE workflow read. We claim no novelty. Cordon tries a different place for the verdict: a public registry contract that a quorum of distinct detector keys writes to. Details and links in [docs/related_work.md](docs/related_work.md).
+
 ## Limits and honest claims
 
 What Cordon does not do is in [docs/limits.md](docs/limits.md). In short:
@@ -147,7 +170,8 @@ What Cordon does not do is in [docs/limits.md](docs/limits.md). In short:
 6. The abuse protection (quorum, evidence hash, seal rate limit, dispute window, guardian), the runtime stop limits and the dispute window length are design choices, not research backed.
 7. The chain read trusts the RPC. The one check against a lying RPC is monotonic: the guard records every version it has seen sealed (in GUARD_CACHE_DIR, per chain and registry) and rejects a list that drops one unless the chain marks it Unsealed and an Unsealed event for it exists; it then uses the signed snapshot and keeps the recorded versions blocked. A guard with no record yet, or no GUARD_CACHE_DIR, cannot detect an RPC that hides seals on its first read.
 8. Votes expire after VOTE_LIFETIME_SECONDS (fixed at deploy, 86400 in our config), so a stale vote no longer counts toward quorum. A detector key that is compromised can still vote again inside each lifetime until the registry is replaced, because roles are frozen.
-9. Provenance and npm signatures are never an allow signal: the May 2026 TanStack releases carried valid provenance ([docs/research/incidents.md](docs/research/incidents.md#tanstack-npm-compromise-11-may-2026)).
+9. The seal key uses the name and version in the lockfile entry's resolved registry tarball URL, because that is what npm ci downloads. A lockfile that renames, recases or adds build metadata to a sealed version is checked as the sealed version. Entries without a resolved URL fall back to the declared name and version.
+10. Provenance and npm signatures are never an allow signal: the May 2026 TanStack releases carried valid provenance ([docs/research/incidents.md](docs/research/incidents.md#tanstack-npm-compromise-11-may-2026)).
 
 ## Chainlink CRE, simulation only
 
@@ -198,7 +222,9 @@ Libraries and tools:
 4. Next.js, React, react-dom, wagmi, TanStack Query, Tailwind CSS with @tailwindcss/postcss.
 5. TypeScript and @types/node, @types/react, @types/react-dom.
 6. pnpm, Node 22 (node:sqlite, node:test), Docker.
-7. IBM Plex Sans and IBM Plex Mono, loaded through next/font from Google Fonts.
+7. Doto and Azeret Mono, loaded through next/font from Google Fonts.
+8. motion, lenis, three, @react-three/fiber, @react-three/drei and @react-three/postprocessing for the dashboard scenes.
+9. @arkiv-network/sdk for evidence entities, and @chainlink/cre-sdk with the CRE CLI for the simulated workflow.
 
 Data, advisory sources and servers:
 1. OSV (api.osv.dev) for MAL advisories and replay timestamps.

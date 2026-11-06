@@ -1,109 +1,40 @@
 # Demo
 
-The recorded demo script, the scene that shows censorship resistance, the historical replay, a recording checklist, and the commands to prepare and reset between takes. Contract address, explorer links and funded keys: see Deployment in [README.md](../README.md#deployment).
+The script for a three minute video: terminal first, then the dashboard, then the limits said plainly. Everything runs on this machine; no testnet funds and no keys of yours are needed.
 
-## Screen layout
+## Before recording
 
-1. Browser: the dashboard at http://localhost:3000, with the Base Sepolia explorer in a second tab.
-2. Terminal A: the guard commands below, run from the repo root with the root .env loaded.
-3. Terminal B: the watcher, visible so the viewer can see it stop. Terminal C: the detectors.
+1. Terminal: from the repo root, Node 22 active, Docker running, nothing listening on ports 3000, 4101 to 4103, 4201 to 4203, 4873, 4880 or 8546.
+2. Run `bash ops/terminalDemo.sh` once as a dry run. It takes a few minutes, prints a pass line per scene and cleans up after itself.
+3. For the dashboard part, start `bash ops/e2eLocal.sh --hold` in a second terminal and open http://127.0.0.1:3000.
+4. If the Base Sepolia deployment exists by recording time, keep the explorer page for SealRegistry open in a browser tab (address in the README, Deployment).
 
-Shorthand used below: `cordon` means `node packages/guard/bin/cordon.js`, and `LOCK` means `demo/services/ordersApi/package-lock.json`.
+## Spoken script, twelve lines
 
-## Script, under three minutes
-
-| Time | Beat | On screen | Say |
-| --- | --- | --- | --- |
-| 0:00 | Problem | Dashboard home | On 11 May 2026 an attacker published 84 malicious versions of 42 TanStack packages. They carried valid npm provenance, and installing them ran a payload that stole credentials. Cordon stops a version like that before it runs. |
-| 0:15 | Publish | /demo, click Publish 1.4.1 for @cordondemo/colorkit | This is our own demo package. Its install script sends a fake canary token to a sink on this machine, nothing else. |
-| 0:30 | Detectors vote | Home, Detector votes: staticScripts, sandboxCanary, advisoryFeed, each tagged simulated | Three detectors that fail in different ways: one reads the install script, one installs it in a throwaway container and watches the canary, one checks public advisories. In this demo all three are run by us, so they are labelled simulated. |
-| 0:55 | Sealed | /sealed (The vault), then the explorer tab on the Sealed event | Two of three agreed, so SealRegistry on Base Sepolia sealed exactly version 1.4.1. Anyone can check the votes and evidence hashes on the explorer. |
-| 1:10 | Stopwatch | Home: the stage strip (published, first vote, sealed, blocked), times from publish | From publish to first verdict to quorum to first block. Read the gaps as they appear on screen; quote no number in advance. |
-| 1:25 | Install blocked | Terminal A: `cordon install --lockfile LOCK` | The guard reads the lockfile and the Sealed list before npm runs. Outcome blocked, exit code 1, and npm ci never starts, so nothing is downloaded. |
-| 1:40 | Services stopped | `curl -s localhost:4101`, `curl -s localhost:4103`, `curl -s localhost:4102`; dashboard /services | ordersApi and notifyWorker answer 503 with `Stopped by the guard: @cordondemo/colorkit@1.4.1 is sealed`. searchApi is on 1.4.0 and keeps serving, because seals are per version. |
-| 1:55 | Rollback | `cordon rollback --lockfile LOCK` | It proposes 1.4.0 as an npm overrides snippet. It never edits files. |
-| 2:05 | Rotation advice | The advice lines in the install report | 1.4.1 is already installed in this service, so the advice comes in order: remove persistence daemons and editor or coding agent hooks first, then rotate credentials. A runtime stop cannot undo theft at install time. |
-| 2:15 | Censorship resistance | See the next section | |
-| 2:40 | Replay | /demo, Replay: TanStack, May 2026, MAL-2026-3465 | See the replay section. |
-| 2:55 | Close | Dashboard home | Cordon: seal one version, block it everywhere before it runs. |
-
-## Censorship resistance scene (2:15 to 2:40)
-
-The point: the guard keeps blocking Sealed versions with our watcher and the chain RPC both unreachable, from a signed snapshot it cached.
-
-1. Switch off the RPC for the guard by pointing it at a dead port:
-
-   ```sh
-   RPC_URL=http://127.0.0.1:9 cordon check --lockfile LOCK
-   ```
-
-   On screen: a warning that the chain is unavailable, then a report with `"listSource": "snapshot"`, `"outcome": "blocked"` and @cordondemo/colorkit 1.4.1 under blocked. Exit code 1. This run fetched the signed snapshot from the watcher and cached it in GUARD_CACHE_DIR.
-
-2. Stop the watcher: press Ctrl+C in terminal B so the viewer sees it exit. Run the same command again.
-
-   On screen: the chain warning, a warning that the snapshot fetch failed, and still `"listSource": "snapshot"`, `"outcome": "blocked"`, with `snapshotAgeSeconds` showing how old the cached snapshot is. Exit code 1.
-
-Say: the RPC is gone and our own server is gone, and the guard still blocks, because the Sealed list it cached is signed and it checks the signer, chain, registry and age itself. If the snapshot grows older than GUARD_SNAPSHOT_MAX_AGE_SECONDS, the guard falls back to blocking versions younger than N days, and says so.
-
-Do not show the cached snapshot being accepted when it is older than GUARD_SNAPSHOT_MAX_AGE_SECONDS; it would be refused, and that refusal is correct.
-
-## Historical replay (2:40 to 2:55)
-
-On /demo, scroll to Replay: TanStack, May 2026 and press Build replay for MAL-2026-3465 (@tanstack/react-router). The panel is tagged Replay and sits apart from the live stopwatch. Say "replay" out loud; never call it a seal. It is a timeline only, built from public data, and it never writes to any chain.
-
-What the viewer should see, all from [docs/research/replay_candidates.md](research/replay_candidates.md#1-mal-2026-3465-tanstackreact-router-recommended), times in UTC on 11 May 2026:
-
-1. 19:20:42.105, @tanstack/react-router 1.169.5 published (npm registry metadata).
-2. 19:26:17.716, 1.169.8 published (npm registry metadata).
-3. 23:44:35, OSV publishes MAL-2026-3465.
-
-Say: from the first publish to the MAL record took about 4 hours 24 minutes. Do not claim what Cordon would have done in that window; this replay shows the public timeline only.
+| # | On screen | Say |
+| --- | --- | --- |
+| 1 | Terminal, `bash ops/terminalDemo.sh` starts | In May 2026 malicious TanStack versions carried valid provenance and ran a payload on install. Cordon tries to block a version like that before it runs. |
+| 2 | Publish and votes scroll by | We publish our own demo package, colorkit 1.4.1. Its install script only touches a canary value on this machine. |
+| 3 | `pass: staticScripts and sandboxCanary voted, key Sealed` | Two of three detectors vote, and the registry contract seals exactly version 1.4.1. These detectors are run by us, so they are simulated operators. |
+| 4 | Stopwatch lines | The stopwatch shows publish, first verdict, quorum and first block, measured in this run. |
+| 5 | `cordon install` exits 1 | The guard reads the lockfile before npm runs. Blocked, exit 1, and npm never starts. |
+| 6 | `cordon check`, `cordon rollback` | Check blocks it from the chain, and rollback proposes 1.4.0 without editing any file. |
+| 7 | `cordon audit` | Audit finds the sealed version already installed, so the advice is to remove persistence and hooks first, then rotate credentials. |
+| 8 | RPC off, then watcher off | With the RPC off, the guard blocks from the signed snapshot. With our watcher off too, it blocks from its cached copy. |
+| 9 | Dashboard home and stopwatch | The dashboard shows the same run: votes, evidence hashes and the stopwatch. |
+| 10 | Dashboard, the vault | The vault lists every sealed version, read straight from the contract. |
+| 11 | Dashboard, a seal page with evidence | Each vote carries an evidence hash, and the evidence body is checked against it. |
+| 12 | Terminal or README limits | Limits: npm lockfile v2 and v3 only, one operator holds every key today, the guardian is a single key, and this is a testnet prototype. |
 
 ## Recording checklist
 
-1. Human voice. No AI voiceover.
-2. Length two to four minutes; aim under three.
-3. At least 720p.
-4. Screen recorded on a computer, not filmed with a phone.
-5. No sped up footage.
-6. No music with captions in place of speech.
-7. Intro under 20 seconds.
-8. Every detector, verdict and the canary exfiltration visibly labelled simulated; the replay visibly labelled Replay.
-9. Terminal font large enough to read the outcome and exit code at 720p.
-10. No private keys, .env contents or seed phrases on screen.
-
-## Prepare
-
-Once per machine:
-
-```sh
-source ~/.nvm/nvm.sh && nvm use 22
-pnpm install
-sh demo/setup.sh
-```
-
-Before each take:
-
-1. Deploy a fresh SealRegistry with `bash ops/deployTestnet.sh`, then run `sh demo/reset.sh` so the watcher starts from the new deploy block. Check the root .env against Deployment in the README: CHAIN_ID, RPC_URL, REGISTRY_ADDRESS, detector and snapshot signer keys, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS and GUARD_CACHE_DIR must be set. GUARD_SNAPSHOT_MAX_AGE_SECONDS must be longer than the take.
-2. Start the stack, each long running command in its own terminal:
-
-   ```sh
-   sh demo/start.sh
-   set -a; . ./.env; set +a
-   pnpm --filter @cordon/watcher start
-   pnpm --filter @cordon/detectors start
-   pnpm --filter @cordon/dashboard dev
-   ```
-
-3. Open the dashboard and confirm the stopwatch is empty and all three services show healthy.
+1. Real time, no speed up and no cuts inside a scene.
+2. Your own voice, no music.
+3. At least 720p, recorded on a computer screen.
+4. Length between two and four minutes.
+5. Say simulated wherever the detectors appear, and do not say deployed unless the Base Sepolia deployment exists and is on screen.
+6. Upload the video to ETHGlobal.com with the project submission.
 
 ## Reset between takes
 
-```sh
-sh demo/reset.sh
-rm -rf "$GUARD_CACHE_DIR"
-```
-
-Then stop the watcher, detectors and dashboard, and start again from step 2 of Prepare.
-
-demo/reset.sh stops the demo stack and clears the mock registry storage, the canary sink data, the logs, the watcher database and the snapshot file. It does not touch the chain. A seal on Base Sepolia is permanent for that version's key, and only the guardian can unseal it after the dispute window, which does not make it sealable again by detectors. So rehearse against a local anvil deployment, and for each recorded take on Base Sepolia after the first, use a fresh SealRegistry deployment with its address set in .env: see Deployment in README.
+Both scripts clean up on exit. If a run was killed, run `sh demo/stop.sh` and `sh demo/reset.sh`, and remove demo/demo.env before the next take.

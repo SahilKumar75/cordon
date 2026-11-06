@@ -271,6 +271,22 @@ guard install --lockfile "$installDir/package-lock.json" > "$logDir/install.json
 [ "$installCode" = 1 ] && [ ! -e "$installDir/node_modules" ] || fail "cordon install exits 1 without npm ci (exit $installCode)"
 pass "cordon install on a copy of ordersApi exits 1 and runs no npm ci"
 
+liveCode=0
+guard check --lockfile "$repoDir/demo/services/ordersApi/package-lock.json" > "$runDir/live.json" 2> /dev/null || liveCode=$?
+echo "cordon check: exit $liveCode, listSource $(reportField "$runDir/live.json" 'report.listSource'), blocked $(reportField "$runDir/live.json" 'report.blocked.map((item) => `${item.name}@${item.version}`).join(",")')"
+[ "$liveCode" = 1 ] && [ "$(reportField "$runDir/live.json" 'report.listSource')" = chain ] || fail "cordon check blocks 1.4.1 from the chain"
+pass "cordon check reads SealRegistry and blocks $demoPackage@$sealedVersion"
+guard rollback --lockfile "$repoDir/demo/services/ordersApi/package-lock.json" > "$runDir/rollback.json" 2> /dev/null || true
+overrides=$(node -p 'JSON.stringify(require(process.argv[1]).overrides)' "$runDir/rollback.json")
+echo "cordon rollback proposes overrides $overrides and edits nothing"
+[ "$overrides" = "{\"$demoPackage\":\"1.4.0\"}" ] || fail "cordon rollback proposes 1.4.0"
+pass "cordon rollback proposes $demoPackage 1.4.0"
+auditCode=0
+guard audit --path "$repoDir/demo/services/ordersApi" > "$runDir/audit.json" 2> /dev/null || auditCode=$?
+echo "cordon audit: exit $auditCode, found $(reportField "$runDir/audit.json" 'report.blocked.map((item) => `${item.name}@${item.version}`).join(",")') installed"
+[ "$auditCode" = 1 ] || fail "cordon audit finds the installed sealed version"
+pass "cordon audit finds $demoPackage@$sealedVersion in ordersApi"
+
 say "4. CROPS: RPC off, then watcher off"
 stopProcess anvil
 waitUntil "anvil is down" 10 bash -c "! curl -fs -X POST -H 'content-type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_chainId\"}' $rpcUrl"
