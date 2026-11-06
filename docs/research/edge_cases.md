@@ -30,7 +30,7 @@ Cases that change how Cordon must behave. All sources accessed 6 Nov 2026. Sourc
 2. pacote, which npm uses to fetch packages, gained the commit "fix: respect ignoreScripts option for git dependencies" on 12 May 2026: https://github.com/npm/pacote/commit/e0af7f6a49880895817aa863f99747b102495f93 . Reading lib/git.js at each tag, the check is present in pacote v22.0.0 and absent from v21.5.2 and v19.0.3.
 3. npm v10.9.10 depends on pacote ^19.0.3, npm v11.21.2 on ^21.5.2, npm v12.2.2 on ^22.0.1 (package.json at each tag in https://github.com/npm/cli). Node 22 ships an npm 10 release.
 4. Status: verified from source only, not by running an install. The team should confirm with a harmless local git dependency before relying on it.
-5. Mitigation: allow-git=none (npm 11.9.0 and later, default in npm 12) stops git dependencies from being fetched at all; see section 9.
+5. Mitigation: allow-git=none (npm 11.10.0 and later as the version we use, default in npm 12) stops git dependencies from being fetched at all; see section 9.
 6. Design effect: npm ci --ignore-scripts on Node 22 may still run prepare for git dependencies. The guard should report every lockfile entry whose resolved field is a git or github URL, and the sealed check alone does not cover this path.
 
 ## 5. Lockfile versions and npm-shrinkwrap.json precedence
@@ -68,10 +68,14 @@ Cases that change how Cordon must behave. All sources accessed 6 Nov 2026. Sourc
 
 All sources accessed 6 Nov 2026.
 
-a. A .npmrc inside a git dependency that replaces the git binary (npm). Reported, not reproduced by us.
+a. A .npmrc inside a git dependency that replaces the git binary (npm). Verified through secondary reporting; primary source unavailable; not reproduced by us.
 1. npm has a git config key: "The command to use for git commands." Its default is git (definitions.js in https://github.com/npm/cli/blob/v12.2.2/workspaces/config/lib/definitions/definitions.js).
-2. Koi researchers (Oren Yomtov, Idan Dardikman) reported that a malicious git dependency can ship a .npmrc that sets git to an attacker script, so when npm prepares a nested git dependency it runs that script instead of git, even with --ignore-scripts. npm closed the report as expected behaviour. Sources: SecurityAffairs, 28 Jan 2026, https://securityaffairs.com/187416/hacking/packagegate-bugs-let-attackers-bypass-protections-in-npm-pnpm-vlt-and-bun.html ; the DEF CON Singapore talk slides, https://media.defcon.org/DEF%20CON%20SG%201/DEF%20CON%20SG%201%20main%20stage%20presentations/Oren%20Yomtov%2C%20Idan%20Dardikman%20-%20PackageGate%20-%20Finding%200-days%20in%20every%20JS%20Package%20Manager.pdf (fetch failed with a connection reset, not read). The original Koi post (koi.ai/blog/packagegate-6-zero-days-in-js-package-managers-but-npm-wont-act) now redirects to a Palo Alto Networks product page, so the primary write up could not be read. Status: not verified against a primary source.
-3. The mechanism is consistent with the old pacote code in section 4: preparing a git dependency spawns npm install inside the cloned repo, which reads that repo's own config. The npm 12 docs for allow-git give the reason for the new default: git dependencies "may install configuration the project does not control".
+2. Koi researchers (Oren Yomtov, Idan Dardikman) reported that a malicious git dependency can ship a .npmrc that sets git to an attacker script. npm clones a git dependency and runs npm install inside it, which loads that .npmrc, so preparing a nested git dependency runs the script instead of git, even with --ignore-scripts. npm closed the report as expected behaviour.
+3. Secondary sources:
+   SecurityAffairs, 28 Jan 2026, accessed 6 Nov 2026: https://securityaffairs.com/187416/hacking/packagegate-bugs-let-attackers-bypass-protections-in-npm-pnpm-vlt-and-bun.html
+   DevOps.com, accessed 6 Nov 2026: https://devops.com/packagegate-vulnerabilities-can-let-attackers-bypass-shai-hulud-defenses/ (a direct fetch returned HTTP 403; content and the description above were read from the search index, publication date not read)
+4. Primary source unavailable: the Koi post (koi.ai/blog/packagegate-6-zero-days-in-js-package-managers-but-npm-wont-act) now redirects to a Palo Alto Networks product page, and the DEF CON Singapore slides (https://media.defcon.org/DEF%20CON%20SG%201/DEF%20CON%20SG%201%20main%20stage%20presentations/Oren%20Yomtov%2C%20Idan%20Dardikman%20-%20PackageGate%20-%20Finding%200-days%20in%20every%20JS%20Package%20Manager.pdf) failed to load on 6 Nov 2026.
+5. The mechanism is consistent with the old pacote code in section 4. in section 4: preparing a git dependency spawns npm install inside the cloned repo, which reads that repo's own config. The npm 12 docs for allow-git give the reason for the new default: git dependencies "may install configuration the project does not control".
 
 b. pnpm running prepare when it fetches a git dependency. Verified.
 1. GHSA-379q-355j-w6rj (CVE-2025-69264), published 7 Jan 2026, affects pnpm 10.0.0 up to but not including 10.26.0: https://api.osv.dev/v1/vulns/GHSA-379q-355j-w6rj
@@ -80,11 +84,13 @@ b. pnpm running prepare when it fetches a git dependency. Verified.
 
 c. The npm setting that disallows git dependencies. Verified.
 1. Name: allow-git (CLI flag --allow-git, .npmrc key allow-git). Accepted values: all, none, root. all fetches any git dependency; none fetches none; root allows only git dependencies listed in the project's own package.json (and git fetches for commands like npm view). Changing it does not remove dependencies already installed. Source: definitions.js at each tag in https://github.com/npm/cli and https://docs.npmjs.com/cli/v11/using-npm/config
-2. First version: npm 11.9.0, released 4 Feb 2026. The npm CLI changelog lists "config: add --allow-git" (#8943, commit f5f6cf7) under 11.9.0, and the definition is present at tag v11.9.0 and absent at v11.8.0. The GitHub changelog of 18 Feb 2026 says v11.10.0 and later (https://github.blog/changelog/2026-02-18-npm-bulk-trusted-publishing-config-and-script-security-now-generally-available/); the source tags show 11.9.0, so 11.10.0 is the first version npm announced, not the first that has it.
+2. First version.
+   Version we use: npm 11.10.0
+   The npm docs config page (https://docs.npmjs.com/cli/v11/using-npm/config, accessed 6 Nov 2026) lists allow-git but does not say which version added it. 11.10.0 comes from the GitHub changelog of 18 Feb 2026 ("Two new features are available today in npm CLI v11.10.0+", https://github.blog/changelog/2026-02-18-npm-bulk-trusted-publishing-config-and-script-security-now-generally-available/). The npm CLI changelog claims 11.9.0 (4 Feb 2026): it lists "config: add --allow-git" (#8943, commit f5f6cf7) under 11.9.0, and the definition is present in the source at tag v11.9.0 and absent at v11.8.0.
 3. Defaults: all in npm 11. none from npm 12.0.0 (changelog: "allow-git and allow-remote now default to "none"", #9466). npm 10.9.10 does not have the setting, so Node 22 with its bundled npm 10 cannot use it.
 4. Known bug: npm/cli#9189 (opened 3 Apr 2026) reported that allow-git=root refused root level git dependencies; the fix PR #9206 merged 15 Apr 2026. Which npm 11 release first carries the fix is not verified.
 5. npm 11.15.0 (20 May 2026) added the sibling settings allow-file, allow-directory and allow-remote (#9339).
-6. Design effect: cordon install should pass --allow-git=none when npm is 11.9.0 or later, and on npm 10 refuse or flag any lockfile entry resolved from git.
+6. Design effect: cordon install should pass --allow-git=none when npm is 11.10.0 or later, and on npm 10 refuse or flag any lockfile entry resolved from git.
 
 ## 10. Out of scope: theft of short lived CI tokens from runner memory
 

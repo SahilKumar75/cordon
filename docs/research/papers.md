@@ -56,14 +56,14 @@ Team rule: no figure marked not verified may appear in the README or the pitch. 
    Source: Guo, Chen and others, arXiv 2603.27549, first posted 29 Mar 2026. Version 1 is titled Understanding NPM Malicious Package Detection: A Benchmark Driven Empirical Analysis; the current arXiv title is How Effective Are NPM Malicious Package Detectors? A Large Scale Empirical Study. https://arxiv.org/abs/2603.27549 (text read from https://arxiv.org/html/2603.27549v1)
    Sentence: "Among 6,420 malicious packages, 4,636 (72.21%) exploit installation scripts as attack vectors."
    Context: preprint, venue not checked. The same paper gives preinstall 61.15%, postinstall 6.74%, install 2.20%.
-2. 21.2 percent with no JavaScript files. Not verified as worded.
+2. 21.2 percent of malicious packages with no malicious JavaScript code in any file. Verified from the paper's own counts.
    Same source. Sentence: "More strikingly, 1,362 packages (21.9%) rely entirely on install scripts with no malicious JavaScript code in any file."
-   Two problems. The paper prints 21.9%, but 1,362 of 6,420 is 21.2%, so the paper's own numbers disagree. And the paper says no malicious JavaScript code, not no JavaScript files. Safe wording: 1,362 of 6,420 malicious packages in that benchmark had their whole attack in package.json install scripts.
+   1,362 of 6,420 is 21.2%; the paper prints 21.9%, which does not match its own counts. Use the paper's wording, no malicious JavaScript code in any file, not "no JavaScript files".
 3. 5.78 versus 3.72 percent. Verified as reported by Socket, not checked against vlt's own post.
    Source: Socket blog, Sarah Gooding, 26 Feb 2025: https://socket.dev/blog/vlt-launches-reproduce
    Excerpt: "they found that 5.78% were reproducible, compared to only 3.72% that had added provenance attestations"
    Context: vlt (Darcy Clarke) tested 5,000 high impact npm packages. A vendor measurement, not peer reviewed.
-4. 53 to 87 percent rebuild verification. Verified, but it is a range across four ecosystems, not an npm figure.
+4. 53 to 87 percent rebuild verification. Verified. The range spans four ecosystems (Crates.io, npm, PyPI, RubyGems); npm alone is 52.9 percent.
    Source: Solarin, Kalu, Davis, Amusuo, Reproducibility is Not Enough: Artifact Verifiability in Decentralized Build Package Ecosystems, arXiv 2608.18180, 18 Aug 2026: https://arxiv.org/abs/2608.18180
    Sentence from the abstract (HTML version): "Our results show that artifact verifiability is low and uneven: across ecosystems, roughly 53–87% of completed rebuilds verify, and recovering the source commit is the dominant obstacle."
    Context: 34,005 packages from Crates.io, npm, PyPI and RubyGems. npm is the low end at 52.9% of completed rebuilds (Crates.io 87.4%). With provenance used to recover the source commit, npm rose to 73.2%. Any npm claim should use 52.9%, not the range.

@@ -4,6 +4,7 @@ packages:
   - apps/*
   - demo/mockRegistry
   - tests
+  - ops
   - "!demo/poisonedPackage"
   - "!demo/canarySink"
   - "!demo/services/**"
