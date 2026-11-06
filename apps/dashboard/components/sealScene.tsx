@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
 
 export type SealSceneProps = {
@@ -12,17 +12,18 @@ export type SealSceneProps = {
 };
 
 const palette = {
-  paper: 0xf3f1ec,
-  panel: 0xfbfaf7,
-  ink: 0x1c1b18,
-  line: 0xd6d2c7,
-  accent: 0xb23c0c,
-  accentSoft: 0xf5e2d6,
+  solid: 0x1a1917,
+  edge: 0x8c877c,
+  grid: 0x2a2823,
+  live: 0xf2c200,
+  signal: 0xff5a1f,
+  ground: 0x111110,
+  idle: 0x4a4740,
 };
 
-const aspect = 16 / 7;
-const viewHeight = 11.2;
-const target = new THREE.Vector3(0.4, 1.5, 0);
+const aspect = 3;
+const viewHeight = 9.6;
+const target = new THREE.Vector3(0.4, 1.2, 0);
 const azimuth = THREE.MathUtils.degToRad(22);
 const elevation = THREE.MathUtils.degToRad(24);
 const driftRange = THREE.MathUtils.degToRad(3);
@@ -76,12 +77,12 @@ function solid(
 
 function drawLabel(context: CanvasRenderingContext2D, label: string, sealed: boolean) {
   const size = context.canvas.width;
-  context.fillStyle = sealed ? "#b23c0c" : "#fbfaf7";
+  context.fillStyle = sealed ? "#ff5a1f" : "#1a1917";
   context.fillRect(0, 0, size, size);
-  context.strokeStyle = sealed ? "#f3f1ec" : "#1c1b18";
+  context.strokeStyle = sealed ? "#111110" : "#8c877c";
   context.lineWidth = 4;
   context.strokeRect(22, 22, size - 44, size - 44);
-  context.fillStyle = sealed ? "#f3f1ec" : "#1c1b18";
+  context.fillStyle = sealed ? "#111110" : "#edeae2";
   context.textAlign = "center";
   context.textBaseline = "middle";
   const split = label.lastIndexOf("@");
@@ -114,12 +115,13 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
     200,
   );
 
-  const ink = new THREE.LineBasicMaterial({ color: palette.ink });
-  const faint = new THREE.LineBasicMaterial({ color: palette.line });
-  const paper = fillMaterial(palette.paper);
-  const panel = fillMaterial(palette.panel);
-  const inkFill = fillMaterial(palette.ink);
-  const accentFill = fillMaterial(palette.accent);
+  const ink = new THREE.LineBasicMaterial({ color: palette.edge });
+  const faint = new THREE.LineBasicMaterial({ color: palette.grid });
+  const paper = fillMaterial(palette.solid);
+  const panel = fillMaterial(palette.solid);
+  const inkFill = fillMaterial(palette.edge);
+  const accentFill = fillMaterial(palette.signal);
+  const groundFill = fillMaterial(palette.ground);
 
   const gridPoints: number[] = [];
   for (let x = -20; x <= 20; x += 1) gridPoints.push(x, 0, -5, x, 0, 5);
@@ -133,9 +135,10 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
   for (const [dx, dz] of [[-1.3, -1], [1.3, -1], [-1.3, 1], [1.3, 1]] as const) {
     solid(scene, [0.12, shelfTop, 0.12], [shelfX + dx, shelfTop / 2, dz], paper, ink);
   }
-  solid(scene, [0.7, 0.55, 0.7], [shelfX - 0.7, 0.4, -0.3], paper, faint);
-  solid(scene, [0.55, 0.45, 0.55], [shelfX + 0.5, 0.35, 0.2], paper, faint);
-  solid(scene, [0.5, 0.4, 0.5], [shelfX - 0.4, shelfTop + 0.2, -0.6], paper, faint);
+  const crateEdge = new THREE.LineBasicMaterial({ color: palette.idle });
+  solid(scene, [0.7, 0.55, 0.7], [shelfX - 0.7, 0.4, -0.3], paper, crateEdge);
+  solid(scene, [0.55, 0.45, 0.55], [shelfX + 0.5, 0.35, 0.2], paper, crateEdge);
+  solid(scene, [0.5, 0.4, 0.5], [shelfX - 0.4, shelfTop + 0.2, -0.6], paper, crateEdge);
 
   const trackStart = shelfX + 1.8;
   const trackEnd = 12.2;
@@ -146,8 +149,8 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
   solid(scene, [trackLength, 0.1, 0.12], [trackMid, 0.15, 0.6], paper, ink);
 
   const arches = archXs.map((x) => {
-    const fill = fillMaterial(palette.paper);
-    const edge = new THREE.LineBasicMaterial({ color: palette.line });
+    const fill = fillMaterial(palette.solid);
+    const edge = new THREE.LineBasicMaterial({ color: palette.idle });
     solid(scene, [0.3, 2.5, 0.3], [x, 1.25, -1.2], fill, edge);
     solid(scene, [0.3, 2.5, 0.3], [x, 1.25, 1.2], fill, edge);
     solid(scene, [0.4, 0.34, 2.7], [x, 2.67, 0], fill, edge);
@@ -159,7 +162,7 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
   solid(scene, [0.9, 0.12, 0.9], [gateX, 0.06, gateZ], paper, ink);
   solid(scene, [0.18, 1.62, 0.18], [gateX, 0.81, 2.15], paper, ink);
   const pips = Array.from({ length: pipLimit }, (_, index) => {
-    const fill = fillMaterial(palette.paper);
+    const fill = fillMaterial(palette.solid);
     const pip = solid(scene, [0.22, 0.22, 0.06], [gateX, 0.5 + index * 0.36, gateZ + 0.28], fill, ink);
     return { pip, fill };
   });
@@ -177,11 +180,11 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
   const tapeLength = 3.2 / tapeCount;
   for (let index = 0; index < tapeCount; index += 1) {
     const z = (index - (tapeCount - 1) / 2) * tapeLength;
-    solid(tape, [0.28, 0.28, tapeLength], [0, 0, z], index % 2 === 0 ? accentFill : paper, ink);
+    solid(tape, [0.28, 0.28, tapeLength], [0, 0, z], index % 2 === 0 ? accentFill : groundFill, ink);
   }
 
   const guards = guardXs.map((x) => {
-    const fill = fillMaterial(palette.panel);
+    const fill = fillMaterial(palette.solid);
     const group = new THREE.Group();
     group.position.set(x, 0, 0);
     scene.add(group);
@@ -210,7 +213,7 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
   const labelTexture = new THREE.CanvasTexture(labelCanvas);
   labelTexture.colorSpace = THREE.SRGBColorSpace;
   labelTexture.anisotropy = 4;
-  const crateFill = fillMaterial(palette.panel);
+  const crateFill = fillMaterial(palette.solid);
   const labelFill = new THREE.MeshBasicMaterial({ map: labelTexture, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
   const crate = new THREE.Group();
   scene.add(crate);
@@ -284,7 +287,7 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
     pips.forEach(({ pip, fill }, index) => {
       pip.visible = index < quorum;
       const voted = props.stage >= 2 && index < props.votes;
-      fill.color.setHex(voted ? (props.sealed ? palette.accent : palette.ink) : palette.paper);
+      fill.color.setHex(voted ? (props.sealed ? palette.signal : palette.live) : palette.solid);
     });
     if (label !== (props.versionLabel ?? "")) {
       label = props.versionLabel ?? "";
@@ -296,12 +299,11 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
     firstApply = false;
   };
 
-  const paperColor = new THREE.Color(palette.paper);
-  const panelColor = new THREE.Color(palette.panel);
-  const lineColor = new THREE.Color(palette.line);
-  const inkColor = new THREE.Color(palette.ink);
-  const accentColor = new THREE.Color(palette.accent);
-  const accentSoftColor = new THREE.Color(palette.accentSoft);
+  const solidColor = new THREE.Color(palette.solid);
+  const idleColor = new THREE.Color(palette.idle);
+  const edgeColor = new THREE.Color(palette.edge);
+  const signalColor = new THREE.Color(palette.signal);
+  const liveColor = new THREE.Color(palette.live);
 
   const update = (now: number) => {
     const elapsed = Math.min(now - lastFrame, 100);
@@ -320,7 +322,7 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
     crate.scale.setScalar(Math.max(scale, 0.001));
     crate.position.set(tweenValue(tweens.crateX, now), tweenValue(tweens.crateY, now) + crateSize / 2, 0);
     const tint = tweenValue(tweens.crateTint, now);
-    crateFill.color.lerpColors(panelColor, accentColor, tint);
+    crateFill.color.lerpColors(solidColor, signalColor, tint);
     if (tint > 0.5 !== labelSealed) {
       labelSealed = tint > 0.5;
       drawLabel(labelContext, label, labelSealed);
@@ -333,11 +335,11 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
     tape.scale.set(Math.max(tapeScale, 0.001), Math.max(tapeScale, 0.001), 1);
 
     arches.forEach(({ fill, edge }, index) => {
-      edge.color.lerpColors(lineColor, inkColor, tweenValue(tweens.archEdge[index] as Tween, now));
-      fill.color.lerpColors(paperColor, accentSoftColor, tweenValue(tweens.archFill[index] as Tween, now));
+      edge.color.lerpColors(idleColor, edgeColor, tweenValue(tweens.archEdge[index] as Tween, now));
+      fill.color.lerpColors(solidColor, liveColor, tweenValue(tweens.archFill[index] as Tween, now));
     });
     guards.forEach(({ fill }, index) => {
-      fill.color.lerpColors(panelColor, accentColor, tweenValue(tweens.guard[index] as Tween, now));
+      fill.color.lerpColors(solidColor, signalColor, tweenValue(tweens.guard[index] as Tween, now));
     });
 
     const busy = allTweens().some((tween) => now < tween.start + tween.duration);
@@ -395,7 +397,7 @@ function createSealScene(canvas: HTMLCanvasElement, reducedMotion: () => boolean
   };
 }
 
-export function SealScene(props: SealSceneProps) {
+export function SealScene({ fallback, ...props }: SealSceneProps & { fallback: ReactNode }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<ReturnType<typeof createSealScene> | null>(null);
   const propsRef = useRef(props);
@@ -426,10 +428,10 @@ export function SealScene(props: SealSceneProps) {
     sceneRef.current?.apply({ stage, votes, quorum, sealed, versionLabel });
   }, [stage, votes, quorum, sealed, versionLabel]);
 
-  if (!supported) return null;
+  if (!supported) return fallback;
   return (
     <div className="w-full">
-      <canvas ref={canvasRef} className="block w-full" style={{ aspectRatio: "16 / 7" }} aria-hidden="true" />
+      <canvas ref={canvasRef} className="block w-full" style={{ aspectRatio: aspect }} aria-hidden="true" />
     </div>
   );
 }

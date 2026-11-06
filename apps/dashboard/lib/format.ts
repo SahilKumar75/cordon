@@ -8,7 +8,7 @@ export const detectorNames: Record<DetectorId, string> = {
 
 export function formatGap(ms: number) {
   const seconds = Math.max(0, ms) / 1000;
-  if (seconds < 60) return `${seconds.toFixed(1)} s`;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)} min ${Math.floor(seconds % 60)} s`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`;
   return `${Math.floor(seconds / 86400)} d ${Math.floor((seconds % 86400) / 3600)} h`;

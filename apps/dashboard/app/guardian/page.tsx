@@ -5,9 +5,8 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
   const { key } = await searchParams;
   return (
     <>
-      <PageHeader eyebrow="04 Guardian" title="Guardian: undo a false seal">
-        Unseal a version after the dispute window, or reseal it. Only the guardian address holds this role; the contract refuses
-        any other wallet. A false seal is an outage we caused, so the reason is recorded on chain as a hash.
+      <PageHeader title="Undo a false seal">
+        Only the guardian wallet can unseal, after the dispute window, or reseal.
       </PageHeader>
       <ChainGate>
         {(registry) => <Guardian registry={registry} initialKey={typeof key === "string" ? key : ""} />}

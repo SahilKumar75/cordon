@@ -6,24 +6,24 @@
 }
 
 @theme {
-  --color-paper: #f3f1ec;
-  --color-panel: #fbfaf7;
-  --color-ink: #1c1b18;
-  --color-muted: #64625b;
-  --color-line: #d6d2c7;
-  --color-accent: #b23c0c;
-  --color-accentSoft: #f5e2d6;
-  --color-night: #161512;
-  --color-nightLine: #3a372f;
-  --color-nightText: #d9d4c8;
-  --color-accentOnNight: #e0622d;
-  --color-clean: #3d6b45;
-  --color-cleanSoft: #e3ebdd;
+  --color-ground: #111110;
+  --color-raised: #1a1917;
+  --color-hair: #2a2823;
+  --color-fg: #edeae2;
+  --color-dim: #8c877c;
+  --color-live: #f2c200;
+  --color-signal: #ff5a1f;
+  --color-signalDeep: #3a1a0d;
+  --color-clean: #6fa27a;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--color-paper);
-  color: var(--color-ink);
+  background: var(--color-ground);
+  color: var(--color-fg);
   font-size: 15px;
   line-height: 24px;
 }
@@ -33,53 +33,80 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px solid var(--color-ink);
-    background: var(--color-ink);
-    color: var(--color-paper);
+    background: var(--color-live);
+    color: var(--color-ground);
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
   }
   .button:hover:not(:disabled) {
-    background: var(--color-night);
-    border-color: var(--color-night);
+    background: var(--color-fg);
   }
   .button:disabled {
     cursor: not-allowed;
-    background: transparent;
-    border-color: var(--color-line);
-    color: var(--color-muted);
+    background: var(--color-hair);
+    color: var(--color-dim);
   }
   .buttonQuiet {
     background: transparent;
-    color: var(--color-ink);
+    color: var(--color-dim);
+    padding-left: 0;
+    padding-right: 0;
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: var(--color-hair);
+    text-underline-offset: 6px;
   }
   .buttonQuiet:hover:not(:disabled) {
-    color: var(--color-paper);
+    background: transparent;
+    color: var(--color-fg);
+  }
+  .buttonQuiet:disabled {
+    background: transparent;
   }
   .field {
     width: 100%;
-    border: 1px solid var(--color-line);
-    background: var(--color-panel);
+    border: 1px solid var(--color-hair);
+    background: var(--color-raised);
     padding: 0.5rem 0.75rem;
     font-family: var(--font-mono);
     font-size: 0.875rem;
   }
   .field:focus-visible,
   .button:focus-visible,
+  summary:focus-visible,
   a:focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-live);
     outline-offset: 2px;
+  }
+  .fold > summary {
+    cursor: pointer;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-dim);
+    font-size: 0.875rem;
+  }
+  .fold > summary::-webkit-details-marker {
+    display: none;
+  }
+  .fold > summary::before {
+    content: "+";
+    font-family: var(--font-mono);
+    width: 1ch;
+  }
+  .fold[open] > summary::before {
+    content: "\00d7";
+  }
+  .fold > summary:hover {
+    color: var(--color-fg);
   }
 }
 
 .stampTurn {
   transform: rotate(-4deg);
-}
-
-.pressPanel {
-  box-shadow: 4px 4px 0 var(--color-ink);
 }
 
 .barrierWipe {
@@ -144,9 +171,6 @@ body {
   .barrierSlam {
     animation: barrierSlam 90ms steps(2) 650ms;
   }
-  .pressBeat {
-    animation: pressBeat 360ms 810ms;
-  }
   .flowPending {
     animation: flowDash 2400ms linear infinite;
   }
@@ -161,9 +185,6 @@ body {
   }
   .voteThunk {
     animation: voteThunk 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
-  }
-  .shadowThunk {
-    animation: shadowThunk 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
   }
   .pipSnap {
     animation: pipSnap 220ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
@@ -286,22 +307,6 @@ body {
   }
 }
 
-@keyframes pressBeat {
-  0% {
-    transform: translate(0, 0);
-    box-shadow: 4px 4px 0 var(--color-ink);
-  }
-  28% {
-    transform: translate(4px, 4px);
-    box-shadow: 0 0 0 var(--color-ink);
-    animation-timing-function: cubic-bezier(0.3, 1.4, 0.5, 1);
-  }
-  100% {
-    transform: translate(0, 0);
-    box-shadow: 4px 4px 0 var(--color-ink);
-  }
-}
-
 @keyframes flowDash {
   to {
     stroke-dashoffset: -20;
@@ -323,15 +328,6 @@ body {
   }
   to {
     transform: translateY(0);
-  }
-}
-
-@keyframes shadowThunk {
-  from {
-    transform: translate(-3px, -7px);
-  }
-  to {
-    transform: translate(0, 0);
   }
 }
 
@@ -379,10 +375,10 @@ body {
 
 @keyframes counterFlash {
   0% {
-    color: var(--color-accentOnNight);
+    color: var(--color-signal);
   }
   50% {
-    color: var(--color-paper);
+    color: var(--color-fg);
   }
 }
 

@@ -14,10 +14,10 @@ function Rows({ title, items }: { title: string; items: ReactNode[] }) {
   if (items.length === 0) return null;
   return (
     <div>
-      <h3 className="mb-2 text-sm font-medium">{title}</h3>
-      <ul className="divide-y divide-line border border-line text-sm">
+      <h3 className="mb-1 text-xs text-dim">{title}</h3>
+      <ul className="divide-y divide-hair border-t border-hair text-sm">
         {items.map((item, index) => (
-          <li key={index} className="p-3">
+          <li key={index} className="py-2">
             {item}
           </li>
         ))}
@@ -29,9 +29,9 @@ function Rows({ title, items }: { title: string; items: ReactNode[] }) {
 type Breaker = "serving" | "stopped" | "unavailable";
 
 const breakerView: Record<Breaker, { angle: number; color: string; plate: string; label: string }> = {
-  serving: { angle: 0, color: "text-ink", plate: "CLOSED", label: "Breaker closed, flowing" },
-  stopped: { angle: -38, color: "text-accent", plate: "OPEN", label: "Breaker open, blocked by the guard" },
-  unavailable: { angle: -15, color: "text-muted", plate: "OPEN", label: "Breaker open, the check could not run" },
+  serving: { angle: 0, color: "text-dim", plate: "CLOSED", label: "Breaker closed, flowing" },
+  stopped: { angle: -38, color: "text-signal", plate: "OPEN", label: "Breaker open, blocked by the guard" },
+  unavailable: { angle: -15, color: "text-dim", plate: "OPEN", label: "Breaker open, the check could not run" },
 };
 
 function BreakerSwitch({ state }: { state: Breaker }) {
@@ -39,26 +39,26 @@ function BreakerSwitch({ state }: { state: Breaker }) {
   return (
     <svg
       viewBox="0 0 96 48"
-      width="96"
-      height="48"
+      width="240"
+      height="120"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
       role="img"
       aria-label={view.label}
-      className={`shrink-0 ${view.color} ${state === "serving" ? "" : "breakerTrip"}`}
+      className={`my-4 h-auto w-full max-w-60 ${view.color} ${state === "serving" ? "" : "breakerTrip"}`}
     >
       <rect x="1" y="1" width="94" height="46" strokeLinecap="butt" />
       <path d="M1 32h16M67 32h28" strokeLinecap="butt" />
-      <path d="M52.3 6.8A41 41 0 0 1 61 32" strokeDasharray="2 3" className="stroke-line" />
+      <path d="M52.3 6.8A41 41 0 0 1 61 32" strokeDasharray="2 3" className="stroke-hair" />
       <circle cx="20" cy="32" r="3" fill="currentColor" />
-      <circle cx="64" cy="32" r="3" className="fill-panel" />
+      <circle cx="64" cy="32" r="3" className="fill-ground" />
       <g className="breakerLever" style={{ transformOrigin: "20px 32px", transform: `rotate(${view.angle}deg)` }}>
         <path d="M20 32h40" strokeWidth="3.5" strokeDasharray={state === "unavailable" ? "5 3" : undefined} strokeLinecap="butt" />
         <circle cx="61" cy="32" r="3.5" fill="currentColor" />
       </g>
       {state === "unavailable" && <path d="M40 6v7M40 15.5v1.5" strokeWidth="2" strokeLinecap="round" />}
-      <rect x="66" y="5" width="26" height="12" className="fill-panel" strokeWidth="1" />
+      <rect x="66" y="5" width="26" height="12" className="fill-ground" strokeWidth="1" />
       <text x="79" y="14" textAnchor="middle" fontSize="7.5" fontWeight="500" letterSpacing="0.5" fill="currentColor" stroke="none" className="font-mono">
         {view.plate}
       </text>
@@ -77,84 +77,80 @@ export function ServiceCard({ status }: { status: ServiceStatus }) {
         : "none, age fallback in use";
   const breaker: Breaker = status.healthy ? "serving" : report.outcome === "unavailable" ? "unavailable" : "stopped";
   return (
-    <article className={`border bg-panel ${breaker === "serving" ? "border-line" : "border-accent"}`}>
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <BreakerSwitch state={breaker} />
-          <span className="font-mono">{status.service}</span>
-          {status.healthy ? <Status icon="check" tone="clean">Flowing</Status> : <Status icon="blocked" tone="blocked">Blocked</Status>}
+    <article className="min-w-0">
+      <h2 className="font-mono text-base">{status.service}</h2>
+      <BreakerSwitch state={breaker} />
+      <p className={`text-2xl font-semibold ${status.healthy ? "text-dim" : "text-signal"}`}>{status.healthy ? "Flowing" : "Blocked"}</p>
+      <details className="fold mt-4">
+        <summary>Details</summary>
+        <div className="mt-4 space-y-6">
           <Status icon={outcome.icon} tone={outcome.tone}>{outcome.label}</Status>
-        </div>
-        <span className="text-sm text-muted">Updated {formatDateTime(status.updatedAt)}</span>
-      </header>
-      <div className="space-y-6 p-4">
-        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
-          <dt className="text-muted">Sealed list from</dt>
-          <dd>{source}</dd>
-          <dt className="text-muted">Packages checked</dt>
-          <dd className="font-mono">{report.packagesChecked}</dd>
-          <dt className="text-muted">Lockfile</dt>
-          <dd className="break-all font-mono">{report.lockfile}</dd>
-          <dt className="text-muted">Checked at</dt>
-          <dd>{formatDateTime(report.checkedAt)}</dd>
-        </dl>
-        {report.fallback && (
-          <Notice icon="warning" tone="accent">
-            The Sealed list did not load. This guard blocks every version younger than {report.fallback.minAgeDays} days
-            {report.fallback.placeholder ? ", a placeholder value until the team sets it" : ""}.
-          </Notice>
-        )}
-        <Rows
-          title="Blocked versions"
-          items={report.blocked.map((item) => (
-            <div key={item.key} className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <Status icon="sealed" tone="sealed">Sealed</Status>
-              <span className="font-mono">{item.name}@{item.version}</span>
-              <span className="font-mono text-muted">{item.lockfilePath}</span>
-              {item.alreadyInstalled && <Status icon="warning" tone="accent">Already installed</Status>}
-            </div>
-          ))}
-        />
-        <Rows
-          title="Non registry sources"
-          items={report.nonRegistrySources.map((item) => (
-            <div className="space-y-1">
-              <Status icon="warning" tone="accent">
+          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+            <dt className="text-dim">Sealed list from</dt>
+            <dd>{source}</dd>
+            <dt className="text-dim">Packages checked</dt>
+            <dd className="font-mono">{report.packagesChecked}</dd>
+            <dt className="text-dim">Lockfile</dt>
+            <dd className="break-all font-mono">{report.lockfile}</dd>
+            <dt className="text-dim">Checked at</dt>
+            <dd>{formatDateTime(report.checkedAt)}</dd>
+          </dl>
+          {report.fallback && (
+            <Notice icon="warning" tone="accent">
+              The Sealed list did not load. This guard blocks every version younger than {report.fallback.minAgeDays} days
+              {report.fallback.placeholder ? ", a placeholder value until the team sets it" : ""}.
+            </Notice>
+          )}
+          <Rows
+            title="Blocked versions"
+            items={report.blocked.map((item) => (
+              <div key={item.key} className="space-y-1">
+                <span className="font-mono text-signal">{item.name}@{item.version}</span>
+                <div className="break-all font-mono text-dim">{item.lockfilePath}</div>
+                {item.alreadyInstalled && <Status icon="warning" tone="accent">Already installed</Status>}
+              </div>
+            ))}
+          />
+          <Rows
+            title="Non registry sources"
+            items={report.nonRegistrySources.map((item) => (
+              <div className="space-y-1">
                 <span className="font-mono">{item.name}@{item.version}</span>
-              </Status>
-              <div className="break-all font-mono text-muted">{item.resolved}</div>
-              <div className="font-mono text-muted">{item.lockfilePath}</div>
-            </div>
-          ))}
-        />
-        <Rows
-          title="Editor and agent hook files"
-          items={report.hookFiles.map((item) => (
-            <div className="flex flex-wrap items-center gap-x-4">
-              <Status icon="warning" tone="accent">{item.tool}</Status>
-              <span className="break-all font-mono">{item.path}</span>
-            </div>
-          ))}
-        />
-        <Rows
-          title="Blocked as too new"
-          items={report.tooYoung.map((item) => (
-            <div className="flex flex-wrap items-center gap-x-4">
-              <Status icon="clock" tone="accent"><span className="font-mono">{item.name}@{item.version}</span></Status>
-              <span className="text-muted">{item.publishedAt ? `published ${formatDateTime(item.publishedAt)}` : "publish time unknown"}</span>
-            </div>
-          ))}
-        />
-        <Rows
-          title="Proposed rollback"
-          items={report.rollback.map((item) => (
-            <span className="font-mono">
-              {item.name}: {item.from} to {item.to ?? "no safe earlier version found"}
-            </span>
-          ))}
-        />
-        <Rows title="Advice" items={report.advice.map((line) => <span>{line}</span>)} />
-      </div>
+                <div className="break-all font-mono text-dim">{item.resolved}</div>
+                <div className="break-all font-mono text-dim">{item.lockfilePath}</div>
+              </div>
+            ))}
+          />
+          <Rows
+            title="Editor and agent hook files"
+            items={report.hookFiles.map((item) => (
+              <div className="space-y-1">
+                <span>{item.tool}</span>
+                <div className="break-all font-mono text-dim">{item.path}</div>
+              </div>
+            ))}
+          />
+          <Rows
+            title="Blocked as too new"
+            items={report.tooYoung.map((item) => (
+              <div className="space-y-1">
+                <span className="font-mono">{item.name}@{item.version}</span>
+                <div className="text-dim">{item.publishedAt ? `published ${formatDateTime(item.publishedAt)}` : "publish time unknown"}</div>
+              </div>
+            ))}
+          />
+          <Rows
+            title="Proposed rollback"
+            items={report.rollback.map((item) => (
+              <span className="font-mono">
+                {item.name}: {item.from} to {item.to ?? "no safe earlier version found"}
+              </span>
+            ))}
+          />
+          <Rows title="Advice" items={report.advice.map((line) => <span>{line}</span>)} />
+          <p className="text-xs text-dim">Updated {formatDateTime(status.updatedAt)}</p>
+        </div>
+      </details>
     </article>
   );
 }

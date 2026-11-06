@@ -3,20 +3,18 @@
 import { useEffect, useId, useRef } from "react";
 import type { SealStatusName } from "@cordon/shared";
 
-const tone: Record<SealStatusName, string> = { Sealed: "text-accent", Unsealed: "text-muted", None: "text-line" };
+const tone: Record<SealStatusName, string> = { Sealed: "text-signal", Unsealed: "text-dim", None: "text-hair" };
 
 export function SealStamp({
   status,
   size,
   label = "",
   footer,
-  onNight = false,
 }: {
   status: SealStatusName;
   size: "large" | "small";
   label?: string;
   footer?: string;
-  onNight?: boolean;
 }) {
   const filterId = `stampInk${useId().replace(/\W/g, "")}`;
   const bleed = useRef<SVGAnimateElement>(null);
@@ -24,7 +22,7 @@ export function SealStamp({
     if (matchMedia("(prefers-reduced-motion: no-preference)").matches) bleed.current?.beginElementAt(0.25);
   }, []);
   const word = status === "None" ? "" : status.toUpperCase();
-  const color = onNight && status === "Sealed" ? "text-accentOnNight" : tone[status];
+  const color = tone[status];
   if (size === "small")
     return (
       <span role="img" aria-label={status === "None" ? "Not sealed" : word} className={`stampTurn inline-block ${color}`}>

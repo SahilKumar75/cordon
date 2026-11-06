@@ -67,22 +67,23 @@ const guardNodes: { title: string; glyph: GlyphName }[] = [
   { title: "services", glyph: "services" },
 ];
 
-type Tone = "idle" | "lit" | "accent";
+type Tone = "idle" | "lit" | "live" | "accent";
 
 const nodeTone: Record<Tone, { box: string; text: string; sub: string }> = {
-  idle: { box: "fill-panel stroke-line", text: "fill-muted", sub: "fill-muted" },
-  lit: { box: "fill-panel stroke-ink", text: "fill-ink", sub: "fill-muted" },
-  accent: { box: "fill-accentSoft stroke-accent", text: "fill-accent", sub: "fill-accent" },
+  idle: { box: "fill-raised stroke-hair", text: "fill-dim", sub: "fill-dim" },
+  lit: { box: "fill-raised stroke-dim", text: "fill-fg", sub: "fill-dim" },
+  live: { box: "fill-raised stroke-live", text: "fill-live", sub: "fill-live" },
+  accent: { box: "fill-signalDeep stroke-signal", text: "fill-signal", sub: "fill-signal" },
 };
 
-const edgeTone: Record<Tone, string> = { idle: "stroke-line", lit: "stroke-ink", accent: "stroke-accent" };
+const edgeTone: Record<Tone, string> = { idle: "stroke-hair", lit: "stroke-dim", live: "stroke-live", accent: "stroke-signal" };
 
 export type FlowProps = { stage: number; version: string | null; votes: Partial<Record<DetectorId, boolean>> };
 
 export function FlowDiagram(props: FlowProps) {
   const quorum = useQuorum();
   return (
-    <figure className="border-b border-line bg-paper px-4 py-6 sm:px-6">
+    <figure className="py-6">
       <Diagram layout={wide} className="hidden sm:block" quorum={quorum} {...props} />
       <Diagram layout={narrow} className="mx-auto max-w-sm sm:hidden" quorum={quorum} {...props} />
       <figcaption className="sr-only">
@@ -116,7 +117,7 @@ function Diagram({ layout, className, stage, version, votes, quorum }: FlowProps
     }),
     ...layout.detectors.map((at, index) => {
       const vote = votes[detectorOrder[index] as DetectorId];
-      return { from: at, to: layout.seal, tone: (vote ? "accent" : vote === false ? "lit" : "idle") as Tone, pending: stage === 2, delay: index * 90 };
+      return { from: at, to: layout.seal, tone: (vote ? (sealed ? "accent" : "live") : vote === false ? "lit" : "idle") as Tone, pending: stage === 2, delay: index * 90 };
     }),
     ...layout.guards.map((at, index) => ({ from: layout.seal, to: at, tone: (sealed ? "accent" : "idle") as Tone, pending: false, delay: index * 120 })),
   ];
@@ -135,7 +136,7 @@ function Diagram({ layout, className, stage, version, votes, quorum }: FlowProps
               fill="none"
               strokeWidth={1.5}
               strokeDasharray={pending ? "4 6" : undefined}
-              className={`stroke-line ${pending ? "flowPending" : ""} ${pending && stage === 0 ? "flowIdle" : ""}`}
+              className={`stroke-hair ${pending ? "flowPending" : ""} ${pending && stage === 0 ? "flowIdle" : ""}`}
             />
             {tone !== "idle" && (
               <path
@@ -171,7 +172,7 @@ function Diagram({ layout, className, stage, version, votes, quorum }: FlowProps
             at={at}
             title={detectorNames[id]}
             sub={vote ? "malicious" : vote === false ? "clean" : stage === 1 ? "scanning" : stage === 0 ? "idle" : "waiting"}
-            tone={vote ? "accent" : vote === false ? "lit" : "idle"}
+            tone={vote ? (sealed ? "accent" : "live") : vote === false ? "lit" : "idle"}
             glyph={id}
             state={{ active: vote === undefined ? stage === 1 : true, alarm: vote === true }}
             thunk={vote === undefined ? undefined : String(vote)}
@@ -206,8 +207,8 @@ function Diagram({ layout, className, stage, version, votes, quorum }: FlowProps
       {tokenAt && tokenText && (
         <g className="tokenMove" style={{ transform: `translate(${tokenAt.x}px, ${tokenAt.y}px)` }}>
           <g key={stage} className="tokenSettle fillBox">
-            <rect x={-tokenWidth / 2} y={-12} width={tokenWidth} height={24} className={`relayCut ${sealed ? "fill-accent" : "fill-ink"}`} />
-            <text textAnchor="middle" y={4.5} className="fill-paper font-mono" fontSize="12" fontWeight="500">
+            <rect x={-tokenWidth / 2} y={-12} width={tokenWidth} height={24} className={`relayCut ${sealed ? "fill-signal" : "fill-live"}`} />
+            <text textAnchor="middle" y={4.5} className="fill-ground font-mono" fontSize="12" fontWeight="500">
               {tokenText}
             </text>
           </g>
@@ -248,7 +249,6 @@ function Node({
   const anchor = layout.vertical ? "middle" : "start";
   return (
     <g transform={`translate(${at.x} ${at.y})`}>
-      <rect key={`shadow${thunk}`} x={-w / 2 + 3} y={-h / 2 + 3} width={w} height={h} className={`fill-ink ${thunk ? "shadowThunk" : ""}`} />
       <g key={`box${thunk}`} className={thunk ? "voteThunk" : undefined}>
         <rect
           x={-w / 2}
@@ -256,14 +256,14 @@ function Node({
           width={w}
           height={h}
           strokeWidth={tone === "idle" ? 1.5 : 2}
-          className={`relayCut ${blocked ? "fill-accent stroke-accent" : style.box}`}
+          className={`relayCut ${blocked ? "fill-signal stroke-signal" : style.box}`}
           style={{ transitionDelay: `${relayDelay}ms` }}
         />
         {!layout.vertical && <Glyph name={glyph} x={-w / 2 + 12} y={-12} size={24} blocked={blocked} {...state} />}
-        <text x={textX} textAnchor={anchor} y={-3} fontSize={layout.vertical ? 12.5 : 14} fontWeight="500" className={blocked ? "fill-paper" : style.text}>
+        <text x={textX} textAnchor={anchor} y={-3} fontSize={layout.vertical ? 12.5 : 14} fontWeight="500" className={blocked ? "fill-ground" : style.text}>
           {title}
         </text>
-        <text key={sub} x={textX} textAnchor={anchor} y={15} fontSize="11.5" className={`fadeIn font-mono ${blocked ? "fill-paper" : style.sub}`}>
+        <text key={sub} x={textX} textAnchor={anchor} y={15} fontSize="11.5" className={`fadeIn font-mono ${blocked ? "fill-ground" : style.sub}`}>
           {sub}
         </text>
       </g>
@@ -277,7 +277,7 @@ function Node({
               cy={h / 2}
               r={4.5}
               strokeWidth={1.5}
-              className={`fillBox ${lit ? "pipSnap fill-accent stroke-accent" : "fill-panel stroke-ink"}`}
+              className={`fillBox ${lit ? "pipSnap fill-live stroke-live" : "fill-raised stroke-dim"}`}
             />
           );
         })}
@@ -289,10 +289,10 @@ function Barrier({ layout }: { layout: Layout }) {
   const [a, b] = layout.barrier;
   return (
     <g className={layout.vertical ? "barrierFall" : "barrierWipe"}>
-      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth="8" className="stroke-accent" />
-      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth="8" strokeDasharray="10 10" className="stroke-paper" />
-      <rect x={a.x - 5} y={a.y - 5} width="10" height="10" className="fill-ink" />
-      <rect x={b.x - 5} y={b.y - 5} width="10" height="10" className="fill-ink" />
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth="8" className="stroke-signal" />
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth="8" strokeDasharray="10 10" className="stroke-ground" />
+      <rect x={a.x - 5} y={a.y - 5} width="10" height="10" className="fill-fg" />
+      <rect x={b.x - 5} y={b.y - 5} width="10" height="10" className="fill-fg" />
     </g>
   );
 }

@@ -86,8 +86,8 @@ export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: 
               </Notice>
             )}
             {signed && (
-              <div className="border border-line p-4">
-                <p className="mb-3 text-sm text-muted">
+              <div>
+                <p className="mb-3 text-sm text-dim">
                   Signed snapshot at block {signed.snapshot.blockNumber}, generated {formatDateTime(signed.snapshot.generatedAt)}.
                 </p>
                 <ul className="space-y-2">
@@ -104,18 +104,18 @@ export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: 
                 </ul>
               </div>
             )}
-            <ol className="divide-y divide-line border border-line bg-panel">
+            <ol className="divide-y divide-hair border-t border-hair">
               {events.map((event, index) => (
-                <li key={event.hash} className="grid gap-2 p-4 sm:grid-cols-[2rem_1fr_auto] sm:items-start">
-                  <span className="font-mono text-sm text-muted">{index + 1}</span>
+                <li key={event.hash} className="grid gap-2 py-4 sm:grid-cols-[2rem_1fr_auto] sm:items-start">
+                  <span className="font-mono text-sm text-dim">{index + 1}</span>
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-3">
                       <Status icon={kindView[event.kind].icon}>{kindView[event.kind].label}</Status>
-                      <span className="text-sm text-muted">by {event.actor}</span>
+                      <span className="text-sm text-dim">by {event.actor}</span>
                       {index === headIndex && <Status icon="sealed" tone="accent">Signed head</Status>}
                     </div>
-                    <div className="text-sm text-muted">{formatDateTime(event.at)}</div>
-                    <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-muted">
+                    <div className="text-sm text-dim">{formatDateTime(event.at)}</div>
+                    <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-dim">
                       <span title={event.hash}>hash {shortHash(event.hash)}</span>
                       {linked[index] ? <Status icon="link" tone="muted">Linked</Status> : <Status icon="warning" tone="accent">Broken link</Status>}
                     </div>
@@ -124,7 +124,7 @@ export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: 
                     {event.ref && hex32Schema.safeParse(event.ref).success ? (
                       <ChainLink kind="tx" value={event.ref} />
                     ) : (
-                      event.ref && <span className="font-mono text-sm text-muted">{event.ref}</span>
+                      event.ref && <span className="font-mono text-sm text-dim">{event.ref}</span>
                     )}
                   </div>
                 </li>

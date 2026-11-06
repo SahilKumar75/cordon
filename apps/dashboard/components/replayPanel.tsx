@@ -9,20 +9,16 @@ import { Icon } from "./icon";
 import { BrokenLine, Notice, Tag } from "./ui";
 
 export function ReplayPanel() {
-  const [advisoryId, setAdvisoryId] = useState("");
+  const [advisoryId, setAdvisoryId] = useState("MAL-2026-3465");
   const replay = useMutation({
     mutationFn: (id: string) => request("detectors", "/replay", replayTimelineSchema, { advisoryId: id }),
   });
   return (
-    <section className="mt-16 space-y-4 border-2 border-dashed border-muted p-6" aria-label="Historical replay">
+    <section className="mt-6 space-y-5" aria-label="Historical replay">
       <div className="flex flex-wrap items-center gap-3">
         <Tag icon="replay">Replay</Tag>
-        <h2 className="text-lg font-semibold tracking-tight">Historical replay</h2>
+        <p className="text-[15px] text-dim">Public timeline of a past incident; nothing is run or sealed.</p>
       </div>
-      <p className="max-w-2xl text-sm text-muted">
-        Rebuilt from public advisory and registry records of a real past incident. Timeline only: nothing is downloaded, run,
-        sealed or written to any chain, and it is separate from the live stopwatch above.
-      </p>
       <form
         className="flex flex-wrap gap-3"
         onSubmit={(event) => {
@@ -47,16 +43,6 @@ export function ReplayPanel() {
           times={replay.data ? replay.data.events.map((event) => Date.parse(event.at)).sort((a, b) => a - b) : []}
         />
       )}
-      {replay.isIdle && (
-        <Notice icon="info" tone="muted">
-          No replay loaded. Enter an OSV advisory id for a malicious npm package to build one.
-        </Notice>
-      )}
-      {replay.isPending && (
-        <Notice icon="clock" tone="muted">
-          Reading public sources for this advisory.
-        </Notice>
-      )}
       {replay.isError && (
         <Notice icon="warning" tone="accent" art={<BrokenLine label="detectors" />}>
           {replay.error.message}
@@ -66,7 +52,7 @@ export function ReplayPanel() {
         <div className="space-y-4">
           <p className="text-sm">
             Replay of{" "}
-            <a href={replay.data.advisoryUrl} target="_blank" rel="noreferrer" className="font-mono underline underline-offset-4 hover:text-accent">
+            <a href={replay.data.advisoryUrl} target="_blank" rel="noreferrer" className="font-mono underline underline-offset-4 hover:text-fg">
               {replay.data.advisoryId}
             </a>{" "}
             for <span className="font-mono">{replay.data.packages.map((item) => `${item.name}@${item.version}`).join(", ")}</span>
@@ -76,23 +62,23 @@ export function ReplayPanel() {
               The public sources list no dated events for this advisory.
             </Notice>
           ) : (
-            <ol className="divide-y divide-line border border-line">
+            <ol className="divide-y divide-hair border-t border-hair">
               {[...replay.data.events]
                 .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
                 .map((event, index, sorted) => (
-                  <li key={`${event.label}${event.at}`} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <li key={`${event.label}${event.at}`} className="flex flex-wrap items-center justify-between gap-3 py-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <Icon name="replay" />
                         {event.label}
                       </div>
-                      <div className="text-sm text-muted">{formatDateTime(event.at)}</div>
+                      <div className="text-sm text-dim">{formatDateTime(event.at)}</div>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                      <span className="font-mono tabular-nums text-muted">
+                      <span className="font-mono tabular-nums text-dim">
                         {index === 0 ? "start" : `+${formatGap(Date.parse(event.at) - Date.parse(sorted[0]?.at ?? event.at))}`}
                       </span>
-                      <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-accent">
+                      <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-fg">
                         Source
                         <Icon name="external" />
                       </a>
@@ -113,7 +99,7 @@ function ReplayRuler({ pending, times }: { pending: boolean; times: number[] }) 
   const xOf = (at: number) => 30 + (Math.log10(1 + (at - first) / 1000) / span) * 460;
   return (
     <svg viewBox="0 0 640 80" className="h-auto w-full max-w-[640px]" fill="none" strokeWidth="1.5" aria-hidden="true">
-      <path d="M20 44H510" strokeDasharray={times.length === 0 && !pending ? "4 6" : undefined} className="stroke-muted" />
+      <path d="M20 44H510" strokeDasharray={times.length === 0 && !pending ? "4 6" : undefined} className="stroke-dim" />
       {(pending || times.length > 0) &&
         Array.from({ length: 11 }, (_, index) => (
           <path
@@ -121,21 +107,21 @@ function ReplayRuler({ pending, times }: { pending: boolean; times: number[] }) 
             d={`M${30 + index * 46} ${index % 5 === 0 ? 36 : 40}V48`}
             pathLength={1}
             strokeDasharray="1"
-            className="rulerTick stroke-muted"
+            className="rulerTick stroke-dim"
             style={{ animationDelay: `${index * 40}ms` }}
           />
         ))}
       {times.map((at, index) => (
         <g key={`${at}${index}`} className="font-mono">
-          <circle cx={xOf(at)} cy="44" r="5" className="fill-panel stroke-ink" />
-          <text x={xOf(at)} y={index % 2 === 0 ? 24 : 70} textAnchor="middle" fontSize="10" className="fill-ink">
+          <circle cx={xOf(at)} cy="44" r="5" className="fill-raised stroke-dim" />
+          <text x={xOf(at)} y={index % 2 === 0 ? 24 : 70} textAnchor="middle" fontSize="10" className="fill-fg">
             {index === 0 ? "start" : `+${formatGap(at - first)}`}
           </text>
         </g>
       ))}
-      <g transform="rotate(-4 578 44)" className="stroke-muted">
+      <g transform="rotate(-4 578 44)" className="stroke-dim">
         <rect x="532" y="28" width="92" height="32" strokeWidth="2" />
-        <text x="578" y="49" textAnchor="middle" fontSize="13" fontWeight="600" letterSpacing="3" className="fill-muted font-mono" stroke="none">
+        <text x="578" y="49" textAnchor="middle" fontSize="13" fontWeight="600" letterSpacing="3" className="fill-dim font-mono" stroke="none">
           REPLAY
         </text>
       </g>

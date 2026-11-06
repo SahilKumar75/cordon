@@ -95,3 +95,7 @@ ETHGlobal asks every team to document where and how AI tools were used. We used 
 3. At the team's request a 3D subagent built components/sealScene.tsx with three.js 0.170.0: a technical drawing scene of the registry, three detector arches, the SealRegistry gate and the guards, driven by the same stopwatch data. The orchestrator placed it on /demo, added its legend and fixed the stamp overlap on the seal page.
 4. docs/coverage_matrix.md: AI written by a subagent from the tests and docs; the orchestrator checked that all 68 cited test names exist.
 5. docs/red_team.md: AI written by a red team subagent that ran each bypass against the real guard, detectors, watcher and contract on local chains and temp folders, with benign stand ins only, and replayed the TanStack timeline from public metadata without fetching the malicious tarball.
+
+## Control room redesign, 6 Nov 2026
+
+1. The team rejected the paper design as pale and too wordy and chose a dark control room direction from two mockups the orchestrator drew. A frontend subagent rebuilt apps/dashboard to an exact layout from the orchestrator: dark theme with hazard yellow for live and signal orange for sealed or blocked, a new components/runHero.tsx (package, a 128px elapsed time, the SEALED stamp, the 3D scene, four stage times) used on / and /demo, services as breaker tiles with details folded away, minimal sealed list, and details elements for evidence and the replay. components/stopwatch.tsx and attestationFeed.tsx were removed as unused.

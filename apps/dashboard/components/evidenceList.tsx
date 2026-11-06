@@ -10,13 +10,13 @@ export function EvidenceList({ sealKey, attestations }: { sealKey: Hex32; attest
   return (
     <QueryState query={attestations} loading="Loading verdicts from the watcher.">
       {(items) => (
-        <div className="grid gap-4">
+        <div>
           {detectorIds.map((detector) => {
             const verdict = items.find((item) => item.key === sealKey && item.detector === detector);
             return verdict ? (
               <EvidenceCard key={detector} verdict={verdict} />
             ) : (
-              <div key={detector} className="flex flex-wrap items-center justify-between gap-2 border border-line p-4">
+              <div key={detector} className="flex flex-wrap items-center justify-between gap-2 border-t border-hair py-4">
                 <span className="font-medium">{detectorNames[detector]}</span>
                 <Status icon="pending" tone="muted">No verdict from this detector</Status>
               </div>
@@ -31,8 +31,8 @@ export function EvidenceList({ sealKey, attestations }: { sealKey: Hex32; attest
 function EvidenceCard({ verdict }: { verdict: Attestation }) {
   const evidence = usePolled("detectors", `/evidence/${verdict.evidenceHash}`, evidenceSchema, false);
   return (
-    <article className="border border-line bg-panel">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
+    <article className="border-t border-hair">
+      <header className="flex flex-wrap items-center justify-between gap-3 py-4">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-medium">{detectorNames[verdict.detector]}</span>
           {(verdict.simulated || evidence.data?.simulated) && <SimulatedTag />}
@@ -48,7 +48,7 @@ function EvidenceCard({ verdict }: { verdict: Attestation }) {
           <Status icon="info" tone="muted">Clean, kept off chain</Status>
         )}
       </header>
-      <div className="space-y-4 p-4">
+      <div className="space-y-4 pb-6">
         <QueryState query={evidence} loading="Loading evidence from the detectors service.">
           {(body) => (
             <>
@@ -60,23 +60,23 @@ function EvidenceCard({ verdict }: { verdict: Attestation }) {
               {body.findings.length === 0 ? (
                 <Notice icon="info" tone="muted">No findings recorded.</Notice>
               ) : (
-                <ul className="divide-y divide-line border border-line">
+                <ul className="divide-y divide-hair border-t border-hair">
                   {body.findings.map((finding, index) => (
-                    <li key={index} className="space-y-1 p-3 text-sm">
+                    <li key={index} className="space-y-1 py-2 text-sm">
                       <div className="font-mono">{finding.rule}</div>
                       <div>{finding.detail}</div>
-                      {finding.file && <div className="font-mono text-muted">{finding.file}</div>}
+                      {finding.file && <div className="font-mono text-dim">{finding.file}</div>}
                     </li>
                   ))}
                 </ul>
               )}
-              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-dim">
                 <span>Observed {formatDateTime(body.observedAt)}</span>
                 <span className="inline-flex items-center gap-2">
                   Detector key <ChainLink kind="address" value={verdict.detectorAddress} />
                 </span>
                 {body.advisoryUrl && (
-                  <a href={body.advisoryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-accent">
+                  <a href={body.advisoryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-fg">
                     Advisory source
                   </a>
                 )}
