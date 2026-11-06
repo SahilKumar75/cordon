@@ -58,6 +58,10 @@ Published precision figures for detection methods come from curated benchmarks, 
 
 The demo deployment uses one guardian key, not a Safe multisig. There is no multisig flow in the dashboard or the deploy script. One key is a single point of failure for unseal and reseal: if it is lost, a false seal cannot be lifted, and if it is stolen, an attacker can unseal a malicious version once its dispute window has passed. A real deployment should hand the guardian role to a multisig.
 
+## Roles freeze at deploy
+
+SealRegistry grants the detector and guardian roles in its constructor and nobody holds the admin role, so no role can be granted, revoked or renounced afterwards. A stolen detector key keeps its vote until the registry is replaced, and adding a detector, removing one or moving the guardian to a multisig all mean deploying a new SealRegistry and pointing every guard, watcher and dashboard at its address.
+
 ## Age fallback when the Sealed list is unavailable
 
 When the chain is unreachable and no fresh signed snapshot passes every check, the guard has no Sealed list. It then blocks every version younger than N days and allows older ones. A version whose publish time cannot be read is blocked. A Sealed version older than N days is allowed in this mode, because the list was not checked.
