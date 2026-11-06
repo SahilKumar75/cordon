@@ -12,10 +12,12 @@ contract SealRegistry is ISealRegistry, AccessControl {
 
     uint16 public immutable quorum;
     uint64 public immutable disputeWindow;
+    uint64 public immutable voteLifetime;
     uint16 public immutable maxSealsPerDay;
 
     mapping(bytes32 => Seal) private seals;
-    mapping(bytes32 => mapping(address => bool)) private votedBy;
+    mapping(bytes32 => mapping(address => uint64)) private votedAt;
+    mapping(bytes32 => address[]) private voters;
     mapping(uint64 => uint16) private sealsOnDay;
     bytes32[] private sealedKeyList;
 
@@ -24,9 +26,13 @@ contract SealRegistry is ISealRegistry, AccessControl {
         address[] memory detectors,
         uint16 quorum_,
         uint64 disputeWindow_,
+        uint64 voteLifetime_,
         uint16 maxSealsPerDay_
     ) {
-        if (guardian == address(0) || quorum_ == 0 || quorum_ > detectors.length || maxSealsPerDay_ == 0) {
+        if (
+            guardian == address(0) || quorum_ == 0 || quorum_ > detectors.length || voteLifetime_ == 0
+                || maxSealsPerDay_ == 0
+        ) {
             revert InvalidConfig();
         }
         _grantRole(GUARDIAN_ROLE, guardian);
@@ -35,6 +41,7 @@ contract SealRegistry is ISealRegistry, AccessControl {
         }
         quorum = quorum_;
         disputeWindow = disputeWindow_;
+        voteLifetime = voteLifetime_;
         maxSealsPerDay = maxSealsPerDay_;
     }
 
@@ -58,10 +65,17 @@ contract SealRegistry is ISealRegistry, AccessControl {
         Seal storage seal = seals[key];
         if (seal.status == Status.Sealed) revert AlreadySealed(key);
         if (seal.status == Status.Unsealed) revert KeyUnsealed(key);
-        if (votedBy[key][msg.sender]) revert DuplicateVote(key, msg.sender);
-        votedBy[key][msg.sender] = true;
-        if (seal.votes == 0) seal.firstVoteAt = uint64(block.timestamp);
-        seal.votes += 1;
+        uint64 previousVote = votedAt[key][msg.sender];
+        if (isLive(previousVote)) revert DuplicateVote(key, msg.sender);
+        if (previousVote == 0) voters[key].push(msg.sender);
+        votedAt[key][msg.sender] = uint64(block.timestamp);
+        if (seal.firstVoteAt == 0) seal.firstVoteAt = uint64(block.timestamp);
+        address[] storage list = voters[key];
+        uint16 live = 0;
+        for (uint256 i = 0; i < list.length; i++) {
+            if (isLive(votedAt[key][list[i]])) live++;
+        }
+        seal.votes = live;
         emit VerdictSubmitted(key, msg.sender, evidenceHash, seal.votes, uint64(block.timestamp));
         if (seal.votes < quorum) return key;
         uint64 day = uint64(block.timestamp / 1 days);
@@ -71,6 +85,10 @@ contract SealRegistry is ISealRegistry, AccessControl {
         seal.sealedAt = uint64(block.timestamp);
         sealedKeyList.push(key);
         emit Sealed(key, ecosystem, name, version, quorum, uint64(block.timestamp));
+    }
+
+    function isLive(uint64 at) private view returns (bool) {
+        return at != 0 && block.timestamp < uint256(at) + voteLifetime;
     }
 
     function renounceRole(bytes32, address) public pure override(AccessControl, IAccessControl) {
@@ -104,7 +122,7 @@ contract SealRegistry is ISealRegistry, AccessControl {
     }
 
     function hasVoted(bytes32 key, address detector) external view returns (bool) {
-        return votedBy[key][detector];
+        return isLive(votedAt[key][detector]);
     }
 
     function sealedKeyCount() external view returns (uint256) {

@@ -1,10 +1,23 @@
 const sealKeyInput = { name: "key", type: "bytes32" } as const;
 
 export const sealRegistryAbi = [
+  {
+    type: "constructor",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "guardian", type: "address" },
+      { name: "detectors", type: "address[]" },
+      { name: "quorum_", type: "uint16" },
+      { name: "disputeWindow_", type: "uint64" },
+      { name: "voteLifetime_", type: "uint64" },
+      { name: "maxSealsPerDay_", type: "uint16" },
+    ],
+  },
   { type: "function", name: "DETECTOR_ROLE", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "bytes32" }] },
   { type: "function", name: "GUARDIAN_ROLE", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "bytes32" }] },
   { type: "function", name: "quorum", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint16" }] },
   { type: "function", name: "disputeWindow", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint64" }] },
+  { type: "function", name: "voteLifetime", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint64" }] },
   { type: "function", name: "maxSealsPerDay", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint16" }] },
   {
     type: "function",

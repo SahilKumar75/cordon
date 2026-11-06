@@ -63,6 +63,7 @@ test("the deployed contract key equals the shared seal key", async () => {
     guardian: generatePrivateKey(),
     quorum: 2,
     disputeWindow: 3600,
+    voteLifetime: 86400,
     maxSealsPerDay: 10,
   });
   const client = createPublicClient({ chain: foundry, transport: http(chain.rpcUrl) });

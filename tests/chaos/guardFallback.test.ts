@@ -29,7 +29,7 @@ before(async () => {
   await buildContracts();
   chain = await startChain();
   const detectors = [await chain.funded(), await chain.funded(), await chain.funded()];
-  registry = await chain.deployRegistry({ detectors, guardian: generatePrivateKey(), quorum: 2, disputeWindow: 3600, maxSealsPerDay: 10 });
+  registry = await chain.deployRegistry({ detectors, guardian: generatePrivateKey(), quorum: 2, disputeWindow: 3600, voteLifetime: 86400, maxSealsPerDay: 10 });
   await submitVerdict(chain.rpcUrl, registry, detectors[0] as Hex, name, "1.4.1");
   await submitVerdict(chain.rpcUrl, registry, detectors[1] as Hex, name, "1.4.1");
   watcher = await startWatcher(chain, registry, signerKey, generatePrivateKey(), temp());

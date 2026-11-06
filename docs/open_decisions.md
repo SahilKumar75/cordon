@@ -14,6 +14,10 @@ Trade off: shorter falls back to the age rule sooner during a watcher outage; lo
 Suggested: 3600 seconds on testnet for the demo; one to six hours if anyone runs it for real.
 Trade off: a false seal stays an outage until the window ends, so shorter limits our damage; longer gives reviewers time before a guardian can unseal.
 
+## Vote lifetime (VOTE_LIFETIME_SECONDS)
+Suggested: 86400 seconds (one day).
+Trade off: shorter makes stale or replayed agreement expire sooner but needs detectors to agree within that time; longer lets a slow second detector still count.
+
 ## Quorum (QUORUM with three detectors)
 Suggested: 2 of 3.
 Trade off: 1 of 3 seals faster but lets one faulty or compromised detector cause an outage; 3 of 3 is safest against false seals but stops sealing when any detector is down.

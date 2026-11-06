@@ -39,6 +39,7 @@ interface ISealRegistry is IAccessControl {
     function GUARDIAN_ROLE() external view returns (bytes32);
     function quorum() external view returns (uint16);
     function disputeWindow() external view returns (uint64);
+    function voteLifetime() external view returns (uint64);
     function maxSealsPerDay() external view returns (uint16);
     function keyOf(string calldata ecosystem, string calldata name, string calldata version)
         external

@@ -15,6 +15,7 @@ contract SealRegistryTest is Test {
     bytes32 constant evidence = keccak256("evidence");
     bytes32 constant reason = keccak256("reason");
     uint64 constant window = 1 days;
+    uint64 constant lifetime = 2 days;
     uint64 constant startTime = 1_800_000_000;
 
     address guardian = makeAddr("guardian");
@@ -32,7 +33,7 @@ contract SealRegistryTest is Test {
 
     function setUp() public {
         vm.warp(startTime);
-        registry = new SealRegistry(guardian, detectors(), 2, window, 2);
+        registry = new SealRegistry(guardian, detectors(), 2, window, lifetime, 2);
     }
 
     function detectors() internal view returns (address[] memory list) {
@@ -65,6 +66,7 @@ contract SealRegistryTest is Test {
     function test_configIsExposed() public view {
         assertEq(registry.quorum(), 2);
         assertEq(registry.disputeWindow(), window);
+        assertEq(registry.voteLifetime(), lifetime);
         assertEq(registry.maxSealsPerDay(), 2);
         assertTrue(registry.hasRole(registry.GUARDIAN_ROLE(), guardian));
         assertTrue(registry.hasRole(registry.DETECTOR_ROLE(), detectorC));
@@ -73,36 +75,41 @@ contract SealRegistryTest is Test {
 
     function test_constructorRejectsZeroQuorum() public {
         vm.expectRevert(ISealRegistry.InvalidConfig.selector);
-        new SealRegistry(guardian, detectors(), 0, window, 2);
+        new SealRegistry(guardian, detectors(), 0, window, lifetime, 2);
     }
 
     function test_constructorRejectsQuorumAboveDetectorCount() public {
         vm.expectRevert(ISealRegistry.InvalidConfig.selector);
-        new SealRegistry(guardian, detectors(), 4, window, 2);
+        new SealRegistry(guardian, detectors(), 4, window, lifetime, 2);
     }
 
     function test_constructorRejectsRepeatedDetector() public {
         address[] memory list = detectors();
         list[2] = detectorA;
         vm.expectRevert(ISealRegistry.InvalidConfig.selector);
-        new SealRegistry(guardian, list, 2, window, 2);
+        new SealRegistry(guardian, list, 2, window, lifetime, 2);
     }
 
     function test_constructorRejectsZeroDetector() public {
         address[] memory list = detectors();
         list[1] = address(0);
         vm.expectRevert(ISealRegistry.InvalidConfig.selector);
-        new SealRegistry(guardian, list, 2, window, 2);
+        new SealRegistry(guardian, list, 2, window, lifetime, 2);
     }
 
     function test_constructorRejectsZeroGuardian() public {
         vm.expectRevert(ISealRegistry.InvalidConfig.selector);
-        new SealRegistry(address(0), detectors(), 2, window, 2);
+        new SealRegistry(address(0), detectors(), 2, window, lifetime, 2);
     }
 
     function test_constructorRejectsZeroMaxSealsPerDay() public {
         vm.expectRevert(ISealRegistry.InvalidConfig.selector);
-        new SealRegistry(guardian, detectors(), 2, window, 0);
+        new SealRegistry(guardian, detectors(), 2, window, lifetime, 0);
+    }
+
+    function test_constructorRejectsZeroVoteLifetime() public {
+        vm.expectRevert(ISealRegistry.InvalidConfig.selector);
+        new SealRegistry(guardian, detectors(), 2, window, 0, 2);
     }
 
     function test_keyOfMatchesSharedSealKeyOf() public view {
@@ -139,6 +146,48 @@ contract SealRegistryTest is Test {
         bytes32 key = vote(detectorA, badVersion);
         vm.expectRevert(abi.encodeWithSelector(ISealRegistry.DuplicateVote.selector, key, detectorA));
         vote(detectorA, badVersion);
+    }
+
+    function test_duplicateVoteRevertsUntilLifetimeEnds() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.warp(startTime + lifetime - 1);
+        vm.expectRevert(abi.encodeWithSelector(ISealRegistry.DuplicateVote.selector, key, detectorA));
+        vote(detectorA, badVersion);
+    }
+
+    function test_expiredVoteDoesNotCount() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.warp(startTime + lifetime);
+        vote(detectorB, badVersion);
+        ISealRegistry.Seal memory seal = registry.getSeal(key);
+        assertEq(uint8(seal.status), uint8(ISealRegistry.Status.None));
+        assertEq(seal.votes, 1);
+        assertEq(seal.firstVoteAt, startTime);
+        assertFalse(registry.isSealed(key));
+    }
+
+    function test_hasVotedFalseAfterLifetime() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.warp(startTime + lifetime - 1);
+        assertTrue(registry.hasVoted(key, detectorA));
+        vm.warp(startTime + lifetime);
+        assertFalse(registry.hasVoted(key, detectorA));
+    }
+
+    function test_expiredVoterCanVoteAgainAndReachQuorum() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.warp(startTime + lifetime);
+        vote(detectorB, badVersion);
+        vm.warp(startTime + lifetime + 60);
+        vm.expectEmit(true, true, false, true, address(registry));
+        emit VerdictSubmitted(key, detectorA, evidence, 2, startTime + lifetime + 60);
+        vote(detectorA, badVersion);
+        ISealRegistry.Seal memory seal = registry.getSeal(key);
+        assertEq(uint8(seal.status), uint8(ISealRegistry.Status.Sealed));
+        assertEq(seal.votes, 2);
+        assertEq(seal.firstVoteAt, startTime);
+        assertEq(seal.sealedAt, startTime + lifetime + 60);
+        assertTrue(registry.hasVoted(key, detectorA));
     }
 
     function test_nonDetectorCannotVote() public {

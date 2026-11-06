@@ -73,7 +73,7 @@ export type LocalChain = {
   chainId: number;
   stop: () => void;
   funded: () => Promise<Hex>;
-  deployRegistry: (options: { detectors: Hex[]; guardian: Hex; quorum: number; disputeWindow: number; maxSealsPerDay: number }) => Promise<Address>;
+  deployRegistry: (options: { detectors: Hex[]; guardian: Hex; quorum: number; disputeWindow: number; voteLifetime: number; maxSealsPerDay: number }) => Promise<Address>;
 };
 
 export async function startChain(): Promise<LocalChain> {
@@ -92,7 +92,7 @@ export async function startChain(): Promise<LocalChain> {
     await testClient.setBalance({ address: privateKeyToAccount(key).address, value: 10n ** 20n });
     return key;
   };
-  const deployRegistry: LocalChain["deployRegistry"] = async ({ detectors, guardian, quorum, disputeWindow, maxSealsPerDay }) => {
+  const deployRegistry: LocalChain["deployRegistry"] = async ({ detectors, guardian, quorum, disputeWindow, voteLifetime, maxSealsPerDay }) => {
     const wallet = createWalletClient({ account: privateKeyToAccount(await funded()), chain: foundry, transport: http(rpcUrl) });
     const { abi, bytecode } = compiledRegistry();
     const hash = await wallet.deployContract({
@@ -103,6 +103,7 @@ export async function startChain(): Promise<LocalChain> {
         detectors.map((key) => privateKeyToAccount(key).address),
         quorum,
         BigInt(disputeWindow),
+        BigInt(voteLifetime),
         maxSealsPerDay,
       ],
     } as never);

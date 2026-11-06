@@ -16,7 +16,7 @@ before(async () => {
   await buildContracts();
   chain = await startChain();
   detector = await chain.funded();
-  registry = await chain.deployRegistry({ detectors: [detector, await chain.funded(), await chain.funded()], guardian: generatePrivateKey(), quorum: 2, disputeWindow: 3600, maxSealsPerDay: 10 });
+  registry = await chain.deployRegistry({ detectors: [detector, await chain.funded(), await chain.funded()], guardian: generatePrivateKey(), quorum: 2, disputeWindow: 3600, voteLifetime: 86400, maxSealsPerDay: 10 });
 });
 
 after(() => chain?.stop());
