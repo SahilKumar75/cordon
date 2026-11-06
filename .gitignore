@@ -27,3 +27,4 @@ demo/mockRegistry/storage/
 
 .DS_Store
 .claude/settings.local.json
+demo/logs/
