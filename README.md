@@ -135,6 +135,30 @@ What Cordon does not do is in [docs/limits.md](docs/limits.md). In short:
 8. Votes expire after VOTE_LIFETIME_SECONDS (fixed at deploy, 86400 in our config), so a stale vote no longer counts toward quorum. A detector key that is compromised can still vote again inside each lifetime until the registry is replaced, because roles are frozen.
 9. Provenance and npm signatures are never an allow signal: the May 2026 TanStack releases carried valid provenance ([docs/research/incidents.md](docs/research/incidents.md#tanstack-npm-compromise-11-may-2026)).
 
+## Chainlink CRE, simulation only (branch cre)
+
+On this branch the advisoryFeed check (an OSV lookup for MAL ids) is also written as a Chainlink CRE workflow in cre/cordonAdvisory, and contracts/src/CordonCreReceiver.sol turns a CRE report into a vote on SealRegistry. The design and its trade offs are in docs/cre_design.md.
+
+1. This is simulation only unless Chainlink approves deployment for this project. It is not deployed on the CRE network.
+2. When a workflow is deployed, Chainlink chooses and runs the node operators; we do not.
+3. On chain, a CRE report is still one detector vote, so quorum still needs a second detector.
+4. Tests that run without the CRE CLI: `cd cre/cordonAdvisory && bun install --ignore-scripts && bun test`, and `cd contracts && forge test --match-contract CordonCreReceiver`.
+5. A dry run simulation (no transaction, no funds): `cd cre && cre workflow simulate cordonAdvisory --target staging-settings --non-interactive --trigger-index 0 --http-payload @cordonAdvisory/payload.tanstack.json`.
+
+Install the CRE CLI with the official script, or download it manually and check its SHA256 against the release checksums (macOS on Apple silicon shown):
+
+```sh
+curl -sSL https://app.chain.link/cre/install.sh | bash
+```
+
+```sh
+curl -sSLO https://github.com/smartcontractkit/cre-cli/releases/download/v1.39.0/cre_darwin_arm64.zip
+curl -sSLO https://github.com/smartcontractkit/cre-cli/releases/download/v1.39.0/checksums.txt
+grep ' cre_darwin_arm64.zip$' checksums.txt | shasum -a 256 -c
+unzip cre_darwin_arm64.zip && chmod +x cre && xattr -c cre && mkdir -p ~/.cre/bin && mv cre ~/.cre/bin/
+~/.cre/bin/cre version
+```
+
 ## Scale roadmap
 
 Built for the demo: every outbound request in the watcher and guard has a timeout (the guard's is GUARD_HTTP_TIMEOUT_MS, default 5 seconds), the registry and chain pollers run in parallel, SQLite runs in write ahead mode, the watcher serves its last saved snapshot right after a restart, and the detectors run at most two sandbox scans at once. Not built yet:

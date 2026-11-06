@@ -1,0 +1,6 @@
+{
+  "osvUrl": "https://api.osv.dev/v1/query",
+  "chainSelectorName": "ethereum-testnet-sepolia-base-1",
+  "receiver": "0x0000000000000000000000000000000000000000",
+  "gasLimit": "500000"
+}
