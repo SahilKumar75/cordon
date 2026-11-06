@@ -1,16 +1,20 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { createPublicClient, type WalletArkivClient } from "@arkiv-network/sdk";
+import type { Hex } from "viem";
 import { generatePrivateKey } from "viem/accounts";
-import { evidenceSchema, replayTimelineSchema, scanResponseSchema } from "@cordon/shared";
+import { evidenceHashOf, evidenceSchema, replayTimelineSchema, scanResponseSchema, type Evidence } from "@cordon/shared";
+import type { EvidenceReader, EvidenceWriter } from "./arkiv.ts";
 import type { DockerRunner } from "./sandboxCanary.ts";
 import { buildServer } from "./server.ts";
 import { createSigner } from "./signer.ts";
 import type { FetchLike } from "./staticScripts.ts";
-import { mockRegistryTransport, newRegistryState, packFixture, testChain } from "./testSupport.ts";
+import { arkivQueryTransport, mockRegistryTransport, newRegistryState, packFixture, testChain, type ArkivRow } from "./testSupport.ts";
 
 const mockRegistryUrl = "http://localhost:4873";
 const tarballUrl = `${mockRegistryUrl}/@cordondemo/colorkit/-/colorkit-1.4.1.tgz`;
@@ -47,7 +51,9 @@ const sinkReceivesEverything: DockerRunner = async (args) => ({
   stderr: "",
 });
 
-async function setup(fetchImpl: FetchLike = networkEdge, docker: DockerRunner = sinkReceivesEverything) {
+type ArkivEdge = { writer?: EvidenceWriter; reader?: EvidenceReader };
+
+async function setup(fetchImpl: FetchLike = networkEdge, docker: DockerRunner = sinkReceivesEverything, arkiv: ArkivEdge = {}) {
   const evidenceDir = await mkdtemp(join(tmpdir(), "detectorsServer"));
   const state = newRegistryState();
   const keys = { staticScripts: generatePrivateKey(), sandboxCanary: generatePrivateKey(), advisoryFeed: generatePrivateKey() };
@@ -60,8 +66,10 @@ async function setup(fetchImpl: FetchLike = networkEdge, docker: DockerRunner = 
     fetchImpl,
     docker,
     signer,
+    arkivWriter: arkiv.writer,
+    arkivReader: arkiv.reader,
   });
-  return { app, state };
+  return { app, state, evidenceDir };
 }
 
 test("scan stores evidence, votes for malicious results and serves the evidence back", async () => {
@@ -152,4 +160,76 @@ test("at most two sandbox scans run at once when many scans arrive together", as
   const responses = await Promise.all(Array.from({ length: 5 }, () => app.inject({ method: "POST", url: "/scan", payload: scanBody })));
   assert.deepEqual(responses.map((response) => response.statusCode), [200, 200, 200, 200, 200]);
   assert.equal(peak, 2);
+});
+
+const arkivOwner: Hex = "0xDe760446b5a7fFf40f17625f77d4165BaA013Fc9";
+const arkivKey: Hex = `0x${"e1".repeat(32)}`;
+const arkivTx: Hex = `0x${"7a".repeat(32)}`;
+
+function arkivWriter(createEntity: (...args: unknown[]) => Promise<unknown>): EvidenceWriter {
+  return { account: { address: arkivOwner }, createEntity: createEntity as WalletArkivClient["createEntity"] };
+}
+
+const arkivReader = (rows: ArkivRow[]) => createPublicClient({ transport: arkivQueryTransport(rows) });
+
+async function waitForFile(file: string) {
+  for (let attempt = 0; attempt < 100 && !existsSync(file); attempt += 1) await new Promise((resolve) => setTimeout(resolve, 10));
+  return JSON.parse(await readFile(file, "utf8"));
+}
+
+test("each evidence is published to Arkiv in the background and its reference is served", async () => {
+  const published: Evidence[] = [];
+  const writer = arkivWriter(async (_schema, values) => {
+    published.push(evidenceSchema.parse(JSON.parse(new TextDecoder().decode((values as { body: Uint8Array }).body))));
+    return { entityKey: arkivKey, txHash: arkivTx, expiresAt: 1n };
+  });
+  const { app, evidenceDir } = await setup(networkEdge, sinkReceivesEverything, { writer });
+  const scan = scanResponseSchema.parse((await app.inject({ method: "POST", url: "/scan", payload: scanBody })).json());
+  const hash = scan.verdicts[0]?.evidenceHash ?? "";
+  assert.deepEqual(await waitForFile(join(evidenceDir, `${hash}.arkiv.json`)), { entityKey: arkivKey, txHash: arkivTx, owner: arkivOwner });
+  assert.equal(published.length, 3);
+  assert.deepEqual((await app.inject({ method: "GET", url: `/evidence/${hash}/arkiv` })).json(), { entityKey: arkivKey, txHash: arkivTx, owner: arkivOwner });
+});
+
+test("a failing Arkiv publish neither fails the scan nor stops the votes, and is logged once per evidence", async (t) => {
+  const logged = t.mock.method(console, "error", () => undefined);
+  const writer = arkivWriter(async () => Promise.reject(new Error("insufficient funds for gas")));
+  const { app, state } = await setup(networkEdge, sinkReceivesEverything, { writer });
+  const response = await app.inject({ method: "POST", url: "/scan", payload: scanBody });
+  assert.equal(response.statusCode, 200);
+  assert.equal(scanResponseSchema.parse(response.json()).verdicts.length, 3);
+  assert.equal(state.sent.length, 2);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(logged.mock.callCount(), 3);
+  assert.match(String(logged.mock.calls[0]?.arguments[0]), /arkiv publish failed .*insufficient funds for gas/);
+});
+
+test("an Arkiv publish that never answers does not delay the votes", async () => {
+  const writer = arkivWriter(() => new Promise(() => undefined));
+  const { app, state } = await setup(networkEdge, sinkReceivesEverything, { writer });
+  const response = await app.inject({ method: "POST", url: "/scan", payload: scanBody });
+  assert.equal(response.statusCode, 200);
+  assert.equal(state.sent.length, 2);
+});
+
+test("evidence missing on disk is read from Arkiv, and unknown evidence is still 404", async () => {
+  const evidence: Evidence = {
+    name: "@cordondemo/colorkit",
+    version: "1.4.1",
+    detector: "advisoryFeed",
+    integrity: scanBody.integrity,
+    malicious: false,
+    simulated: true,
+    findings: [],
+    advisoryUrl: null,
+    observedAt: "2026-11-06T10:00:01.000Z",
+  };
+  const hash = evidenceHashOf(evidence);
+  const { app } = await setup(networkEdge, sinkReceivesEverything, { reader: arkivReader([{ key: arkivKey, owner: arkivOwner, body: JSON.stringify(evidence, null, 2) }]) });
+  const served = await app.inject({ method: "GET", url: `/evidence/${hash}` });
+  assert.equal(served.statusCode, 200);
+  assert.deepEqual(served.json(), evidence);
+  assert.deepEqual((await app.inject({ method: "GET", url: `/evidence/${hash}/arkiv` })).json(), { entityKey: arkivKey, txHash: null, owner: arkivOwner });
+  assert.equal((await app.inject({ method: "GET", url: `/evidence/0x${"1".repeat(64)}` })).statusCode, 404);
+  assert.equal((await app.inject({ method: "GET", url: `/evidence/0x${"1".repeat(64)}/arkiv` })).statusCode, 404);
 });

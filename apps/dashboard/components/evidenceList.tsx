@@ -1,12 +1,28 @@
 "use client";
 
-import { detectorIds, evidenceHashOf, evidenceSchema, type Attestation, type Hex32 } from "@cordon/shared";
-import type { UseQueryResult } from "@tanstack/react-query";
-import { usePolled } from "@/lib/api";
+import { detectorIds, evidenceHashOf, evidenceSchema, hex32Schema, type Attestation, type Hex32 } from "@cordon/shared";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { request } from "@/lib/api";
+import { readArkivEvidence } from "@/lib/arkiv";
 import { detectorNames, formatDateTime, shortHash } from "@/lib/format";
 import { GlyphBadge } from "./glyphs";
 import { Reveal } from "./reveal";
-import { ChainLink, Notice, QueryState, SimulatedTag, Status } from "./ui";
+import { ChainLink, Notice, QueryState, SimulatedTag, Status, Tag } from "./ui";
+
+const arkivReferenceSchema = { safeParse: (data: unknown) => hex32Schema.safeParse((data as { entityKey?: unknown } | null)?.entityKey) };
+
+async function loadEvidence(evidenceHash: string) {
+  const [served, reference] = await Promise.allSettled([
+    request("detectors", `/evidence/${evidenceHash}`, evidenceSchema),
+    request("detectors", `/evidence/${evidenceHash}/arkiv`, arkivReferenceSchema),
+  ]);
+  if (served.status === "fulfilled") {
+    return { body: served.value, arkivKey: reference.status === "fulfilled" ? reference.value : null };
+  }
+  const stored = await readArkivEvidence(evidenceHash);
+  if (!stored) throw served.reason;
+  return { body: stored.evidence, arkivKey: stored.entityKey };
+}
 
 export function EvidenceList({ sealKey, attestations }: { sealKey: Hex32; attestations: UseQueryResult<Attestation[]> }) {
   return (
@@ -38,14 +54,14 @@ export function EvidenceList({ sealKey, attestations }: { sealKey: Hex32; attest
 }
 
 function EvidenceCard({ verdict }: { verdict: Attestation }) {
-  const evidence = usePolled("detectors", `/evidence/${verdict.evidenceHash}`, evidenceSchema, false);
+  const evidence = useQuery({ queryKey: ["evidence", verdict.evidenceHash], queryFn: () => loadEvidence(verdict.evidenceHash) });
   return (
     <article className="panel lift overflow-hidden px-5">
       <header className="flex flex-wrap items-center justify-between gap-3 py-4">
         <div className="flex flex-wrap items-center gap-3">
           <GlyphBadge name={verdict.detector} alarm={verdict.malicious} active />
           <span className="font-medium">{detectorNames[verdict.detector]}</span>
-          {(verdict.simulated || evidence.data?.simulated) && <SimulatedTag />}
+          {(verdict.simulated || evidence.data?.body.simulated) && <SimulatedTag />}
           <Status icon={verdict.malicious ? "blocked" : "check"} tone={verdict.malicious ? "accent" : "clean"}>
             {verdict.malicious ? "Malicious" : "Clean"}
           </Status>
@@ -60,13 +76,21 @@ function EvidenceCard({ verdict }: { verdict: Attestation }) {
       </header>
       <div className="hairline" />
       <div className="space-y-4 pb-5 pt-4">
-        <QueryState query={evidence} loading="Loading evidence from the detectors service.">
-          {(body) => (
+        <QueryState query={evidence} loading="Loading evidence from the detectors service or Arkiv.">
+          {({ body, arkivKey }) => (
             <>
               {evidenceHashOf(body) === verdict.evidenceHash ? (
                 <Status icon="check">Evidence matches hash {shortHash(verdict.evidenceHash)}</Status>
               ) : (
                 <Status icon="warning" tone="accent">Evidence does not match the hash in the verdict</Status>
+              )}
+              {arkivKey && (
+                <span className="flex flex-wrap items-center gap-2 text-[13px] text-jade">
+                  <Tag icon="link">Stored on Arkiv</Tag>
+                  <span className="font-mono" title={arkivKey}>
+                    Entity {shortHash(arkivKey)}
+                  </span>
+                </span>
               )}
               {body.findings.length === 0 ? (
                 <Notice icon="info" tone="muted">No findings recorded.</Notice>

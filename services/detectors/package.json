@@ -10,6 +10,7 @@
     "start": "node --experimental-strip-types src/server.ts"
   },
   "dependencies": {
+    "@arkiv-network/sdk": "1.0.1",
     "@cordon/shared": "workspace:*",
     "fastify": "^5.2.0",
     "tar": "^7.4.0",

@@ -117,3 +117,25 @@ export function mockRegistryTransport(state: RegistryState) {
     },
   });
 }
+
+export type ArkivRow = { key: Hex; owner: Hex; body: string };
+
+export function arkivQueryTransport(rows: ArkivRow[], queries: unknown[] = []) {
+  return custom({
+    async request({ method, params }: { method: string; params: unknown[] }) {
+      if (method !== "arkiv_query") throw new Error(`unexpected rpc method ${method}`);
+      queries.push(params[0]);
+      return {
+        blockNumber: "0x1",
+        data: rows.map((row) => ({
+          key: row.key,
+          owner: row.owner,
+          attributes: [
+            { name: "arkiv.schema", type: "str", value: "cordon.evidence" },
+            { name: "body", type: "bytes", value: toHex(new TextEncoder().encode(row.body)) },
+          ],
+        })),
+      };
+    },
+  });
+}

@@ -3,7 +3,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import Fastify, { type FastifyError } from "fastify";
+import { createPublicClient, createWalletClient } from "@arkiv-network/sdk";
+import { rabdi } from "@arkiv-network/sdk/chains";
 import { http, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { z, ZodError } from "zod";
 import {
   addressSchema,
@@ -18,6 +21,7 @@ import {
   type ScanResponse,
   type Verdict,
 } from "@cordon/shared";
+import { publishEvidence, readEvidence, type EvidenceReader, type EvidenceWriter } from "./arkiv.ts";
 import { replayAdvisory, scanAdvisories } from "./advisoryFeed.ts";
 import { isSandboxEligible, runDocker, scanSandbox, type DockerRunner } from "./sandboxCanary.ts";
 import { createSigner } from "./signer.ts";
@@ -31,6 +35,8 @@ export type DetectorsDeps = {
   fetchImpl: FetchLike;
   docker: DockerRunner;
   signer: ReturnType<typeof createSigner>;
+  arkivWriter: EvidenceWriter | undefined;
+  arkivReader: EvidenceReader | undefined;
 };
 
 const evidenceParamsSchema = z.object({ evidenceHash: hex32Schema });
@@ -75,7 +81,16 @@ export function buildServer(deps: DetectorsDeps) {
       result.status === "rejected" ? [{ detector: runs[index]?.[0] as DetectorId, error: result.reason instanceof Error ? result.reason.message : String(result.reason) }] : [],
     );
     await mkdir(deps.evidenceDir, { recursive: true });
-    await Promise.all(evidences.map((evidence) => writeFile(join(deps.evidenceDir, `${evidenceHashOf(evidence)}.json`), JSON.stringify(evidence, null, 2))));
+    const written = evidences.map((evidence) => ({ evidence, hash: evidenceHashOf(evidence), text: JSON.stringify(evidence, null, 2) }));
+    await Promise.all(written.map(({ hash, text }) => writeFile(join(deps.evidenceDir, `${hash}.json`), text)));
+    const writer = deps.arkivWriter;
+    if (writer) {
+      for (const { evidence, hash, text } of written) {
+        publishEvidence(writer, evidence, text)
+          .then((reference) => writeFile(join(deps.evidenceDir, `${hash}.arkiv.json`), JSON.stringify(reference, null, 2)))
+          .catch((error) => console.error(`arkiv publish failed for evidence ${hash}: ${error instanceof Error ? error.message : String(error)}`));
+      }
+    }
     const verdicts: Verdict[] = [];
     for (const evidence of evidences) verdicts.push(await deps.signer.submit(evidence));
     return { name: scan.name, version: scan.version, key: sealKeyOf(scan.name, scan.version), verdicts, failures };
@@ -86,8 +101,19 @@ export function buildServer(deps: DetectorsDeps) {
   app.get("/evidence/:evidenceHash", async (request, reply) => {
     const { evidenceHash } = evidenceParamsSchema.parse(request.params);
     const file = join(deps.evidenceDir, `${evidenceHash}.json`);
-    if (!existsSync(file)) return reply.code(404).send({ error: `no evidence with hash ${evidenceHash}` });
-    return JSON.parse(await readFile(file, "utf8"));
+    if (existsSync(file)) return JSON.parse(await readFile(file, "utf8"));
+    const stored = deps.arkivReader ? await readEvidence(deps.arkivReader, evidenceHash) : null;
+    if (!stored) return reply.code(404).send({ error: `no evidence with hash ${evidenceHash}` });
+    return stored.evidence;
+  });
+
+  app.get("/evidence/:evidenceHash/arkiv", async (request, reply) => {
+    const { evidenceHash } = evidenceParamsSchema.parse(request.params);
+    const file = join(deps.evidenceDir, `${evidenceHash}.arkiv.json`);
+    if (existsSync(file)) return JSON.parse(await readFile(file, "utf8"));
+    const stored = deps.arkivReader ? await readEvidence(deps.arkivReader, evidenceHash) : null;
+    if (!stored) return reply.code(404).send({ error: `evidence ${evidenceHash} is not on Arkiv` });
+    return { entityKey: stored.entityKey, txHash: null, owner: stored.owner };
   });
 
   app.get("/detectors", async () => deps.signer.detectors());
@@ -113,6 +139,8 @@ const envSchema = z.object({
   SANDBOX_IMAGE: z.string().regex(/@sha256:[0-9a-f]{64}$/, "must be pinned by digest"),
   OSV_API_URL: z.string().url(),
   MOCK_REGISTRY_URL: z.string().url().optional(),
+  ARKIV_PRIVATE_KEY: privateKeySchema.optional(),
+  ARKIV_ACCESS_KEY: z.string().optional(),
 });
 
 async function main() {
@@ -125,6 +153,7 @@ async function main() {
     keys: { staticScripts: env.STATIC_SCRIPTS_PRIVATE_KEY, sandboxCanary: env.SANDBOX_CANARY_PRIVATE_KEY, advisoryFeed: env.ADVISORY_FEED_PRIVATE_KEY },
     pendingDir: join(env.EVIDENCE_DIR, "pending"),
   });
+  const arkivChain = rabdi({ accessKey: env.ARKIV_ACCESS_KEY ?? "" });
   const app = buildServer({
     evidenceDir: env.EVIDENCE_DIR,
     mockRegistryUrl: env.MOCK_REGISTRY_URL,
@@ -133,6 +162,8 @@ async function main() {
     fetchImpl: fetch,
     docker: runDocker,
     signer,
+    arkivWriter: env.ARKIV_PRIVATE_KEY ? createWalletClient({ chain: arkivChain, transport: http(), account: privateKeyToAccount(env.ARKIV_PRIVATE_KEY) }) : undefined,
+    arkivReader: createPublicClient({ chain: arkivChain, transport: http() }),
   });
   setInterval(() => signer.retryPending().catch((error) => console.error(`pending retry failed: ${String(error)}`)), retryIntervalMs);
   await app.listen({ port: env.DETECTORS_PORT, host: "127.0.0.1" });
