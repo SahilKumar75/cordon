@@ -137,3 +137,4 @@ ETHGlobal asks every team to document where and how AI tools were used. We used 
 2. New files written by the orchestrator: docs/trust_model.md, docs/related_work.md (facts gathered by a research subagent from the linked pages), ops/terminalDemo.sh, docs/submission_text.md, and docs/demo.md rewritten as a twelve line video script.
 3. A docs subagent updated docs/coverage_matrix.md, docs/code_tour.md, docs/sponsor_fit.md and docs/open_decisions.md; the orchestrator reviewed the result.
 4. ops/creDemo.sh, written by the orchestrator: runs the two CRE dry run simulations and prints the workflow log lines.
+5. docs/final_report.md, written by the orchestrator.
