@@ -7,9 +7,9 @@ const settings = {
   NEXT_PUBLIC_EXPLORER_URL: process.env.NEXT_PUBLIC_EXPLORER_URL,
   NEXT_PUBLIC_NATIVE_SYMBOL: process.env.NEXT_PUBLIC_NATIVE_SYMBOL,
   NEXT_PUBLIC_REGISTRY_ADDRESS: process.env.NEXT_PUBLIC_REGISTRY_ADDRESS,
-  NEXT_PUBLIC_WATCHER_URL: process.env.NEXT_PUBLIC_WATCHER_URL,
-  NEXT_PUBLIC_DETECTORS_URL: process.env.NEXT_PUBLIC_DETECTORS_URL,
 };
+
+export const readOnly = !process.env.NEXT_PUBLIC_WATCHER_URL;
 
 export const missingSettings = Object.entries(settings)
   .filter(([, value]) => !value)

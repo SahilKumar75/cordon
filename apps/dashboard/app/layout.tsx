@@ -9,7 +9,7 @@ import { BrandMark, LiveStatus, Nav, ThemeToggle } from "@/components/nav";
 import { Cursor } from "@/components/cursor";
 import { SmoothScroll } from "@/components/smoothScroll";
 import { Providers } from "@/components/providers";
-import { demoEnabled, missingSettings } from "@/lib/env";
+import { demoEnabled, missingSettings, readOnly } from "@/lib/env";
 import "./globals.css";
 
 const display = Doto({ subsets: ["latin"], axes: ["ROND"], variable: "--font-doto" });
@@ -46,6 +46,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </header>
           {missingSettings.length > 0 && (
             <p className="mx-auto w-full max-w-7xl px-4 text-[13px] text-persimmon sm:px-8">Missing settings: {missingSettings.join(", ")}</p>
+          )}
+          {readOnly && (
+            <p className="mx-auto w-full max-w-7xl px-4 text-[13px] text-jade sm:px-8">
+              Read only view of SealRegistry on a testnet. This is a prototype; watcher, detector and stopwatch panels need a local run.
+            </p>
           )}
           <main className="pageRise mx-auto w-full max-w-7xl flex-1 px-4 pb-20 pt-6 sm:px-8">{children}</main>
           <footer className="mx-auto w-full max-w-7xl px-4 sm:px-8">

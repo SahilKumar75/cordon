@@ -16,7 +16,7 @@ export const anyJson: Schema<unknown> = { safeParse: (data) => ({ success: true,
 
 export async function request<T>(service: Service, path: string, schema: Schema<T>, body?: unknown): Promise<T> {
   const { url, setting, label } = upstreams[service];
-  if (!url) throw new Error(`The ${label} address is not set. Add ${setting} to the dashboard environment and rebuild.`);
+  if (!url) throw new Error(`This read only build has no ${label}; it shows what SealRegistry holds on chain. Run Cordon locally, or set ${setting}, to see the live pipeline.`);
   const response = await fetch(
     `/proxy/${service}${path}`,
     body === undefined
@@ -44,5 +44,6 @@ export async function request<T>(service: Service, path: string, schema: Schema<
 }
 
 export function usePolled<T>(service: Service, path: string, schema: Schema<T>, interval: number | false = 2000) {
-  return useQuery({ queryKey: [service, path], queryFn: () => request(service, path, schema), refetchInterval: interval });
+  const connected = Boolean(upstreams[service].url);
+  return useQuery({ queryKey: [service, path], queryFn: () => request(service, path, schema), refetchInterval: connected && interval, retry: connected ? 3 : false });
 }
