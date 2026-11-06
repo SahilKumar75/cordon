@@ -87,6 +87,18 @@ The full script will be in docs/demo.md.
 
 The testnet deployment is pending. Contract addresses and explorer links will be added here.
 
+## CROPS
+
+Lead property: censorship resistant. The guard keeps blocking sealed versions when our watcher and the chain RPC are both unreachable, from the last signed snapshot it cached, and the demo shows that moment with the RPC switched off.
+
+C: we run the watcher (signed snapshots, timeline) and, in the demo, all three detectors; users also depend on an RPC provider and Base Sepolia. If the watcher goes away the guard reads SealRegistry directly; if the RPC goes away it uses the cached signed snapshot until GUARD_SNAPSHOT_MAX_AGE_SECONDS; after that the age fallback blocks versions younger than N days.
+
+O: MIT license (LICENSE). Everything builds and runs from this repo with Node 22, pnpm, Foundry and Docker, using the commands above; no hosted service of ours is required.
+
+P: the guard downloads every sealed key and matches the lockfile locally, so the RPC provider and the watcher never learn which packages a project uses. Guard reports go nowhere unless GUARD_REPORT_URL and a reporter key are set. The minimum age check, the age fallback and rollback ask the npm registry about named packages, as listed in docs/limits.md. The dashboard has no trackers or analytics, and its fonts are bundled at build time.
+
+S: every private key stays in the local .env, which git ignores and the fitness tests check. Trust assumptions: a seal needs a quorum of distinct detector keys; the snapshot is only trusted when its signer, chain, registry and age all check out; the demo uses a single guardian key for unseal and reseal, a single point of failure described in docs/limits.md.
+
 ## Limits and honest claims
 
 What Cordon does not do is in [docs/limits.md](docs/limits.md). In short:

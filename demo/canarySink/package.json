@@ -1,6 +1,7 @@
 {
   "name": "cordondemo_canarysink",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "start": "node server.js",
