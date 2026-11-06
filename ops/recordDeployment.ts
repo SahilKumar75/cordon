@@ -60,7 +60,7 @@ writeEnv(envPath, env);
 
 const demoEnv = readEnv(join(repoDir, "demo", "demo.env.example"));
 for (const [key, value] of readEnv(demoEnvPath)) if (value) demoEnv.set(key, value);
-for (const key of ["CHAIN_ID", "RPC_URL", "EXPLORER_URL", "NATIVE_SYMBOL", "GUARD_SNAPSHOT_URL", "GUARD_SNAPSHOT_SIGNER", "GUARD_SNAPSHOT_MAX_AGE_SECONDS", "GUARD_CACHE_DIR", "GUARD_REPORT_URL", "GUARD_REPORTER_PRIVATE_KEY"]) {
+for (const key of ["CHAIN_ID", "RPC_URL", "REGISTRY_START_BLOCK", "EXPLORER_URL", "NATIVE_SYMBOL", "GUARD_SNAPSHOT_URL", "GUARD_SNAPSHOT_SIGNER", "GUARD_SNAPSHOT_MAX_AGE_SECONDS", "GUARD_CACHE_DIR", "GUARD_REPORT_URL", "GUARD_REPORTER_PRIVATE_KEY"]) {
   demoEnv.set(key, env.get(key) ?? "");
 }
 demoEnv.set("REGISTRY_ADDRESS", registry);

@@ -164,7 +164,7 @@ done
 [ -e "$deploymentFile" ] || createdDeployment=true
 (cd "$repoDir/contracts" && env \
   DETECTOR_ADDRESSES="$STATIC_SCRIPTS_ADDRESS,$SANDBOX_CANARY_ADDRESS,$ADVISORY_FEED_ADDRESS" \
-  QUORUM=2 DISPUTE_WINDOW_SECONDS=120 MAX_SEALS_PER_DAY=20 \
+  QUORUM=2 DISPUTE_WINDOW_SECONDS=120 VOTE_LIFETIME_SECONDS=86400 MAX_SEALS_PER_DAY=20 \
   "$foundryBin/forge" script script/Deploy.s.sol:Deploy --rpc-url "$rpcUrl" --broadcast) > "$logDir/deploy.log" 2>&1 || fail "forge script deploy, see $logDir/deploy.log"
 registryAddress=$(node -p 'require(process.argv[1]).sealRegistry' "$deploymentFile")
 startBlock=$(node -p 'require(process.argv[1]).blockNumber' "$deploymentFile")
@@ -186,6 +186,7 @@ RPC_URL=$rpcUrl
 EXPLORER_URL=$rpcUrl
 NATIVE_SYMBOL=ETH
 REGISTRY_ADDRESS=$registryAddress
+REGISTRY_START_BLOCK=$startBlock
 GUARD_FALLBACK_MIN_AGE_DAYS=
 GUARD_ALLOW_NON_REGISTRY_SOURCES=
 GUARD_MIN_AGE_DAYS=
