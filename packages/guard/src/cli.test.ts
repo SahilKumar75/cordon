@@ -41,7 +41,7 @@ test("install through the CLI spawns npm ci only when allowed", async (context) 
 test("invalid configuration and unknown commands are rejected", async () => {
   await assert.rejects(run(["check"], { GUARD_FALLBACK_MIN_AGE_DAYS: "zero" }), /GUARD_FALLBACK_MIN_AGE_DAYS/);
   await assert.rejects(run(["launch"], quietEnv), /usage/);
-  await assert.rejects(run(["check"], { GUARD_ALLOW_GIT_DEPENDENCIES: "yes" }), /GUARD_ALLOW_GIT_DEPENDENCIES must be true or false/);
+  await assert.rejects(run(["check"], { GUARD_ALLOW_NON_REGISTRY_SOURCES: "yes" }), /GUARD_ALLOW_NON_REGISTRY_SOURCES must be true or false/);
   await assert.rejects(run(["sidecar", "--lockfile", "x", "--service", "s", "--port", "0"], quietEnv), /POLL_INTERVAL_SECONDS/);
   await assert.rejects(run(["sidecar", "--lockfile", "x", "--service", "s", "--port", "80a"], quietEnv), /--port must be an integer/);
 });

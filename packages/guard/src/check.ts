@@ -10,7 +10,16 @@ import {
   type Hex32,
   type PackageVersion,
 } from "@cordon/shared";
-import { directoryOf, isGitSource, readJson, readLockfile, resolveLockfilePath, type LockEntry } from "./lockfile.ts";
+import {
+  defaultRegistryUrl,
+  directoryOf,
+  nonRegistrySourcesOf,
+  readJson,
+  readLockfile,
+  resolveLockfilePath,
+  type LockEntry,
+  type NonRegistrySource,
+} from "./lockfile.ts";
 import { compareCores, isOlderThan, packumentReader, publishedAtOf, type PackumentReader } from "./registry.ts";
 import { proposeRollbacks } from "./rollback.ts";
 import { loadSealedList, type ListSettings, type SealedList } from "./sealedList.ts";
@@ -28,7 +37,7 @@ export type GuardSettings = ListSettings &
     fallbackMinAgeDays: number | null;
     minAgeDays: number;
     registryUrl: string | null;
-    allowGitDependencies: boolean;
+    allowNonRegistrySources: boolean;
     assumeInstalled: boolean;
   };
 
@@ -38,7 +47,7 @@ export type Npm = { run: Spawner; version: () => Promise<string> };
 
 export type NpmGitSetting = { name: string; minimumVersion: string };
 
-export const npmGitSetting: NpmGitSetting = { name: "allow-git", minimumVersion: "11.9.0" };
+export const npmGitSetting: NpmGitSetting = { name: "allow-git", minimumVersion: "11.10.0" };
 
 export const installedAdvice = [
   "First remove persistence: background daemons or services the package installed, and IDE or coding agent hooks, extensions and config it added. Some payloads destroy files when a stolen token is revoked, so do this before revoking anything.",
@@ -81,13 +90,15 @@ async function findTooYoung(entries: LockEntry[], days: number, readPackument: P
   return { tooYoung, unreadable };
 }
 
-export function gitVerdict(gitDependencies: GuardReport["gitDependencies"], allow: boolean): { blocks: boolean; advice: string[] } {
-  if (!gitDependencies.length) return { blocks: false, advice: [] };
-  const names = [...new Set(gitDependencies.map(({ name }) => name))].join(", ");
-  const effect = allow ? "were allowed by GUARD_ALLOW_GIT_DEPENDENCIES" : "block the outcome";
+export function nonRegistryVerdict(sources: NonRegistrySource[], allow: boolean): { blocks: boolean; advice: string[] } {
+  if (!sources.length) return { blocks: false, advice: [] };
+  const listed = [...new Set(sources.map(({ name, version, kind }) => `${name}@${version} (${kind})`))].join(", ");
+  const effect = allow ? "were allowed by GUARD_ALLOW_NON_REGISTRY_SOURCES" : "block the outcome";
   return {
     blocks: !allow,
-    advice: [`Warning: ${names} are resolved from git and ${effect}. Git dependencies can run prepare scripts even with scripts disabled and bypass the Sealed list.`],
+    advice: [
+      `Warning: ${listed} come from a source other than the npm registry and ${effect}. Such sources can run prepare scripts even with scripts disabled and bypass the Sealed list.`,
+    ],
   };
 }
 
@@ -109,7 +120,7 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
     fallback: null,
     packagesChecked: 0,
     blocked: [],
-    gitDependencies: [],
+    nonRegistrySources: [],
     hookFiles: [],
     tooYoung: [],
     rollback: [],
@@ -125,10 +136,8 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
   const { tooYoung, unreadable } = ageLimit > 0 ? await findTooYoung(read.entries, ageLimit, readPackument, now) : { tooYoung: [], unreadable: [] };
   const limits = { sealedKeys: list.keys, minAgeDays: ageLimit, now };
   const rollback = await proposeRollbacks([...blocked, ...tooYoung], limits, readPackument);
-  const gitDependencies = read.entries
-    .filter(isGitSource)
-    .map(({ name, version, resolved }) => ({ name, version, resolved: resolved ?? version, lockfilePath: path }));
-  const git = gitVerdict(gitDependencies, settings.allowGitDependencies);
+  const sources = nonRegistrySourcesOf(read.entries, path, settings.registryUrl ?? defaultRegistryUrl);
+  const git = nonRegistryVerdict(sources, settings.allowNonRegistrySources);
   const unreadableAdvice = unreadable.length ? [`Publish time could not be read for ${unreadable.join(", ")}, so these count as too young.`] : [];
   const fallbackAdvice = fallback
     ? [
@@ -143,7 +152,7 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
     fallback,
     packagesChecked: read.entries.length,
     blocked,
-    gitDependencies,
+    nonRegistrySources: sources,
     tooYoung,
     rollback,
     advice: [...fallbackAdvice, ...git.advice, ...unreadableAdvice, ...adviceFor(blocked)],

@@ -98,7 +98,7 @@ export function guardReport(overrides: Partial<GuardReport> = {}): GuardReport {
     packagesChecked: 12,
     blocked: [{ name: demoName, version: demoVersion, key: demoKey, lockfilePath: "node_modules/@cordondemo/colorkit", alreadyInstalled: false }],
     snapshotAgeSeconds: null,
-    gitDependencies: [],
+    nonRegistrySources: [],
     hookFiles: [],
     tooYoung: [],
     rollback: [{ name: demoName, from: demoVersion, to: "1.4.0" }],

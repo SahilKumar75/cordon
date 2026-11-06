@@ -75,7 +75,7 @@ export function ServiceCard({ status }: { status: ServiceStatus }) {
         />
         <Rows
           title="Git dependencies"
-          items={report.gitDependencies.map((item) => (
+          items={report.nonRegistrySources.map((item) => (
             <div className="space-y-1">
               <Status icon="warning" tone="accent">
                 <span className="font-mono">{item.name}@{item.version}</span>

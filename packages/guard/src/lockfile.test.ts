@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, truncateSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { isGitSource, maxLockfileBytes, readLockfile, resolveLockfilePath } from "./lockfile.ts";
+import { maxLockfileBytes, nonRegistrySourcesOf, readLockfile, resolveLockfilePath } from "./lockfile.ts";
 import { tempDir, writeLockfile } from "./testFixtures.ts";
 
 test("npm-shrinkwrap.json is chosen before package-lock.json", () => {
@@ -66,19 +66,50 @@ test("a lockfile larger than the size limit is not ok", () => {
   assert.match(read.ok ? "" : read.reason, /larger than/);
 });
 
-test("entries resolved from git or GitHub are recognised, nested ones included", () => {
-  const read = readLockfile(
-    writeLockfile(tempDir(), {
-      "node_modules/plain": { version: "1.0.0", resolved: "https://registry.npmjs.org/plain/-/plain-1.0.0.tgz" },
-      "node_modules/viaGitPlus": { version: "1.0.0", resolved: "git+ssh://git@github.com/org/viaGitPlus.git#abc" },
-      "node_modules/viaGit": { version: "1.0.0", resolved: "git://github.com/org/viaGit.git#abc" },
-      "node_modules/viaGithub": { version: "1.0.0", resolved: "github:org/viaGithub#abc" },
-      "node_modules/plain/node_modules/viaCodeload": { version: "1.0.0", resolved: "https://codeload.github.com/org/viaCodeload/tar.gz/abc" },
-      "node_modules/viaVersion": { version: "git+https://github.com/org/viaVersion.git#abc" },
-    }),
-  );
+function kindsOf(packages: Record<string, object>, registryUrl = "https://registry.npmjs.org") {
+  const path = writeLockfile(tempDir(), packages);
+  const read = readLockfile(path);
   assert.ok(read.ok);
-  assert.deepEqual(read.entries.filter(isGitSource).map(({ name }) => name), ["viaGitPlus", "viaGit", "viaGithub", "viaCodeload", "viaVersion"]);
+  return nonRegistrySourcesOf(read.entries, path, registryUrl).map(({ name, kind }) => [name, kind]);
+}
+
+test("every source other than the registry is classified by kind, nested entries included", () => {
+  assert.deepEqual(
+    kindsOf({
+      "node_modules/plain": { version: "1.0.0", resolved: "https://registry.npmjs.org/plain/-/plain-1.0.0.tgz" },
+      "node_modules/unresolved": { version: "2.1.0" },
+      "node_modules/viaGitPlus": { version: "1.0.0", resolved: "git+ssh://git@github.com/org/viaGitPlus.git" },
+      "node_modules/viaGit": { version: "1.0.0", resolved: "git://github.com/org/viaGit.git" },
+      "node_modules/viaGithub": { version: "1.0.0", resolved: "github:org/viaGithub" },
+      "node_modules/viaShorthand": { version: "org/viaShorthand" },
+      "node_modules/plain/node_modules/viaCommit": { version: "1.0.0", resolved: "git+https://github.com/fork/viaCommit.git#0123456789abcdef0123456789abcdef01234567" },
+      "node_modules/viaShorthandRef": { version: "org/viaShorthandRef#main" },
+      "node_modules/viaCodeload": { version: "1.0.0", resolved: "https://codeload.github.com/org/viaCodeload/tar.gz/abc" },
+      "node_modules/viaTarball": { version: "1.0.0", resolved: "https://cdn.example.com/viaTarball-1.0.0.tgz" },
+      "node_modules/plain/node_modules/viaFile": { version: "1.0.0", resolved: "file:vendor/viaFile-1.0.0.tgz" },
+      "node_modules/linked": { resolved: "packages/linked", link: true },
+    }),
+    [
+      ["viaGitPlus", "git"],
+      ["viaGit", "git"],
+      ["viaGithub", "github"],
+      ["viaShorthand", "github"],
+      ["viaCommit", "commit"],
+      ["viaShorthandRef", "commit"],
+      ["viaCodeload", "github"],
+      ["viaTarball", "tarball"],
+      ["viaFile", "file"],
+    ],
+  );
+});
+
+test("a registry entry on a custom NPM_REGISTRY_URL origin is allowed, and the public registry then is not", () => {
+  const packages = {
+    "node_modules/mirrored": { version: "1.0.0", resolved: "http://localhost:4873/mirrored/-/mirrored-1.0.0.tgz" },
+    "node_modules/public": { version: "1.0.0", resolved: "https://registry.npmjs.org/public/-/public-1.0.0.tgz" },
+  };
+  assert.deepEqual(kindsOf(packages, "http://localhost:4873"), [["public", "tarball"]]);
+  assert.deepEqual(kindsOf(packages), [["mirrored", "tarball"]]);
 });
 
 test("read errors other than a missing file or bad JSON surface", () => {

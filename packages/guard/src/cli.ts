@@ -36,7 +36,7 @@ export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: 
     fallbackMinAgeDays: numberFrom(env, "GUARD_FALLBACK_MIN_AGE_DAYS", 1),
     minAgeDays: numberFrom(env, "GUARD_MIN_AGE_DAYS", 0) ?? 0,
     registryUrl: textFrom(env, "NPM_REGISTRY_URL"),
-    allowGitDependencies: flagFrom(env, "GUARD_ALLOW_GIT_DEPENDENCIES"),
+    allowNonRegistrySources: flagFrom(env, "GUARD_ALLOW_NON_REGISTRY_SOURCES"),
     chainId: numberFrom(env, "CHAIN_ID", 1),
     rpcUrl: textFrom(env, "RPC_URL"),
     registryAddress: textFrom(env, "REGISTRY_ADDRESS") as Address | null,

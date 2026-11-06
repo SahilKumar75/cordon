@@ -7,7 +7,7 @@ function stopReasonOf(report) {
   const [young] = report.tooYoung;
   if (report.outcome === "unavailable") return uncheckedReason;
   if (sealed) return `${sealed.name}@${sealed.version} is sealed`;
-  if (report.gitDependencies.length > 0) return "a git dependency is installed";
+  if (report.nonRegistrySources.length > 0) return "a git dependency is installed";
   if (young) return `${young.name}@${young.version} is newer than the age limit and the sealed list is unavailable`;
   return uncheckedReason;
 }

@@ -131,7 +131,7 @@ test("audit lists editor and coding agent hook files and the files they call, se
     ],
   );
   assert.equal(report.blocked.length, 1);
-  assert.deepEqual(report.gitDependencies, []);
+  assert.deepEqual(report.nonRegistrySources, []);
   assert.match(report.advice[0] ?? "", /Inspect and remove the editor and coding agent hook files.*before revoking any token/);
   assert.deepEqual(report.advice.slice(1), installedAdvice);
 });
@@ -154,9 +154,9 @@ test("audit lists installed git dependencies, blocks by default and honours the 
   const blocked = await audit(auditSettings({ paths: [root] }));
   guardReportSchema.parse(blocked);
   assert.equal(blocked.outcome, "blocked");
-  assert.deepEqual(blocked.gitDependencies.map(({ name, resolved }) => [name, resolved]), [["fromGit", "github:org/fromGit#abc"]]);
-  assert.match(blocked.advice[0] ?? "", /resolved from git and block the outcome/);
-  const allowed = await audit({ ...auditSettings({ paths: [root] }), allowGitDependencies: true });
+  assert.deepEqual(blocked.nonRegistrySources.map(({ name, resolved, kind }) => [name, resolved, kind]), [["fromGit", "github:org/fromGit#abc", "commit"]]);
+  assert.match(blocked.advice[0] ?? "", /fromGit@1\.0\.0 \(commit\).*block the outcome/);
+  const allowed = await audit({ ...auditSettings({ paths: [root] }), allowNonRegistrySources: true });
   assert.equal(allowed.outcome, "allowed");
-  assert.match(allowed.advice[0] ?? "", /allowed by GUARD_ALLOW_GIT_DEPENDENCIES/);
+  assert.match(allowed.advice[0] ?? "", /allowed by GUARD_ALLOW_NON_REGISTRY_SOURCES/);
 });

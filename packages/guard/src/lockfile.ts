@@ -1,3 +1,4 @@
+import type { GuardReport } from "@cordon/shared";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 
@@ -13,12 +14,38 @@ export const hiddenLockfileName = ".package-lock.json";
 
 export const maxLockfileBytes = 64 * 1024 * 1024;
 
-const gitSourcePattern = /^(git\+|git:|github:|https?:\/\/codeload\.github\.com\/)/;
+export const defaultRegistryUrl = "https://registry.npmjs.org";
+
+export type NonRegistrySource = GuardReport["nonRegistrySources"][number];
+
+type SourceKind = NonRegistrySource["kind"];
+
+const gitPattern = /^git(\+[a-z]+)?:/;
+const githubPattern = /^(github:|https?:\/\/codeload\.github\.com\/)|^[\w.]+\/[\w.]+(#.*)?$/;
+const semverPattern = /^\d+\.\d+\.\d+([+-][\w.]+)*$/;
 
 type PackageEntry = { name?: unknown; version?: unknown; link?: unknown; resolved?: unknown };
 
-export function isGitSource(entry: LockEntry): boolean {
-  return gitSourcePattern.test(entry.resolved ?? "") || gitSourcePattern.test(entry.version);
+function originOf(url: string): string | null {
+  return URL.canParse(url) ? new URL(url).origin : null;
+}
+
+export function sourceKindOf(entry: LockEntry, registryUrl: string): SourceKind | null {
+  const source = entry.resolved ?? entry.version;
+  if (gitPattern.test(source) || githubPattern.test(source)) {
+    if (source.includes("#")) return "commit";
+    return gitPattern.test(source) ? "git" : "github";
+  }
+  if (source.startsWith("file:")) return "file";
+  if (/^https?:\/\//.test(source)) return originOf(source) === originOf(registryUrl) ? null : "tarball";
+  return semverPattern.test(source) ? null : "other";
+}
+
+export function nonRegistrySourcesOf(entries: LockEntry[], lockfilePath: string, registryUrl: string): NonRegistrySource[] {
+  return entries.flatMap((entry) => {
+    const kind = sourceKindOf(entry, registryUrl);
+    return kind ? [{ name: entry.name, version: entry.version, resolved: entry.resolved ?? entry.version, kind, lockfilePath }] : [];
+  });
 }
 
 export function resolveLockfilePath(target: string): string {

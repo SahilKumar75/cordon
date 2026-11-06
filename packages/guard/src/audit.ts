@@ -2,8 +2,16 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { Parser, list as listTar, type ReadEntry } from "tar";
 import { productName, sealKeyOf, type GuardReport } from "@cordon/shared";
-import { adviceFor, gitVerdict, type GuardSettings } from "./check.ts";
-import { hiddenLockfileName, isGitSource, lockfileNames, readJson, readLockfile } from "./lockfile.ts";
+import { adviceFor, nonRegistryVerdict, type GuardSettings } from "./check.ts";
+import {
+  defaultRegistryUrl,
+  hiddenLockfileName,
+  lockfileNames,
+  nonRegistrySourcesOf,
+  readJson,
+  readLockfile,
+  type NonRegistrySource,
+} from "./lockfile.ts";
 import { packumentReader } from "./registry.ts";
 import { proposeRollbacks } from "./rollback.ts";
 import { loadSealedList } from "./sealedList.ts";
@@ -14,7 +22,7 @@ type Found = { name: string; version: string; source: string };
 
 type HookFile = GuardReport["hookFiles"][number];
 
-type Scan = { found: Found[]; problems: string[]; hookFiles: HookFile[]; git?: GuardReport["gitDependencies"] };
+type Scan = { found: Found[]; problems: string[]; hookFiles: HookFile[]; sources?: NonRegistrySource[] };
 
 type ClaudeSettings = { hooks?: Record<string, { hooks?: { command?: unknown }[] }[]> };
 
@@ -76,7 +84,7 @@ function vscodeHookFiles(file: string): HookFile[] {
   return [file, ...referencedFiles(dirname(dirname(file)), words)].map((path) => ({ path, tool: "vscode" }));
 }
 
-function scanPath(dir: string): Scan {
+function scanPath(dir: string, registryUrl: string): Scan {
   if (!existsSync(dir)) return { found: [], problems: [`no directory at ${dir}`], hookFiles: [] };
   const files = filesUnder(dir);
   const auditedNames = [...lockfileNames, hiddenLockfileName];
@@ -87,11 +95,7 @@ function scanPath(dir: string): Scan {
   });
   return {
     found: reads.flatMap((read) => (read.ok ? read.entries.map(({ name, version }) => ({ name, version, source: read.path })) : [])),
-    git: reads.flatMap((read) =>
-      read.ok
-        ? read.entries.filter(isGitSource).map(({ name, version, resolved }) => ({ name, version, resolved: resolved ?? version, lockfilePath: read.path }))
-        : [],
-    ),
+    sources: reads.flatMap((read) => (read.ok ? nonRegistrySourcesOf(read.entries, read.path, registryUrl) : [])),
     problems: reads.flatMap((read) => (read.ok ? [] : [read.reason])),
     hookFiles,
   };
@@ -208,13 +212,13 @@ async function scanImage(file: string): Promise<Scan> {
 
 export async function audit(settings: AuditSettings): Promise<GuardReport> {
   const scans = [
-    ...settings.paths.map(scanPath),
+    ...settings.paths.map((path) => scanPath(path, settings.registryUrl ?? defaultRegistryUrl)),
     ...settings.cacheDirs.map(scanCache),
     ...(await Promise.all(settings.dockerImages.map(scanImage))),
   ];
   const found = scans.flatMap((scan) => scan.found);
-  const gitDependencies = scans.flatMap((scan) => scan.git ?? []);
-  const git = gitVerdict(gitDependencies, settings.allowGitDependencies);
+  const sources = scans.flatMap((scan) => scan.sources ?? []);
+  const git = nonRegistryVerdict(sources, settings.allowNonRegistrySources);
   const hookFiles = [...new Map(scans.flatMap((scan) => scan.hookFiles).map((hook) => [hook.path, hook])).values()];
   const list = await loadSealedList(settings);
   const problems = [...scans.flatMap((scan) => scan.problems), ...(list.source === "none" ? ["The Sealed list was unavailable, so installed versions could not be checked."] : [])];
@@ -235,7 +239,7 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     fallback: null,
     packagesChecked: found.length,
     blocked,
-    gitDependencies,
+    nonRegistrySources: sources,
     hookFiles,
     tooYoung: [],
     rollback,

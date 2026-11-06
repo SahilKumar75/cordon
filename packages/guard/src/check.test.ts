@@ -235,12 +235,12 @@ test("install passes the npm git setting only when the installed npm supports it
   assert.equal(newer.versionReads, 1);
 });
 
-test("install sets allow-git to none on npm 11.9.0 and later, and npm 10 gets no flag", async () => {
-  assert.deepEqual(npmGitSetting, { name: "allow-git", minimumVersion: "11.9.0" });
+test("install sets allow-git to none on npm 11.10.0 and later, and npm 10 gets no flag", async () => {
+  assert.deepEqual(npmGitSetting, { name: "allow-git", minimumVersion: "11.10.0" });
   const clean = tempDir();
   writeLockfile(clean, { "node_modules/widget": { version: "3.0.0" } });
   const runs = await Promise.all(
-    ["10.9.2", "11.8.0", "11.9.0", "12.0.0"].map(async (version) => {
+    ["10.9.2", "11.9.0", "11.10.0", "12.0.0"].map(async (version) => {
       const npm = recordingNpm(version);
       await installChecked(settingsFor(clean, { transport: sealedChain }), npm);
       return [version, npm.calls[0]?.args.join(" ")];
@@ -248,8 +248,8 @@ test("install sets allow-git to none on npm 11.9.0 and later, and npm 10 gets no
   );
   assert.deepEqual(runs, [
     ["10.9.2", "ci --ignore-scripts"],
-    ["11.8.0", "ci --ignore-scripts"],
-    ["11.9.0", "ci --ignore-scripts --allow-git=none"],
+    ["11.9.0", "ci --ignore-scripts"],
+    ["11.10.0", "ci --ignore-scripts --allow-git=none"],
     ["12.0.0", "ci --ignore-scripts --allow-git=none"],
   ]);
 });
@@ -269,25 +269,25 @@ test("git dependencies are listed and block by default", async () => {
   guardReportSchema.parse(report);
   assert.equal(report.outcome, "blocked");
   assert.equal(exitCode, 1);
-  assert.deepEqual(report.gitDependencies.map(({ name, resolved }) => [name, resolved]), [["fromGit", "git+ssh://git@github.com/org/fromGit.git#abc"]]);
-  assert.match(report.advice[0] ?? "", /block the outcome/);
+  assert.deepEqual(report.nonRegistrySources.map(({ name, resolved, kind }) => [name, resolved, kind]), [["fromGit", "git+ssh://git@github.com/org/fromGit.git#abc", "commit"]]);
+  assert.match(report.advice[0] ?? "", /fromGit@1\.0\.0 \(commit\).*block the outcome/);
   assert.deepEqual(spawner.calls, []);
 });
 
-test("GUARD_ALLOW_GIT_DEPENDENCIES turns the git block into a warning", async () => {
-  const report = await checkLockfile(settingsFor(gitLockfile(), { transport: sealedChain, allowGitDependencies: true }));
+test("GUARD_ALLOW_NON_REGISTRY_SOURCES turns the block into a warning", async () => {
+  const report = await checkLockfile(settingsFor(gitLockfile(), { transport: sealedChain, allowNonRegistrySources: true }));
   assert.equal(report.outcome, "allowed");
-  assert.equal(report.gitDependencies.length, 1);
-  assert.match(report.advice[0] ?? "", /allowed by GUARD_ALLOW_GIT_DEPENDENCIES/);
+  assert.equal(report.nonRegistrySources.length, 1);
+  assert.match(report.advice[0] ?? "", /allowed by GUARD_ALLOW_NON_REGISTRY_SOURCES/);
 });
 
-test("every check report carries empty gitDependencies and hookFiles when there are none", async () => {
+test("every check report carries empty nonRegistrySources and hookFiles when there are none", async () => {
   const dir = tempDir();
   writeLockfile(dir, { "node_modules/widget": { version: "3.0.0" } });
   const report = await checkLockfile(settingsFor(dir, { transport: sealedChain }));
-  assert.deepEqual([report.gitDependencies, report.hookFiles], [[], []]);
+  assert.deepEqual([report.nonRegistrySources, report.hookFiles], [[], []]);
   const unavailable = await checkLockfile(settingsFor(tempDir(), { transport: sealedChain }));
-  assert.deepEqual([unavailable.gitDependencies, unavailable.hookFiles], [[], []]);
+  assert.deepEqual([unavailable.nonRegistrySources, unavailable.hookFiles], [[], []]);
 });
 
 test("nothing is sent anywhere unless both report settings are set", async () => {
@@ -316,4 +316,25 @@ test("a configured report is posted signed with guardReportDigestOf", async () =
   assert.equal(signed.signer, privateKeyToAccount(privateKey).address);
   const valid = await verifyMessage({ address: signed.signer as `0x${string}`, message: { raw: guardReportDigestOf(signed.report) }, signature: signed.signature as `0x${string}` });
   assert.equal(valid, true);
+});
+
+test("workspace links and registry entries on a custom registry pass check", async () => {
+  const dir = tempDir();
+  writeLockfile(dir, {
+    "node_modules/local": { resolved: "packages/local", link: true },
+    "packages/local": { name: "local", version: "1.0.0" },
+    "node_modules/mirrored": { version: "1.0.0", resolved: "http://localhost:4873/mirrored/-/mirrored-1.0.0.tgz" },
+  });
+  const report = await checkLockfile(settingsFor(dir, { transport: sealedChain, registryUrl: "http://localhost:4873" }));
+  assert.equal(report.outcome, "allowed");
+  assert.deepEqual(report.nonRegistrySources, []);
+});
+
+test("a tarball outside the registry blocks check and is reported", async () => {
+  const dir = tempDir();
+  writeLockfile(dir, { "node_modules/viaTarball": { version: "1.0.0", resolved: "https://cdn.example.com/viaTarball-1.0.0.tgz" } });
+  const report = await checkLockfile(settingsFor(dir, { transport: sealedChain }));
+  guardReportSchema.parse(report);
+  assert.equal(report.outcome, "blocked");
+  assert.deepEqual(report.nonRegistrySources, [{ name: "viaTarball", version: "1.0.0", resolved: "https://cdn.example.com/viaTarball-1.0.0.tgz", kind: "tarball", lockfilePath: join(dir, "package-lock.json") }]);
 });

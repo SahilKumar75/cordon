@@ -16,14 +16,14 @@ Cordon does not claim npm 12 support. npm 12.0.0 adds lockfileVersion 4 and drop
 
 ## Git dependencies
 
-Any lockfile entry resolved from git or GitHub is treated as high risk and blocks the outcome by default. GUARD_ALLOW_GIT_DEPENDENCIES=true turns the block into a warning. The reason is that disabling install scripts does not stop every way a git dependency can run code. The research records two mechanisms ([edge cases, section 9](research/edge_cases.md#9-git-dependency-mechanisms-that-run-code-without-lifecycle-scripts)):
+Any lockfile entry resolved from git or GitHub is treated as high risk and blocks the outcome by default. GUARD_ALLOW_NON_REGISTRY_SOURCES=true turns the block into a warning. The reason is that disabling install scripts does not stop every way a git dependency can run code. The research records two mechanisms ([edge cases, section 9](research/edge_cases.md#9-git-dependency-mechanisms-that-run-code-without-lifecycle-scripts)):
 
 1. pnpm 10.0.0 up to but not including 10.26.0 ran prepare scripts when fetching a git dependency. Verified. GHSA-379q-355j-w6rj affects pnpm 10.0.0 up to but not including 10.26.0. The fetch phase never consults the onlyBuiltDependencies allowlist; only ignoreScripts stops it there.
 2. A git dependency can ship an npmrc that replaces the git binary, so npm runs an attacker script when it prepares a nested git dependency, even with --ignore-scripts. Reported, not reproduced by us, and not verified against a primary source.
 
 The TanStack payload arrived the same way, through an optionalDependencies entry pointing at a github: commit whose prepare script ran on install ([incidents](research/incidents.md#tanstack-npm-compromise-11-may-2026)). Source reading also shows npm 10 and 11 may run prepare for git dependencies despite --ignore-scripts; that was checked in source only, not by running an install ([edge cases, section 4](research/edge_cases.md#4-install-scripts-disabled-does-not-cover-git-dependency-prepare-on-npm-10-and-11)).
 
-npm has a setting, allow-git, that stops git dependencies from being fetched. It first appears in npm 11.9.0. npm 10, which Node 22 bundles, does not have it, so on npm 10 the guard's block is the only protection Cordon offers on this path.
+npm has a setting, allow-git, that stops git dependencies from being fetched. Cordon passes it from npm 11.10.0, the first version the GitHub changelog lists; the npm CLI changelog says 11.9.0, but the npm docs do not confirm either, so we use the stricter one. npm 10, which Node 22 bundles, does not have it, so on npm 10 the guard's block is the only protection Cordon offers on this path.
 
 ## advisoryFeed reads MAL ids only
 
