@@ -22,10 +22,11 @@ Solidity 0.8.24 with Foundry and OpenZeppelin v5 AccessControl for SealRegistry,
 
 ## Links
 
-1. GitHub: https://github.com/SahilKumar75/cordon (public at Gate A)
-2. Demo video: uploaded to ETHGlobal.com (team fills)
-3. Live demo: the read only dashboard URL, if it was hosted (team fills; see docs/final_report.md)
-4. Contract: SealRegistry on Base Sepolia, https://sepolia.basescan.org/address/0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F
+1. Demonstration link: https://www.npmjs.com/package/npmcordon, the guard published on npm; `npx npmcordon check` reads the live Base Sepolia SealRegistry
+2. GitHub: https://github.com/SahilKumar75/cordon
+3. Demo video: uploaded to ETHGlobal.com (team fills)
+4. Dashboard: not hosted; it runs locally and is shown in the video
+5. Contract: SealRegistry on Base Sepolia, https://sepolia.basescan.org/address/0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F
 
 ## Category
 

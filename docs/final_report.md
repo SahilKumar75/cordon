@@ -15,7 +15,11 @@ What was done in the last sprint before the 09:00 IST deadline, what was skipped
 1. The team funded the deployer with 0.05 Base Sepolia ETH at about 04:10. SealRegistry 0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F was deployed at block 55415999 and verified on Sourcify; @cordondemo/colorkit 1.4.1 was sealed by two team detector keys; the guard blocked it against the public RPC and again with the RPC off. Details in docs/testnet_proof.md.
 2. Arkiv: the writer wallet 0xDe760446b5a7fFf40f17625f77d4165BaA013Fc9 still held 0 tGLM at 04:20, so no entity was written. Arkiv is marked planned in the README and removed from the prize list.
 
-## Free hosting for the read only dashboard (team does these steps)
+## npm package
+
+The guard was published on npm as npmcordon 0.1.0 by the team's account sahilksingh on 7 Nov 2026 about 05:05, after the team enabled two factor authentication and approved the publish. `npx npmcordon@0.1.0 check` from a clean folder blocked @cordondemo/colorkit 1.4.1 against the Base Sepolia registry, exit 1. Built with ops/packGuard.sh.
+
+## Free hosting for the read only dashboard, not used (team does these steps)
 
 Untested on the host itself. The same production build, with the values below, was served locally on 7 Nov about 04:25 and read one sealed version from the Base Sepolia registry through https://sepolia.base.org; the seal time and vote count show as unknown in this mode because they come from the watcher.
 

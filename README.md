@@ -143,6 +143,17 @@ Limits that weaken these properties:
 
 Limits first: npm lockfile v2 and v3 only, one operator runs every detector and the guardian key today, and this is a testnet prototype. Do not rely on it to protect production.
 
+The guard is published on npm as [npmcordon](https://www.npmjs.com/package/npmcordon) (the name cordon was taken). It needs Node 22 and no clone:
+
+```sh
+export CHAIN_ID=84532 RPC_URL=https://sepolia.base.org
+export REGISTRY_ADDRESS=0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F REGISTRY_START_BLOCK=55415999
+export GUARD_CACHE_DIR=$HOME/.cordon
+npx npmcordon check --lockfile /path/to/your/project
+```
+
+Or run it from a clone:
+
 ```sh
 git clone https://github.com/SahilKumar75/cordon && cd cordon
 pnpm install
