@@ -9,7 +9,6 @@ import type {
 import type {
   apiErrorSchema,
   attestationSchema,
-  demoPublishRequestSchema,
   detectorInfoSchema,
   evidenceSchema,
   findingSchema,
@@ -17,7 +16,6 @@ import type {
   guardReportSchema,
   packageVersionSchema,
   registryChangeSchema,
-  replayRequestSchema,
   replayTimelineSchema,
   reportAckSchema,
   scanRequestSchema,
@@ -41,7 +39,6 @@ export type ListSource = (typeof listSources)[number];
 
 export type PackageVersion = z.infer<typeof packageVersionSchema>;
 export type ScanRequest = z.infer<typeof scanRequestSchema>;
-export type ReplayRequest = z.infer<typeof replayRequestSchema>;
 export type ReplayTimeline = z.infer<typeof replayTimelineSchema>;
 export type Finding = z.infer<typeof findingSchema>;
 export type Evidence = z.infer<typeof evidenceSchema>;
@@ -49,7 +46,6 @@ export type Verdict = z.infer<typeof verdictSchema>;
 export type Attestation = z.infer<typeof attestationSchema>;
 export type DetectorInfo = z.infer<typeof detectorInfoSchema>;
 export type RegistryChange = z.infer<typeof registryChangeSchema>;
-export type DemoPublishRequest = z.infer<typeof demoPublishRequestSchema>;
 export type ScanResponse = z.infer<typeof scanResponseSchema>;
 export type SealEntry = z.infer<typeof sealEntrySchema>;
 export type SealedSnapshot = z.infer<typeof sealedSnapshotSchema>;

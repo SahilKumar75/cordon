@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
@@ -39,6 +39,7 @@ env.set("GUARD_REPORTER_ADDRESSES", addressOf("GUARD_REPORTER_PRIVATE_KEY"));
 env.set("GUARD_SNAPSHOT_SIGNER", addressOf("SNAPSHOT_SIGNER_PRIVATE_KEY"));
 
 writeFileSync(envPath, [...env].map(([key, value]) => `${key}=${value}`).join("\n") + "\n", { mode: 0o600 });
+chmodSync(envPath, 0o600);
 
 for (const { key, label } of roles) {
   process.stdout.write(`${label.padEnd(50)} ${addressOf(key)}${added.some((role) => role.key === key) ? "  (new)" : ""}\n`);

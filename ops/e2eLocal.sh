@@ -22,6 +22,9 @@ watcherUrl="http://127.0.0.1:$watcherPort"
 detectorsUrl="http://127.0.0.1:$detectorsPort"
 demoPackage=@cordondemo/colorkit
 sealedVersion=1.4.1
+hold=false
+[ "${1:-}" != --hold ] || hold=true
+dashboardUrl=http://127.0.0.1:3000
 createdDemoEnv=false
 createdDeployment=false
 results=()
@@ -127,7 +130,7 @@ teardown() {
 say "preflight"
 [ ! -e "$demoEnv" ] || { echo "demo/demo.env already exists, move it aside first" >&2; exit 1; }
 [ ! -f "$repoDir/demo/logs/pids" ] || { echo "demo is running, run demo/stop.sh first" >&2; exit 1; }
-for port in $anvilPort $detectorsPort $watcherPort 4873 4880 4101 4102 4103 4201 4202 4203; do
+for port in $anvilPort $detectorsPort $watcherPort 4873 4880 4101 4102 4103 4201 4202 4203 3000; do
   ! lsof -nP -iTCP:"$port" -sTCP:LISTEN > /dev/null 2>&1 || { echo "port $port is in use" >&2; exit 1; }
 done
 rm -rf "$runDir"
@@ -215,6 +218,21 @@ waitUntil "first signed snapshot" 30 curl -fs "$watcherUrl/snapshot"
 waitUntil "ordersApi serves before publish" 30 serviceAnswers 4101 200 orders
 waitUntil "watcher scans startup version 1.4.0" 180 evidenceAtLeast 2
 pass "detectors :$detectorsPort, watcher :$watcherPort, mock registry, canary sink, 3 services with sidecars, 1.4.0 scanned clean"
+
+if [ "$hold" = true ]; then
+  say "dashboard"
+  launch dashboard env NEXT_PUBLIC_CHAIN_ID=31337 NEXT_PUBLIC_RPC_URL="$rpcUrl" NEXT_PUBLIC_EXPLORER_URL="$rpcUrl" NEXT_PUBLIC_NATIVE_SYMBOL=ETH \
+    NEXT_PUBLIC_REGISTRY_ADDRESS="$registryAddress" NEXT_PUBLIC_WATCHER_URL="$watcherUrl" NEXT_PUBLIC_DETECTORS_URL="$detectorsUrl" \
+    NEXT_PUBLIC_DEMO=true NEXT_PUBLIC_MOCK_REGISTRY_URL="$MOCK_REGISTRY_URL" NEXT_PUBLIC_SNAPSHOT_SIGNER="$SNAPSHOT_SIGNER_ADDRESS" \
+    pnpm --filter @cordon/dashboard dev
+  waitUntil "dashboard answers" 180 curl -fs "$dashboardUrl"
+  pass "dashboard $dashboardUrl"
+  echo
+  echo "The local stack is up. Open $dashboardUrl/demo and publish $demoPackage@$sealedVersion."
+  echo "Guard commands need this environment first: set -a; . demo/demo.env; set +a"
+  echo "Press Ctrl+C to stop everything and clean up."
+  while true; do sleep 3600; done
+fi
 
 say "3. publish $demoPackage@$sealedVersion and watch it seal"
 sealKey=$(castCall 'keyOf(string,string,string)(bytes32)' npm "$demoPackage" "$sealedVersion")

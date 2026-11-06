@@ -104,7 +104,7 @@ interface ISealRegistry {
 ## Detectors service (services/detectors, Fastify on DETECTORS_PORT)
 
 1. POST /scan, body ScanRequest, response ScanResponse. Detectors run independently: one that fails (for example OSV unreachable) is listed under failures and the others still report and vote. Runs staticScripts on the tarball, sandboxCanary only when the tarball comes from the demo registry (below), and advisoryFeed on the name and version. Writes each Evidence to EVIDENCE_DIR/{evidenceHash}.json. Each malicious result goes to the signer.
-2. POST /replay, body ReplayRequest, response ReplayTimeline. Timeline only, for a real historical advisory: every event comes from a machine readable public source (OSV advisory published and modified times, and publish times from the public npm registry, never NPM_REGISTRY_URL) and carries its sourceUrl. Reading registry metadata never downloads a tarball. It never downloads or runs the real package, never submits a verdict, and never writes to REGISTRY_ADDRESS or any other chain. Every replay is labelled as a replay wherever it is shown.
+2. POST /replay, body replayRequestSchema ({ advisoryId }), response ReplayTimeline. Timeline only, for a real historical advisory: every event comes from a machine readable public source (OSV advisory published and modified times, and publish times from the public npm registry, never NPM_REGISTRY_URL) and carries its sourceUrl. Reading registry metadata never downloads a tarball. It never downloads or runs the real package, never submits a verdict, and never writes to REGISTRY_ADDRESS or any other chain. Every replay is labelled as a replay wherever it is shown.
 3. GET /evidence/:evidenceHash, response Evidence.
 4. GET /detectors, response DetectorInfo[]. Every demo detector has simulated true.
 5. GET /health, response { ok: true }.
@@ -231,7 +231,7 @@ Every simulated detector, verdict, stopwatch and exfiltration is labelled simula
 
 ## Demo (demo/)
 
-1. mockRegistry (MOCK_REGISTRY_PORT, a dependency free node process bound to 127.0.0.1; the sandbox never needs it because the tarball is copied in): the npm registry endpoints npm needs for packuments and tarballs, plus GET /_changes?since=seq (RegistryChange[]), POST /_demo/publish (DemoPublishRequest) and POST /_demo/reset. Storage under demo/mockRegistry/storage, ignored by git.
+1. mockRegistry (MOCK_REGISTRY_PORT, a dependency free node process bound to 127.0.0.1; the sandbox never needs it because the tarball is copied in): the npm registry endpoints npm needs for packuments and tarballs, plus GET /_changes?since=seq (RegistryChange[]), POST /_demo/publish (demoPublishRequestSchema) and POST /_demo/reset. Storage under demo/mockRegistry/storage, ignored by git.
 2. poisonedPackage: @cordondemo/colorkit. Version 1.4.0 has no scripts. Version 1.4.1 has a dependency free postinstall that reads only the CANARY_TOKEN env value, writes it to a file in the OS temp folder, and posts it to CANARY_SINK_URL only when that URL's host is localhost, 127.0.0.1 or canarysink (the container name); any other host means it does nothing. Nothing else. Outside the pnpm workspace, never installed outside the sandbox or the demo services.
 3. canarySink: a dependency free Node script outside the pnpm workspace. It runs either as a container on the internal sandbox network (for sandboxCanary) or on the host bound to 127.0.0.1 only (for the demo services). It is never reachable from outside the machine. POST /collect stores what arrives; GET /received?token= answers { received, at }; GET /received lists everything. Labelled simulated exfiltration.
 4. services: ordersApi, searchApi and notifyWorker, each a tiny HTTP service outside the pnpm workspace with its own package-lock.json resolved from mockRegistry, each behind a guard sidecar and answering 503 with a plain message while its sidecar is unhealthy. searchApi stays on 1.4.0 to show that sealing is per version.
@@ -262,7 +262,7 @@ tests/chaos, failure behaviour end to end on a local anvil chain:
 All variables are listed with empty values in .env.example. For Base Sepolia: chain id 84532, explorer sepolia.basescan.org, native symbol ETH. Changing chain means changing env only.
 
 1. CHAIN_ID, RPC_URL, EXPLORER_URL, NATIVE_SYMBOL: contracts, detectors, watcher, guard.
-2. DEPLOYER_PRIVATE_KEY, GUARDIAN_ADDRESS, DETECTOR_ADDRESSES, QUORUM, DISPUTE_WINDOW_SECONDS, MAX_SEALS_PER_DAY, ETHERSCAN_API_KEY: contracts.
+2. DEPLOYER_PRIVATE_KEY, GUARDIAN_ADDRESS, DETECTOR_ADDRESSES, QUORUM, DISPUTE_WINDOW_SECONDS, MAX_SEALS_PER_DAY: contracts.
 3. REGISTRY_ADDRESS: detectors, watcher, guard.
 4. STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY, DETECTORS_PORT, EVIDENCE_DIR, SANDBOX_IMAGE, OSV_API_URL: detectors.
 5. MOCK_REGISTRY_URL: detectors (sandbox allow rule).

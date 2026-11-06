@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const repoDir = join(import.meta.dirname, "..");
@@ -18,6 +18,7 @@ function readEnv(path: string): Map<string, string> {
 
 function writeEnv(path: string, env: Map<string, string>): void {
   writeFileSync(path, [...env].map(([key, value]) => `${key}=${value}`).join("\n") + "\n", { mode: 0o600 });
+  chmodSync(path, 0o600);
 }
 
 const env = readEnv(envPath);
@@ -60,7 +61,7 @@ writeEnv(envPath, env);
 const demoEnv = readEnv(join(repoDir, "demo", "demo.env.example"));
 for (const [key, value] of readEnv(demoEnvPath)) if (value) demoEnv.set(key, value);
 for (const key of ["CHAIN_ID", "RPC_URL", "EXPLORER_URL", "NATIVE_SYMBOL", "GUARD_SNAPSHOT_URL", "GUARD_SNAPSHOT_SIGNER", "GUARD_SNAPSHOT_MAX_AGE_SECONDS", "GUARD_CACHE_DIR", "GUARD_REPORT_URL", "GUARD_REPORTER_PRIVATE_KEY"]) {
-  if (!demoEnv.get(key)) demoEnv.set(key, env.get(key) ?? "");
+  demoEnv.set(key, env.get(key) ?? "");
 }
 demoEnv.set("REGISTRY_ADDRESS", registry);
 writeEnv(demoEnvPath, demoEnv);

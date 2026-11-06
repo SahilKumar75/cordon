@@ -34,7 +34,7 @@ test("no tracked file contains a secret", () => {
 });
 
 test("the env file and key files are ignored by git", () => {
-  for (const path of [".env", ".env.local", "demo/demo.env", "keys/deployer.key", "signer.pem"]) {
+  for (const path of [".env", ".env.local", "demo/demo.env", "ops/keys/local.env", "data/deployTestnet.log", "keys/deployer.key", "signer.pem"]) {
     assert.doesNotThrow(() => execFileSync("git", ["check-ignore", "--quiet", path], { cwd: repoRoot }), `${path} is not ignored`);
   }
 });
