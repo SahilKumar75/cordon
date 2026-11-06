@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Evidence, ScanRequest } from "@bulkhead/shared";
 
-export type DockerResult = { code: number; stdout: string; stderr: string };
+export type DockerResult = { code: number; stdout: string; stderr: string; timedOut?: boolean };
 export type DockerRunner = (args: string[], timeoutMs?: number) => Promise<DockerResult>;
 
 export const sandboxNetwork = "bulkhead_sandbox";
@@ -28,7 +28,7 @@ export const runDocker: DockerRunner = (args, timeoutMs) =>
   new Promise((resolve) => {
     execFile("docker", args, { timeout: timeoutMs, maxBuffer: 10_000_000 }, (error, stdout, stderr) => {
       const code = error ? (typeof error.code === "number" ? error.code : 1) : 0;
-      resolve({ code, stdout, stderr });
+      resolve({ code, stdout, stderr, timedOut: Boolean(error?.killed) });
     });
   });
 
@@ -52,13 +52,19 @@ async function must(docker: DockerRunner, args: string[], timeoutMs?: number): P
   return result.stdout;
 }
 
-async function ensureSandbox(docker: DockerRunner): Promise<void> {
-  if ((await docker(["network", "inspect", sandboxNetwork])).code !== 0) {
-    await must(docker, ["network", "create", "--internal", sandboxNetwork]);
-  }
-  const state = await docker(["inspect", "--format", "{{.State.Running}}", sinkContainer]);
-  if (state.code !== 0) await must(docker, sinkArgs());
-  else if (state.stdout.trim() !== "true") await must(docker, ["start", sinkContainer]);
+async function ensureInternalNetwork(docker: DockerRunner): Promise<void> {
+  const inspected = await docker(["network", "inspect", "--format", "{{.Internal}}", sandboxNetwork]);
+  if (inspected.code !== 0) await must(docker, ["network", "create", "--internal", sandboxNetwork]);
+  else if (inspected.stdout.trim() !== "true") throw new Error(`docker network ${sandboxNetwork} exists but is not internal, refusing to run the sandbox`);
+}
+
+const recreatedSinks = new WeakMap<DockerRunner, Promise<string>>();
+
+function recreateSinkOnce(docker: DockerRunner): Promise<string> {
+  const ready = recreatedSinks.get(docker) ?? docker(["rm", "--force", sinkContainer]).then(() => must(docker, sinkArgs()));
+  recreatedSinks.set(docker, ready);
+  ready.catch(() => recreatedSinks.delete(docker));
+  return ready;
 }
 
 async function installInSandbox(docker: DockerRunner, image: string, tarball: Buffer, token: string): Promise<void> {
@@ -68,23 +74,22 @@ async function installInSandbox(docker: DockerRunner, image: string, tarball: Bu
     await writeFile(join(folder, "package.tgz"), tarball);
     await must(docker, installArgs(image, container, token));
     await must(docker, ["cp", join(folder, "package.tgz"), `${container}:${tarballPath}`]);
-    await docker(["start", "--attach", container], installTimeoutMs);
+    const run = await docker(["start", "--attach", container], installTimeoutMs);
+    if (run.code !== 0 && !run.timedOut) throw new Error(`sandbox install exited with code ${run.code}: ${run.stderr.trim().slice(-500)}`);
   } finally {
     await docker(["rm", "--force", container]);
     await rm(folder, { recursive: true, force: true });
   }
 }
 
-async function askSink(docker: DockerRunner, token: string): Promise<{ received: boolean; at: string | null }> {
-  const url = `http://127.0.0.1:8080/received?token=${encodeURIComponent(token)}`;
-  return JSON.parse(await must(docker, ["exec", sinkContainer, "wget", "-q", "-O", "-", url]));
-}
-
 export async function scanSandbox(request: ScanRequest, tarball: Buffer, image: string, docker: DockerRunner): Promise<Evidence> {
   const token = randomBytes(24).toString("hex");
-  await ensureSandbox(docker);
+  await ensureInternalNetwork(docker);
+  await recreateSinkOnce(docker);
   await installInSandbox(docker, image, tarball, token);
-  const { received, at } = await askSink(docker, token);
+  const receivedUrl = `http://127.0.0.1:8080/received?token=${encodeURIComponent(token)}`;
+  const answer = await must(docker, ["exec", sinkContainer, "wget", "-q", "-O", "-", receivedUrl]);
+  const { received, at } = JSON.parse(answer) as { received: boolean; at: string | null };
   return {
     name: request.name,
     version: request.version,

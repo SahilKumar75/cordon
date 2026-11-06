@@ -30,10 +30,6 @@ async function getJson(fetchImpl: FetchLike, url: string, body?: unknown): Promi
   return response.json();
 }
 
-function affectsExactly(vuln: OsvVuln, { name, version }: PackageVersion): boolean {
-  return vuln.affected.some((entry) => entry.package.ecosystem === ecosystem && entry.package.name === name && (entry.versions ?? []).includes(version));
-}
-
 export async function queryOsv(osvApiUrl: string, target: PackageVersion, fetchImpl: FetchLike): Promise<OsvVuln[]> {
   const vulns: OsvVuln[] = [];
   let pageToken: string | undefined;
@@ -43,7 +39,9 @@ export async function queryOsv(osvApiUrl: string, target: PackageVersion, fetchI
     vulns.push(...page.vulns);
     pageToken = page.next_page_token;
   } while (pageToken);
-  return vulns.filter((vuln) => vuln.id.startsWith("MAL-") && affectsExactly(vuln, target));
+  const exact = (entry: OsvVuln["affected"][number]) =>
+    entry.package.ecosystem === ecosystem && entry.package.name === target.name && (entry.versions ?? []).includes(target.version);
+  return vulns.filter((vuln) => vuln.id.startsWith("MAL-") && vuln.affected.some(exact));
 }
 
 export async function scanAdvisories(request: ScanRequest, osvApiUrl: string, fetchImpl: FetchLike): Promise<Evidence> {

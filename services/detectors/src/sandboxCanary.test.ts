@@ -53,16 +53,21 @@ test("sandbox runs only for tarballs from the mock registry origin", () => {
   assert.equal(isSandboxEligible("http://localhost:4873/a.tgz", undefined), false);
 });
 
-test("first run creates the network and sink, copies the tarball in and reports a received canary", async () => {
+function receivedAnswer(received: boolean) {
+  return { stdout: JSON.stringify({ received, at: received ? "2026-11-06T10:00:03.000Z" : null }) };
+}
+
+test("first run creates the internal network, recreates the sink, copies the tarball in and reports a received canary", async () => {
   const { calls, docker } = recordingDocker((args) => {
     if (args[0] === "network" && args[1] === "inspect") return { code: 1, stderr: "no such network" };
-    if (args[0] === "inspect") return { code: 1, stderr: "no such container" };
-    if (args[0] === "exec") return { stdout: JSON.stringify({ received: true, at: "2026-11-06T10:00:03.000Z" }) };
+    if (args[0] === "exec") return receivedAnswer(true);
     return {};
   });
   const evidence = await scanSandbox(request, Buffer.from("tarball"), image, docker);
-  assert.deepEqual(calls.map((args) => args[0]), ["network", "network", "inspect", "run", "create", "cp", "start", "rm", "exec"]);
+  assert.deepEqual(calls.map((args) => args[0]), ["network", "network", "rm", "run", "create", "cp", "start", "rm", "exec"]);
   assert.deepEqual(calls[1], ["network", "create", "--internal", "bulkhead_sandbox"]);
+  assert.deepEqual(calls[2], ["rm", "--force", "canarysink"]);
+  assert.deepEqual(calls[3], sinkArgs());
   const container = flagValue(calls[4] ?? [], "--name");
   assert.equal(calls[5]?.[2], `${container}:/tmp/package.tgz`);
   const token = (calls[4] ?? []).find((arg) => arg.startsWith("CANARY_TOKEN="))?.slice("CANARY_TOKEN=".length) ?? "";
@@ -73,26 +78,43 @@ test("first run creates the network and sink, copies the tarball in and reports 
   assert.equal(evidence.findings[0]?.rule, "canaryTokenExfiltrated");
 });
 
-test("a running sink is reused and a silent install is not malicious", async () => {
+test("the sink is recreated once per runner and a silent install is not malicious", async () => {
   const { calls, docker } = recordingDocker((args) => {
-    if (args[0] === "inspect") return { stdout: "true\n" };
-    if (args[0] === "exec") return { stdout: JSON.stringify({ received: false, at: null }) };
+    if (args[0] === "network") return { stdout: "true\n" };
+    if (args[0] === "exec") return receivedAnswer(false);
     return {};
   });
+  await scanSandbox(request, Buffer.from("tarball"), image, docker);
   const evidence = await scanSandbox({ ...request, version: "1.4.0" }, Buffer.from("tarball"), image, docker);
-  assert.ok(!calls.some((args) => args[0] === "run" || args[1] === "create" || args[0] === "start" && args[1] === "canarysink"));
+  assert.equal(calls.filter((args) => args.join(" ") === "rm --force canarysink").length, 1);
+  assert.equal(calls.filter((args) => args[0] === "run").length, 1);
+  assert.ok(!calls.some((args) => args[1] === "create"));
   assert.equal(evidence.malicious, false);
   assert.deepEqual(evidence.findings, []);
 });
 
-test("a stopped sink is started and the run container is removed even when copy fails", async () => {
-  const { calls, docker } = recordingDocker((args) => {
-    if (args[0] === "inspect") return { stdout: "false\n" };
-    if (args[0] === "cp") return { code: 1, stderr: "copy failed" };
+test("an existing network that is not internal stops the run before any container starts", async () => {
+  const { calls, docker } = recordingDocker((args) => (args[0] === "network" ? { stdout: "false\n" } : {}));
+  await assert.rejects(scanSandbox(request, Buffer.from("tarball"), image, docker), /not internal, refusing/);
+  assert.deepEqual(calls, [["network", "inspect", "--format", "{{.Internal}}", "bulkhead_sandbox"]]);
+});
+
+test("a failing install throws but a timed out install still asks the sink", async () => {
+  const failing = recordingDocker((args) => (args[0] === "network" ? { stdout: "true" } : args[0] === "start" ? { code: 1, stderr: "npm error" } : {}));
+  await assert.rejects(scanSandbox(request, Buffer.from("tarball"), image, failing.docker), /exited with code 1: npm error/);
+  assert.equal(failing.calls.at(-1)?.[0], "rm");
+  const timedOut = recordingDocker((args) => {
+    if (args[0] === "network") return { stdout: "true" };
+    if (args[0] === "start") return { code: 1, timedOut: true };
+    if (args[0] === "exec") return receivedAnswer(true);
     return {};
   });
+  assert.equal((await scanSandbox(request, Buffer.from("tarball"), image, timedOut.docker)).malicious, true);
+});
+
+test("the run container is removed even when copy fails", async () => {
+  const { calls, docker } = recordingDocker((args) => (args[0] === "network" ? { stdout: "true" } : args[0] === "cp" ? { code: 1, stderr: "copy failed" } : {}));
   await assert.rejects(scanSandbox(request, Buffer.from("tarball"), image, docker), /docker cp failed: copy failed/);
-  assert.ok(calls.some((args) => args.join(" ") === "start canarysink"));
   assert.equal(calls.at(-1)?.[0], "rm");
 });
 

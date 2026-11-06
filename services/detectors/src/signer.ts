@@ -27,12 +27,6 @@ type Attempt = { landed: boolean; txHash: Hex | null };
 
 const settledReverts = new Set(["DuplicateVote", "AlreadySealed", "KeyUnsealed"]);
 
-function revertName(error: unknown): string | undefined {
-  if (!(error instanceof BaseError)) return undefined;
-  const reverted = error.walk((cause) => cause instanceof ContractFunctionRevertedError);
-  return reverted instanceof ContractFunctionRevertedError ? reverted.data?.errorName : undefined;
-}
-
 export function createSigner({ chain, transport, registry, keys, pendingDir }: SignerConfig) {
   const publicClient = createPublicClient({ chain, transport, pollingInterval: 1_000 });
   const accounts = Object.fromEntries(detectorIds.map((id) => [id, privateKeyToAccount(keys[id])])) as Record<DetectorId, ReturnType<typeof privateKeyToAccount>>;
@@ -62,9 +56,11 @@ export function createSigner({ chain, transport, registry, keys, pendingDir }: S
     try {
       return await vote(evidence, evidenceHash);
     } catch (error) {
-      const name = revertName(error);
+      if (!(error instanceof BaseError)) throw error;
+      const reverted = error.walk((cause) => cause instanceof ContractFunctionRevertedError);
+      const name = reverted instanceof ContractFunctionRevertedError ? reverted.data?.errorName : undefined;
       if (name && settledReverts.has(name)) return { landed: true, txHash: null };
-      console.error(`verdict for ${evidence.name}@${evidence.version} by ${evidence.detector} stays pending: ${name ?? (error instanceof BaseError ? error.shortMessage : String(error))}`);
+      console.error(`verdict for ${evidence.name}@${evidence.version} by ${evidence.detector} stays pending: ${name ?? error.shortMessage}`);
       return { landed: false, txHash: null };
     }
   }

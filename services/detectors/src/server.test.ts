@@ -43,7 +43,7 @@ const networkEdge: FetchLike = async (input) => {
 
 const sinkReceivesEverything: DockerRunner = async (args) => ({
   code: 0,
-  stdout: args[0] === "exec" ? JSON.stringify({ received: true, at: "2026-11-06T10:00:02.000Z" }) : args[0] === "inspect" ? "true" : "",
+  stdout: args[0] === "exec" ? JSON.stringify({ received: true, at: "2026-11-06T10:00:02.000Z" }) : args[0] === "network" ? "true" : "",
   stderr: "",
 });
 
