@@ -42,7 +42,7 @@ test("audit reads the npm cache index", async () => {
   const bucket = join(cache, "_cacache", "index-v5", "ab", "cd");
   mkdirSync(bucket, { recursive: true });
   const entry = (url: string) => `0123abcd\t${JSON.stringify({ key: `make-fetch-happen:request-cache:${url}`, integrity: "sha512-x" })}`;
-  writeFileSync(join(bucket, "entry"), [entry("http://r.test/left-pad/-/left-pad-1.3.0.tgz"), entry(`http://r.test/${sealedName}/-/colorkit-${sealedVersion}.tgz`)].join("\n"));
+  writeFileSync(join(bucket, "entry"), ["no tab here", "0123abcd\t{broken", entry("http://r.test/left-pad/-/left-pad-1.3.0.tgz"), entry(`http://r.test/${sealedName}/-/colorkit-${sealedVersion}.tgz`)].join("\n"));
   const report = await audit(auditSettings({ cacheDirs: [cache] }));
   assert.equal(report.packagesChecked, 2);
   assert.deepEqual(report.blocked.map(({ name, version, alreadyInstalled }) => [name, version, alreadyInstalled]), [[sealedName, sealedVersion, true]]);
@@ -65,6 +65,34 @@ test("audit reads node_modules package.json files inside saved Docker image laye
   assert.equal(report.outcome, "blocked");
   assert.equal(report.blocked[0]?.alreadyInstalled, true);
   assert.match(report.blocked[0]?.lockfilePath ?? "", /node_modules\/@bulkheaddemo\/colorkit\/package\.json$/);
+});
+
+async function savedImage(work: string, layers: Record<string, (path: string) => Promise<void> | void>): Promise<string> {
+  const image = join(work, "image");
+  mkdirSync(join(image, "blobs", "sha256"), { recursive: true });
+  for (const [name, build] of Object.entries(layers)) await build(join(image, "blobs", "sha256", name));
+  writeFileSync(join(image, "manifest.json"), JSON.stringify([{ Layers: Object.keys(layers).map((name) => `blobs/sha256/${name}`) }]));
+  const saved = join(work, "image.tar");
+  await create({ file: saved, cwd: image }, ["manifest.json", "blobs"]);
+  return saved;
+}
+
+test("an unreadable package.json inside a layer makes the audit unavailable", async () => {
+  const work = tempDir();
+  const layerRoot = join(work, "layerRoot");
+  mkdirSync(join(layerRoot, "app", "node_modules", "broken"), { recursive: true });
+  writeFileSync(join(layerRoot, "app", "node_modules", "broken", "package.json"), "{ not json");
+  const saved = await savedImage(work, { layerone: (path) => create({ file: path, cwd: layerRoot }, ["app"]) });
+  const report = await audit(auditSettings({ dockerImages: [saved] }));
+  assert.equal(report.outcome, "unavailable");
+  assert.ok(report.advice.some((line) => line.includes("unreadable package.json")));
+});
+
+test("a layer that is not a valid archive makes the audit unavailable", async () => {
+  const saved = await savedImage(tempDir(), { layerone: (path) => writeFileSync(path, JSON.stringify({ not: "a tar" })) });
+  const report = await audit(auditSettings({ dockerImages: [saved] }));
+  assert.equal(report.outcome, "unavailable");
+  assert.ok(report.advice.some((line) => line.includes("unreadable layer")));
 });
 
 test("audit without a Sealed list is unavailable, and a clean audit is allowed", async () => {

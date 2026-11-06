@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { readLockfile, resolveLockfilePath } from "./lockfile.ts";
@@ -45,4 +45,11 @@ test("version 1, no version, missing and unreadable lockfiles are not ok", () =>
   const broken = join(dir, "broken.json");
   writeFileSync(broken, "{ not json");
   assert.equal(readLockfile(broken).ok, false);
+});
+
+test("read errors other than a missing file or bad JSON surface", () => {
+  const dir = tempDir();
+  const directory = join(dir, "package-lock.json");
+  mkdirSync(directory);
+  assert.throws(() => readLockfile(directory), /cannot read .*package-lock\.json: EISDIR/);
 });

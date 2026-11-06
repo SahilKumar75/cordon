@@ -24,20 +24,17 @@ export function directoryOf(target: string): string {
 export function readJson(path: string): unknown {
   try {
     return JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof SyntaxError || (error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw new Error(`cannot read ${path}: ${(error as Error).message}`);
   }
-}
-
-function nameFromPath(path: string): string {
-  return path.slice(path.lastIndexOf("node_modules/") + "node_modules/".length);
 }
 
 function entriesOf(packages: Record<string, PackageEntry>): LockEntry[] {
   return Object.entries(packages).flatMap(([path, entry]) => {
     if (!path.includes("node_modules/") || entry.link === true) return [];
     if (typeof entry.version !== "string") return [];
-    const name = typeof entry.name === "string" ? entry.name : nameFromPath(path);
+    const name = typeof entry.name === "string" ? entry.name : path.slice(path.lastIndexOf("node_modules/") + "node_modules/".length);
     return [{ name, version: entry.version, path }];
   });
 }

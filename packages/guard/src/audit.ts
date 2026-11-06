@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Parser, list as listTar, type ReadEntry } from "tar";
-import { productName, sealKeyOf, type GuardBlock, type GuardReport } from "@bulkhead/shared";
+import { productName, sealKeyOf, type GuardReport } from "@bulkhead/shared";
 import { adviceFor, type GuardSettings } from "./check.ts";
 import { lockfileNames, readLockfile } from "./lockfile.ts";
 import { packumentReader } from "./registry.ts";
@@ -51,12 +51,14 @@ function cacheKeysOf(file: string): string[] {
   return readFileSync(file, "utf8")
     .split("\n")
     .flatMap((line) => {
-      const json = line.slice(line.indexOf("\t") + 1);
+      const tab = line.indexOf("\t");
+      if (tab === -1) return [];
       try {
-        const key = (JSON.parse(json) as { key?: unknown }).key;
+        const key = (JSON.parse(line.slice(tab + 1)) as { key?: unknown }).key;
         return typeof key === "string" ? [key] : [];
-      } catch {
-        return [];
+      } catch (error) {
+        if (error instanceof SyntaxError) return [];
+        throw error;
       }
     });
 }
@@ -79,56 +81,73 @@ function readBody(entry: ReadEntry): Promise<string> {
   return new Promise((resolve) => entry.on("end", () => resolve(Buffer.concat(chunks).toString("utf8"))));
 }
 
-function scanLayer(layer: ReadEntry, source: string, found: Found[]): Promise<void> {
+function scanLayer(layer: ReadEntry, source: string, scan: Scan): Promise<void> {
   const reads: Promise<void>[] = [];
   const parser = new Parser({
+    strict: true,
     onReadEntry: (entry) => {
       if (!installedManifestPattern.test(entry.path)) return entry.resume();
+      const where = `${source}:${layer.path}:${entry.path}`;
       reads.push(
         readBody(entry).then((text) => {
-          const manifest = JSON.parse(text) as { name?: unknown; version?: unknown };
-          if (typeof manifest.name === "string" && typeof manifest.version === "string") {
-            found.push({ name: manifest.name, version: manifest.version, source: `${source}:${layer.path}:${entry.path}` });
+          try {
+            const manifest = JSON.parse(text) as { name?: unknown; version?: unknown };
+            if (typeof manifest.name === "string" && typeof manifest.version === "string") {
+              scan.found.push({ name: manifest.name, version: manifest.version, source: where });
+            }
+          } catch (error) {
+            if (!(error instanceof SyntaxError)) throw error;
+            scan.problems.push(`unreadable package.json at ${where}`);
           }
-        }, () => undefined),
+        }),
       );
     },
   });
   const done = new Promise<void>((resolve) => {
     parser.on("end", resolve);
-    parser.on("error", () => resolve());
+    parser.on("error", (error: Error) => {
+      scan.problems.push(`unreadable layer ${source}:${layer.path}: ${error.message}`);
+      resolve();
+    });
   });
   layer.pipe(parser);
   return done.then(() => Promise.all(reads)).then(() => undefined);
 }
 
+async function layersOf(file: string): Promise<Set<string> | null> {
+  let manifestText: Promise<string> | null = null;
+  await listTar({
+    file,
+    filter: (path) => path === "manifest.json",
+    onReadEntry: (entry) => {
+      manifestText = readBody(entry);
+    },
+  });
+  if (!manifestText) return null;
+  try {
+    const manifest = JSON.parse(await manifestText) as { Layers?: unknown }[];
+    return new Set(manifest.flatMap((image) => (Array.isArray(image.Layers) ? image.Layers.map(String) : [])));
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof TypeError) return null;
+    throw error;
+  }
+}
+
 async function scanImage(file: string): Promise<Scan> {
   if (!existsSync(file)) return { found: [], problems: [`no saved image at ${file}`] };
-  const found: Found[] = [];
-  const layers: Promise<void>[] = [];
+  const layers = await layersOf(file);
+  if (!layers) return { found: [], problems: [`no readable manifest.json in ${file}`] };
+  const scan: Scan = { found: [], problems: [] };
+  const scans: Promise<void>[] = [];
   await listTar({
     file,
     onReadEntry: (entry) => {
-      const isLayer = entry.type === "File" && (entry.path.endsWith("layer.tar") || entry.path.startsWith("blobs/"));
-      if (isLayer) layers.push(scanLayer(entry, file, found));
+      if (layers.has(entry.path)) scans.push(scanLayer(entry, file, scan));
       else entry.resume();
     },
   });
-  await Promise.all(layers);
-  return { found, problems: [] };
-}
-
-function auditBlocks(found: Found[], keys: Set<string>): GuardBlock[] {
-  const blocks = found.flatMap(({ name, version, source }) => {
-    const key = sealKeyOf(name, version);
-    return keys.has(key) ? [{ name, version, key, lockfilePath: source, alreadyInstalled: true }] : [];
-  });
-  return [...new Map(blocks.map((block) => [`${block.key}${block.lockfilePath}`, block])).values()];
-}
-
-function outcomeOf(blocked: GuardBlock[], problems: string[], listMissing: boolean): GuardReport["outcome"] {
-  if (blocked.length) return "blocked";
-  return problems.length || listMissing ? "unavailable" : "allowed";
+  await Promise.all(scans);
+  return scan;
 }
 
 export async function audit(settings: AuditSettings): Promise<GuardReport> {
@@ -139,11 +158,14 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
   ];
   const found = scans.flatMap((scan) => scan.found);
   const list = await loadSealedList(settings);
-  const listMissing = list.source === "none";
-  const problems = [...scans.flatMap((scan) => scan.problems), ...(listMissing ? ["The Sealed list was unavailable, so installed versions could not be checked."] : [])];
-  const blocked = auditBlocks(found, list.keys);
+  const problems = [...scans.flatMap((scan) => scan.problems), ...(list.source === "none" ? ["The Sealed list was unavailable, so installed versions could not be checked."] : [])];
+  const hits = found.flatMap(({ name, version, source }) => {
+    const key = sealKeyOf(name, version);
+    return list.keys.has(key) ? [{ name, version, key, lockfilePath: source, alreadyInstalled: true }] : [];
+  });
+  const blocked = [...new Map(hits.map((block) => [`${block.key}${block.lockfilePath}`, block])).values()];
   const limits = { sealedKeys: list.keys, minAgeDays: settings.minAgeDays, now: settings.now() };
-  const rollback = await proposeRollbacks(blocked, limits, packumentReader(settings.registryUrl, settings.fetchFn));
+  const rollback = await proposeRollbacks(blocked, limits, packumentReader(settings.registryUrl, settings.fetchFn, settings.warn));
   return {
     product: productName,
     service: settings.service,
@@ -157,6 +179,6 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     tooYoung: [],
     rollback,
     advice: [...problems, ...adviceFor(blocked)],
-    outcome: outcomeOf(blocked, problems, listMissing),
+    outcome: blocked.length ? "blocked" : problems.length ? "unavailable" : "allowed",
   };
 }

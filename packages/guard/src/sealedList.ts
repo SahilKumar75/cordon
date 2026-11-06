@@ -23,6 +23,7 @@ export type SealedList = { source: ListSource; keys: Set<Hex32>; snapshotAgeSeco
 const sealedStatus = 1;
 const pageSize = 500n;
 const cacheFileName = "sealedSnapshot.json";
+const clockSkewSeconds = 60;
 
 async function loadFromChain(settings: ListSettings, registry: Address, chainId: number): Promise<Set<Hex32>> {
   const transport = settings.transport ?? http(settings.rpcUrl ?? undefined, { retryCount: 0, timeout: 10_000 });
@@ -52,18 +53,14 @@ async function snapshotProblem(signed: SignedSnapshot, settings: ListSettings): 
   if (!valid) return "snapshot signature does not verify";
   if (snapshot.chainId !== settings.chainId) return `snapshot chainId ${snapshot.chainId} does not match CHAIN_ID`;
   if (snapshot.registry.toLowerCase() !== settings.registryAddress?.toLowerCase()) return "snapshot registry does not match REGISTRY_ADDRESS";
+  const generatedAt = Date.parse(snapshot.generatedAt);
+  if (generatedAt > settings.now().getTime() + clockSkewSeconds * 1000) return "snapshot generatedAt is in the future";
   if (snapshotAgeOf(signed, settings) > settings.snapshotMaxAgeSeconds) return "snapshot is older than GUARD_SNAPSHOT_MAX_AGE_SECONDS";
   return null;
 }
 
 function snapshotAgeOf(signed: SignedSnapshot, settings: ListSettings): number {
   return Math.max(0, Math.floor((settings.now().getTime() - Date.parse(signed.snapshot.generatedAt)) / 1000));
-}
-
-async function fetchSnapshot(settings: ListSettings): Promise<unknown> {
-  const response = await settings.fetchFn(settings.snapshotUrl ?? "");
-  if (!response.ok) throw new Error(`snapshot request answered ${response.status}`);
-  return response.json();
 }
 
 async function acceptSnapshot(raw: unknown, origin: string, settings: ListSettings): Promise<SignedSnapshot | null> {
@@ -77,17 +74,19 @@ async function acceptSnapshot(raw: unknown, origin: string, settings: ListSettin
   return problem ? null : parsed.data;
 }
 
-function cachePath(settings: ListSettings): string | null {
-  return settings.cacheDir ? join(settings.cacheDir, cacheFileName) : null;
-}
-
 async function loadSnapshot(settings: ListSettings): Promise<SignedSnapshot | null> {
-  const cache = cachePath(settings);
+  const cache = settings.cacheDir ? join(settings.cacheDir, cacheFileName) : null;
   if (settings.snapshotUrl) {
-    const fetched = await fetchSnapshot(settings).catch((error: Error) => {
-      settings.warn(`snapshot fetch failed: ${error.message}`);
-      return null;
-    });
+    const fetched = await settings
+      .fetchFn(settings.snapshotUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error(`snapshot request answered ${response.status}`);
+        return response.json() as Promise<unknown>;
+      })
+      .catch((error: Error) => {
+        settings.warn(`snapshot fetch failed: ${error.message}`);
+        return null;
+      });
     const accepted = fetched === null ? null : await acceptSnapshot(fetched, "fetched", settings);
     if (accepted && cache) {
       mkdirSync(dirname(cache), { recursive: true });
@@ -97,10 +96,6 @@ async function loadSnapshot(settings: ListSettings): Promise<SignedSnapshot | nu
   }
   if (!cache || !existsSync(cache)) return null;
   return acceptSnapshot(readJson(cache), "cached", settings);
-}
-
-function snapshotKeys(signed: SignedSnapshot): Set<Hex32> {
-  return new Set(signed.snapshot.entries.filter((entry) => entry.status === "Sealed").map((entry) => entry.key as Hex32));
 }
 
 export async function loadSealedList(settings: ListSettings): Promise<SealedList> {
@@ -113,6 +108,7 @@ export async function loadSealedList(settings: ListSettings): Promise<SealedList
     if (keys) return { source: "chain", keys, snapshotAgeSeconds: null };
   }
   const signed = await loadSnapshot(settings);
-  if (signed) return { source: "snapshot", keys: snapshotKeys(signed), snapshotAgeSeconds: snapshotAgeOf(signed, settings) };
-  return { source: "none", keys: new Set(), snapshotAgeSeconds: null };
+  if (!signed) return { source: "none", keys: new Set(), snapshotAgeSeconds: null };
+  const keys = new Set(signed.snapshot.entries.filter((entry) => entry.status === "Sealed").map((entry) => entry.key as Hex32));
+  return { source: "snapshot", keys, snapshotAgeSeconds: snapshotAgeOf(signed, settings) };
 }

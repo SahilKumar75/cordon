@@ -14,7 +14,10 @@ const colorkitTimes = {
   "1.5.0": daysAgo(1),
   "1.4.1-beta.1": daysAgo(2),
 };
-const readPackument = packumentReader(registryUrl, stubFetch(registryRoutes(registryUrl, { [sealedName]: { time: colorkitTimes } })));
+const registryWarnings: string[] = [];
+const readPackument = packumentReader(registryUrl, stubFetch(registryRoutes(registryUrl, { [sealedName]: { time: colorkitTimes } })), (message) =>
+  registryWarnings.push(message),
+);
 
 test("rollback proposes the highest earlier release that is neither Sealed nor too young", async () => {
   const sealedKeys = new Set([sealedKey, sealKeyOf(sealedName, "1.4.0")]);
@@ -30,6 +33,9 @@ test("rollback proposes the highest earlier release that is neither Sealed nor t
 test("rollback proposes nothing when metadata is unreadable", async () => {
   const [proposal] = await proposeRollbacks([{ name: "unknown", version: "1.0.0" }], { sealedKeys: new Set(), minAgeDays: 0, now }, readPackument);
   assert.equal(proposal?.to, null);
+  await proposeRollbacks([{ name: "missing", version: "1.0.0" }], { sealedKeys: new Set(), minAgeDays: 0, now }, readPackument);
+  assert.equal(registryWarnings.length, 1);
+  assert.match(registryWarnings[0] ?? "", /registry\.test\/unknown answered 404/);
 });
 
 test("check reports the rollback and the overrides snippet covers only proposals", async () => {

@@ -2,14 +2,22 @@ export type Packument = { versions?: Record<string, unknown>; time?: Record<stri
 
 export type PackumentReader = (name: string) => Promise<Packument | null>;
 
-export function packumentReader(registryUrl: string | null, fetchFn: typeof fetch): PackumentReader {
+export function packumentReader(registryUrl: string | null, fetchFn: typeof fetch, warn: (message: string) => void): PackumentReader {
   const cache = new Map<string, Promise<Packument | null>>();
+  let warned = false;
   const load = async (name: string): Promise<Packument | null> => {
     if (!registryUrl) return null;
     const url = `${registryUrl.replace(/\/$/, "")}/${name.replace("/", "%2f")}`;
-    const response = await fetchFn(url).catch(() => null);
-    if (!response?.ok) return null;
-    return (await response.json().catch(() => null)) as Packument | null;
+    return fetchFn(url)
+      .then((response) => {
+        if (!response.ok) throw new Error(`${url} answered ${response.status}`);
+        return response.json() as Promise<Packument>;
+      })
+      .catch((error: Error) => {
+        if (!warned) warn(`registry metadata unavailable, first failure: ${error.message}`);
+        warned = true;
+        return null;
+      });
   };
   return (name) => {
     const known = cache.get(name) ?? load(name);

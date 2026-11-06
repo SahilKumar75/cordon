@@ -63,6 +63,7 @@ test("forged, stale, wrong chain and wrong registry snapshots are rejected and n
     forged,
     await sign(signer, snapshotOf({ generatedAt: new Date(now.getTime() - 601_000).toISOString() })),
     await sign(signer, snapshotOf({ chainId: 1 })),
+    await sign(signer, snapshotOf({ generatedAt: new Date(now.getTime() + 61_000).toISOString() })),
     await sign(signer, snapshotOf({ registry: "0x00000000000000000000000000000000000000bb" })),
     { ...(await sign(signer, snapshotOf())), snapshot: snapshotOf({ entries: [] }) },
   ];
@@ -74,4 +75,11 @@ test("forged, stale, wrong chain and wrong registry snapshots are rejected and n
     assert.equal(existsSync(join(cacheDir, "sealedSnapshot.json")), false);
     assert.ok(settings.warnings.some((warning) => warning.includes("snapshot rejected")));
   }
+});
+
+test("a snapshot dated within the clock skew allowance is accepted", async () => {
+  const signed = await sign(signer, snapshotOf({ generatedAt: new Date(now.getTime() + 30_000).toISOString() }));
+  const list = await loadSealedList(snapshotSettings(signed));
+  assert.equal(list.source, "snapshot");
+  assert.equal(list.snapshotAgeSeconds, 0);
 });

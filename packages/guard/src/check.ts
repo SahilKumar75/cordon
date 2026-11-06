@@ -49,16 +49,12 @@ function fallbackOf(settings: GuardSettings): NonNullable<GuardReport["fallback"
   return { minAgeDays: placeholderFallbackMinAgeDays, placeholder: true };
 }
 
-function isInstalled(lockfilePath: string, entry: LockEntry): boolean {
-  const installed = readJson(join(directoryOf(lockfilePath), entry.path, "package.json")) as Partial<PackageVersion> | null;
-  return installed?.name === entry.name && installed.version === entry.version;
-}
-
 function blocksOf(entries: LockEntry[], list: SealedList, lockfilePath: string, assumeInstalled: boolean): GuardBlock[] {
   return entries.flatMap((entry) => {
     const key = sealKeyOf(entry.name, entry.version);
     if (!list.keys.has(key)) return [];
-    const alreadyInstalled = assumeInstalled || isInstalled(lockfilePath, entry);
+    const installed = readJson(join(directoryOf(lockfilePath), entry.path, "package.json")) as Partial<PackageVersion> | null;
+    const alreadyInstalled = assumeInstalled || (installed?.name === entry.name && installed.version === entry.version);
     return [{ name: entry.name, version: entry.version, key, lockfilePath, alreadyInstalled }];
   });
 }
@@ -78,27 +74,19 @@ async function findTooYoung(entries: LockEntry[], days: number, readPackument: P
   return { tooYoung, unreadable };
 }
 
-function fallbackAdvice(fallback: GuardReport["fallback"]): string[] {
-  if (!fallback) return [];
-  const placeholder = fallback.placeholder
-    ? [`N is the placeholder of ${fallback.minAgeDays} days until the team sets GUARD_FALLBACK_MIN_AGE_DAYS.`]
-    : [];
-  return [
-    `Warning: the Sealed list was not checked because neither the chain nor a valid signed snapshot was available. Versions younger than ${fallback.minAgeDays} days were blocked by the age fallback.`,
-    ...placeholder,
-  ];
-}
-
 export function adviceFor(blocked: GuardBlock[]): string[] {
   return blocked.some((block) => block.alreadyInstalled) ? installedAdvice : [];
 }
 
-function baseReport(settings: GuardSettings, lockfile: string, checkedAt: string): GuardReport {
-  return {
+export async function checkLockfile(settings: GuardSettings): Promise<GuardReport> {
+  const now = settings.now();
+  const path = resolveLockfilePath(settings.lockfile);
+  const read = readLockfile(path);
+  const report: GuardReport = {
     product: productName,
     service: settings.service,
-    lockfile,
-    checkedAt,
+    lockfile: path,
+    checkedAt: now.toISOString(),
     listSource: "none",
     snapshotAgeSeconds: null,
     fallback: null,
@@ -109,23 +97,22 @@ function baseReport(settings: GuardSettings, lockfile: string, checkedAt: string
     advice: [],
     outcome: "unavailable",
   };
-}
-
-export async function checkLockfile(settings: GuardSettings): Promise<GuardReport> {
-  const now = settings.now();
-  const path = resolveLockfilePath(settings.lockfile);
-  const read = readLockfile(path);
-  const report = baseReport(settings, path, now.toISOString());
   if (!read.ok) return { ...report, advice: [read.reason] };
   const list = await loadSealedList(settings);
   const fallback = list.source === "none" ? fallbackOf(settings) : null;
   const ageLimit = Math.max(fallback?.minAgeDays ?? 0, settings.minAgeDays);
-  const readPackument = packumentReader(settings.registryUrl, settings.fetchFn);
+  const readPackument = packumentReader(settings.registryUrl, settings.fetchFn, settings.warn);
   const blocked = blocksOf(read.entries, list, path, settings.assumeInstalled);
   const { tooYoung, unreadable } = ageLimit > 0 ? await findTooYoung(read.entries, ageLimit, readPackument, now) : { tooYoung: [], unreadable: [] };
   const limits = { sealedKeys: list.keys, minAgeDays: ageLimit, now };
   const rollback = await proposeRollbacks([...blocked, ...tooYoung], limits, readPackument);
   const unreadableAdvice = unreadable.length ? [`Publish time could not be read for ${unreadable.join(", ")}, so these count as too young.`] : [];
+  const fallbackAdvice = fallback
+    ? [
+        `Warning: the Sealed list was not checked because neither the chain nor a valid signed snapshot was available. Versions younger than ${fallback.minAgeDays} days were blocked by the age fallback.`,
+        ...(fallback.placeholder ? [`N is the placeholder of ${fallback.minAgeDays} days until the team sets GUARD_FALLBACK_MIN_AGE_DAYS.`] : []),
+      ]
+    : [];
   return {
     ...report,
     listSource: list.source,
@@ -135,7 +122,7 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
     blocked,
     tooYoung,
     rollback,
-    advice: [...fallbackAdvice(fallback), ...unreadableAdvice, ...adviceFor(blocked)],
+    advice: [...fallbackAdvice, ...unreadableAdvice, ...adviceFor(blocked)],
     outcome: blocked.length || tooYoung.length ? "blocked" : "allowed",
   };
 }

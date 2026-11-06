@@ -14,8 +14,7 @@
   "dependencies": {
     "@bulkhead/shared": "workspace:*",
     "tar": "^7.4.0",
-    "viem": "^2.21.0",
-    "zod": "^3.25.0"
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

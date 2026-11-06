@@ -95,10 +95,11 @@ export async function run(argv: string[], env: Env, spawner: Spawner = runNpm): 
     return exitCodes[report.outcome];
   }
   if (command === "sidecar") {
-    if (!values.service || !values.lockfile || !values.port) throw new Error("sidecar needs --lockfile, --service and --port");
+    const port = numberFrom({ "--port": values.port }, "--port", 0);
+    if (!values.service || !values.lockfile || port === null) throw new Error("sidecar needs --lockfile, --service and --port");
     const intervalSeconds = numberFrom(env, "POLL_INTERVAL_SECONDS", 1);
     if (intervalSeconds === null) throw new Error("sidecar needs POLL_INTERVAL_SECONDS");
-    const sidecar = await startSidecar({ ...settings, service: values.service, port: Number(values.port), intervalSeconds });
+    const sidecar = await startSidecar({ ...settings, service: values.service, port, intervalSeconds });
     process.stderr.write(`sidecar for ${values.service} listening on ${sidecar.url}\n`);
     return new Promise<number>(() => undefined);
   }
