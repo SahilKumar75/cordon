@@ -36,8 +36,13 @@ const recipients = [
 ].map((name) => privateKeyToAccount(required(name) as Hex).address);
 
 for (const to of recipients) {
-  const hash = await wallet.sendTransaction({ to, value: amount });
+  const shortfall = amount - (await reader.getBalance({ address: to }));
+  if (shortfall <= 0n) {
+    process.stdout.write(`${to} already holds ${formatEther(amount)} ${chain.nativeCurrency.symbol} or more\n`);
+    continue;
+  }
+  const hash = await wallet.sendTransaction({ to, value: shortfall });
   await reader.waitForTransactionReceipt({ hash });
-  process.stdout.write(`${to} +${formatEther(amount)} ${chain.nativeCurrency.symbol} ${chain.blockExplorers.default.url}/tx/${hash}\n`);
+  process.stdout.write(`${to} +${formatEther(shortfall)} ${chain.nativeCurrency.symbol} ${chain.blockExplorers.default.url}/tx/${hash}\n`);
 }
 process.stdout.write(`deployer balance ${formatEther(await reader.getBalance({ address: deployer.address }))}\n`);

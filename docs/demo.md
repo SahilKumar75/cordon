@@ -84,7 +84,7 @@ sh demo/setup.sh
 
 Before each take:
 
-1. Check the root .env against Deployment in the README: CHAIN_ID, RPC_URL, REGISTRY_ADDRESS, detector and snapshot signer keys, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS and GUARD_CACHE_DIR must be set. GUARD_SNAPSHOT_MAX_AGE_SECONDS must be longer than the take.
+1. Deploy a fresh SealRegistry with `bash ops/deployTestnet.sh`, then run `sh demo/reset.sh` so the watcher starts from the new deploy block. Check the root .env against Deployment in the README: CHAIN_ID, RPC_URL, REGISTRY_ADDRESS, detector and snapshot signer keys, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS and GUARD_CACHE_DIR must be set. GUARD_SNAPSHOT_MAX_AGE_SECONDS must be longer than the take.
 2. Start the stack, each long running command in its own terminal:
 
    ```sh
