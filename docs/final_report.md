@@ -17,7 +17,7 @@ What was done in the last sprint before the 09:00 IST deadline, what was skipped
 
 ## Free hosting for the read only dashboard (team does these steps)
 
-Untested on the host itself; the same build was tested locally.
+Untested on the host itself. The same production build, with the values below, was served locally on 7 Nov about 04:25 and read one sealed version from the Base Sepolia registry through https://sepolia.base.org; the seal time and vote count show as unknown in this mode because they come from the watcher.
 
 1. Sign in at https://vercel.com with the GitHub account that owns SahilKumar75/cordon, and allow Vercel to read that repository.
 2. Add New, Project, import SahilKumar75/cordon.
@@ -32,12 +32,12 @@ Untested on the host itself; the same build was tested locally.
 | NEXT_PUBLIC_RPC_URL | https://sepolia.base.org |
 | NEXT_PUBLIC_EXPLORER_URL | https://sepolia.basescan.org |
 | NEXT_PUBLIC_NATIVE_SYMBOL | ETH |
-| NEXT_PUBLIC_REGISTRY_ADDRESS | the SealRegistry address from the README Deployment section |
+| NEXT_PUBLIC_REGISTRY_ADDRESS | 0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F |
 
 7. Do not set NEXT_PUBLIC_WATCHER_URL, NEXT_PUBLIC_DETECTORS_URL, NEXT_PUBLIC_DEMO, NEXT_PUBLIC_MOCK_REGISTRY_URL or NEXT_PUBLIC_ARKIV_ACCESS_KEY. Leaving the first one unset is what turns on read only mode.
 8. Deploy, then open /sealed and check that the address shown matches the README.
 
-If the testnet deployment does not exist, there is nothing on chain for this page to read, so skip hosting and show the local dashboard in the video instead.
+Paste the resulting URL into the live demo field of the form.
 
 ## Known gaps left open
 
