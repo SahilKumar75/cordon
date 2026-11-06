@@ -1,16 +1,15 @@
-import { AttestationFeed } from "@/components/attestationFeed";
+import { AttestationFeed, VerdictsNote } from "@/components/attestationFeed";
 import { LatestStopwatch } from "@/components/stopwatch";
 import { PageHeader, SectionTitle } from "@/components/ui";
 
 export default function Home() {
   return (
     <>
-      <PageHeader title="Latest seal">
-        Time from publish to the first guard block for the most recent version with a verdict or still under scan. Refreshes every 2
-        seconds.
+      <PageHeader eyebrow="01 Stopwatch" title="From publish to block">
+        Seconds from npm publish to the first guard block, for the newest version in flight. Refreshes every 2 seconds.
       </PageHeader>
       <LatestStopwatch />
-      <SectionTitle note="Verdicts from detectors, newest first; malicious ones are submitted to SealRegistry.">Attestations</SectionTitle>
+      <SectionTitle note={<VerdictsNote />}>Detector verdicts</SectionTitle>
       <AttestationFeed />
     </>
   );

@@ -2,7 +2,8 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { anyJson, request } from "@/lib/api";
-import { Notice, SimulatedTag } from "./ui";
+import { formatClock } from "@/lib/format";
+import { BrokenLine, Notice, SimulatedTag } from "./ui";
 
 const demoPackage = "@cordondemo/colorkit";
 
@@ -26,17 +27,23 @@ export function DemoControls() {
         <span className="font-mono">{demoPackage}</span>
         <SimulatedTag />
       </div>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {actions.map((action) => (
           <button
             key={action.id}
-            className={action.id === "poisoned" ? "button" : "button buttonQuiet"}
+            className={action.id === "poisoned" ? "button pressKey px-5 py-3 text-base" : "button buttonQuiet"}
             disabled={run.isPending}
             onClick={() => run.mutate(action)}
           >
+            {action.id === "poisoned" && <StartMark />}
             {action.label}
           </button>
         ))}
+        {run.isSuccess && run.variables.id === "poisoned" && (
+          <span className="stampTurn stampLand stampQuick inline-flex items-center gap-2 border-2 border-accent px-3 py-1 font-mono text-sm uppercase tracking-widest text-accent">
+            Published {run.variables.body.version} at {formatClock(run.submittedAt)}
+          </span>
+        )}
       </div>
       {run.isPending && (
         <Notice icon="clock" tone="muted">
@@ -44,7 +51,7 @@ export function DemoControls() {
         </Notice>
       )}
       {run.isError && (
-        <Notice icon="warning" tone="accent">
+        <Notice icon="warning" tone="accent" art={<BrokenLine label="registry" />}>
           {run.error.message}
         </Notice>
       )}
@@ -57,9 +64,17 @@ export function DemoControls() {
       )}
       {run.isIdle && (
         <Notice icon="info" tone="muted">
-          Nothing sent yet. Publish 1.4.1 and watch the stopwatch below; 1.4.0 stays clean to show sealing is per version.
+          Press Publish 1.4.1 to start the clock below. 1.4.0 keeps flowing, because seals are per version.
         </Notice>
       )}
     </section>
+  );
+}
+
+function StartMark() {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path d="M4 2.5l9 5.5-9 5.5z" fill="currentColor" />
+    </svg>
   );
 }

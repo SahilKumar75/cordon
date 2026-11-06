@@ -9,14 +9,14 @@ export default function ServicesPage() {
   const services = usePolled("watcher", "/services", serviceStatusSchema.array());
   return (
     <>
-      <PageHeader title="Services">
-        Guard sidecar status for each running service, as last reported to the watcher. A service whose sidecar is unhealthy stops
-        serving until the lockfile is clean again.
+      <PageHeader eyebrow="03 Services" title="Services behind the breaker">
+        Each guard sidecar rechecks its service&apos;s lockfile. A Sealed version, or a check that cannot run, makes the sidecar
+        unhealthy, and the service stops serving until the lockfile is clean.
       </PageHeader>
       <QueryState
         query={services}
         loading="Loading service status from the watcher."
-        empty="No service has reported yet. A sidecar reports here when GUARD_REPORT_URL points at the watcher."
+        empty="No sidecar has reported yet. Each service appears here after its first lockfile check, once GUARD_REPORT_URL points at the watcher."
         isEmpty={(items) => items.length === 0}
       >
         {(items) => (

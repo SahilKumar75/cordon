@@ -36,8 +36,8 @@ function EvidenceCard({ verdict }: { verdict: Attestation }) {
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-medium">{detectorNames[verdict.detector]}</span>
           {(verdict.simulated || evidence.data?.simulated) && <SimulatedTag />}
-          <Status icon={verdict.malicious ? "blocked" : "check"} tone={verdict.malicious ? "accent" : "ink"}>
-            {verdict.malicious ? "Malicious" : "Not malicious"}
+          <Status icon={verdict.malicious ? "blocked" : "check"} tone={verdict.malicious ? "accent" : "clean"}>
+            {verdict.malicious ? "Malicious" : "Clean"}
           </Status>
         </div>
         {verdict.txHash ? (
@@ -45,7 +45,7 @@ function EvidenceCard({ verdict }: { verdict: Attestation }) {
         ) : verdict.malicious ? (
           <Status icon="pending" tone="muted">Verdict not on chain yet</Status>
         ) : (
-          <Status icon="info" tone="muted">Not malicious, kept off chain</Status>
+          <Status icon="info" tone="muted">Clean, kept off chain</Status>
         )}
       </header>
       <div className="space-y-4 p-4">

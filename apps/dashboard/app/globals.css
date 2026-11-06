@@ -13,11 +13,19 @@
   --color-line: #d6d2c7;
   --color-accent: #b23c0c;
   --color-accentSoft: #f5e2d6;
+  --color-night: #161512;
+  --color-nightLine: #3a372f;
+  --color-nightText: #d9d4c8;
+  --color-accentOnNight: #e0622d;
+  --color-clean: #3d6b45;
+  --color-cleanSoft: #e3ebdd;
 }
 
 body {
   background: var(--color-paper);
   color: var(--color-ink);
+  font-size: 15px;
+  line-height: 24px;
 }
 
 @layer components {
@@ -34,8 +42,8 @@ body {
     cursor: pointer;
   }
   .button:hover:not(:disabled) {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
+    background: var(--color-night);
+    border-color: var(--color-night);
   }
   .button:disabled {
     cursor: not-allowed;
@@ -46,6 +54,9 @@ body {
   .buttonQuiet {
     background: transparent;
     color: var(--color-ink);
+  }
+  .buttonQuiet:hover:not(:disabled) {
+    color: var(--color-paper);
   }
   .field {
     width: 100%;
@@ -60,5 +71,349 @@ body {
   a:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+}
+
+.stampTurn {
+  transform: rotate(-4deg);
+}
+
+.pressPanel {
+  box-shadow: 4px 4px 0 var(--color-ink);
+}
+
+.barrierWipe {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+
+.clockHand {
+  transform-origin: 8px 8px;
+}
+
+.fillBox {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.relayCut {
+  transition:
+    fill 180ms steps(1, end),
+    stroke 180ms steps(1, end);
+}
+
+.nodeLight {
+  transition:
+    fill 200ms,
+    stroke 200ms;
+}
+
+.flowIdle {
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relayCut,
+  .nodeLight {
+    transition: none;
+  }
+  .stampLand {
+    animation: stampFade 150ms linear both;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tickDraw {
+    animation: tickDraw 450ms ease-out both;
+  }
+  .clockHand {
+    animation: clockSpin 4s steps(8) infinite;
+  }
+  .stampLand {
+    animation: stampLand 560ms cubic-bezier(0.2, 0.8, 0.3, 1) 250ms both;
+  }
+  .stampQuick {
+    animation-delay: 0ms;
+  }
+  .barrierWipe {
+    animation: barrierWipe 650ms cubic-bezier(0.5, 0, 0.2, 1) both;
+  }
+  .barrierFall {
+    animation: barrierFall 650ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  }
+  .barrierSlam {
+    animation: barrierSlam 90ms steps(2) 650ms;
+  }
+  .pressBeat {
+    animation: pressBeat 360ms 810ms;
+  }
+  .flowPending {
+    animation: flowDash 2400ms linear infinite;
+  }
+  .edgeDraw {
+    animation: edgeDraw 420ms cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+  .tokenMove {
+    transition: transform 700ms cubic-bezier(0.7, 0, 0.2, 1);
+  }
+  .tokenSettle {
+    animation: tokenSettle 160ms cubic-bezier(0.2, 0.8, 0.3, 1) 700ms;
+  }
+  .voteThunk {
+    animation: voteThunk 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+  .shadowThunk {
+    animation: shadowThunk 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+  .pipSnap {
+    animation: pipSnap 220ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+  .fadeIn {
+    animation: fadeIn 150ms linear;
+  }
+  .scanSweep {
+    animation: scanSweep 1400ms cubic-bezier(0.65, 0, 0.35, 1) infinite alternate;
+  }
+  .tileLock {
+    animation: tileLock 300ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  .counterFlash {
+    animation: counterFlash 132ms steps(1, end);
+  }
+  .slideIn {
+    animation: slideIn 320ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  .borderGrow {
+    transform-origin: 50% 0;
+    animation: borderGrow 240ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  .breakerLever {
+    transition:
+      transform 280ms cubic-bezier(0.3, 1.6, 0.5, 1),
+      stroke 280ms;
+  }
+  .breakerTrip {
+    animation: breakerTrip 140ms steps(3, end);
+  }
+  .pressKey {
+    transition: transform 120ms cubic-bezier(0.3, 0, 0.5, 1);
+  }
+  .pressKey:active:not(:disabled) {
+    transform: translate(3px, 3px);
+  }
+  .loadingDash {
+    animation: flowDash 1200ms linear infinite;
+  }
+  .rulerTick {
+    animation: edgeDraw 420ms cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+}
+
+@keyframes tickDraw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes edgeDraw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes clockSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes stampLand {
+  0% {
+    opacity: 0;
+    transform: rotate(-12deg) scale(1.8);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(-3deg) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-4deg) scale(1);
+  }
+}
+
+@keyframes stampFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes barrierWipe {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes barrierFall {
+  from {
+    opacity: 0;
+    transform: translateY(-36px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes barrierSlam {
+  from {
+    transform: translateY(2px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes pressBeat {
+  0% {
+    transform: translate(0, 0);
+    box-shadow: 4px 4px 0 var(--color-ink);
+  }
+  28% {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 var(--color-ink);
+    animation-timing-function: cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  100% {
+    transform: translate(0, 0);
+    box-shadow: 4px 4px 0 var(--color-ink);
+  }
+}
+
+@keyframes flowDash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes tokenSettle {
+  from {
+    transform: scaleX(1.12);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes voteThunk {
+  from {
+    transform: translateY(-4px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes shadowThunk {
+  from {
+    transform: translate(-3px, -7px);
+  }
+  to {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes pipSnap {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scanSweep {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(11px);
+  }
+}
+
+@keyframes tileLock {
+  0% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(2px, 2px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes counterFlash {
+  0% {
+    color: var(--color-accentOnNight);
+  }
+  50% {
+    color: var(--color-paper);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes borderGrow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes breakerTrip {
+  0% {
+    transform: translateX(-2px);
+  }
+  33% {
+    transform: translateX(2px);
+  }
+  66% {
+    transform: translateX(0);
   }
 }

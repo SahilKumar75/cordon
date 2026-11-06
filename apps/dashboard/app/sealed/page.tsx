@@ -5,7 +5,7 @@ import { registryAddress } from "@/lib/env";
 export default function SealedPage() {
   return (
     <>
-      <PageHeader title="Sealed versions">
+      <PageHeader eyebrow="02 Sealed" title="Sealed: every guard blocks these">
         Every version SealRegistry has sealed, with its current status, read from the chain
         {registryAddress && (
           <>

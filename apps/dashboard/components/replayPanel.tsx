@@ -6,7 +6,7 @@ import { replayTimelineSchema } from "@cordon/shared";
 import { request } from "@/lib/api";
 import { formatDateTime, formatGap } from "@/lib/format";
 import { Icon } from "./icon";
-import { Notice, Tag } from "./ui";
+import { BrokenLine, Notice, Tag } from "./ui";
 
 export function ReplayPanel() {
   const [advisoryId, setAdvisoryId] = useState("");
@@ -41,6 +41,12 @@ export function ReplayPanel() {
           {replay.isPending ? "Building replay" : "Build replay"}
         </button>
       </form>
+      {!replay.isError && (
+        <ReplayRuler
+          pending={replay.isPending}
+          times={replay.data ? replay.data.events.map((event) => Date.parse(event.at)).sort((a, b) => a - b) : []}
+        />
+      )}
       {replay.isIdle && (
         <Notice icon="info" tone="muted">
           No replay loaded. Enter an OSV advisory id for a malicious npm package to build one.
@@ -52,7 +58,7 @@ export function ReplayPanel() {
         </Notice>
       )}
       {replay.isError && (
-        <Notice icon="warning" tone="accent">
+        <Notice icon="warning" tone="accent" art={<BrokenLine label="detectors" />}>
           {replay.error.message}
         </Notice>
       )}
@@ -98,5 +104,41 @@ export function ReplayPanel() {
         </div>
       )}
     </section>
+  );
+}
+
+function ReplayRuler({ pending, times }: { pending: boolean; times: number[] }) {
+  const first = times[0] ?? 0;
+  const span = Math.log10(1 + ((times[times.length - 1] ?? first) - first) / 1000) || 1;
+  const xOf = (at: number) => 30 + (Math.log10(1 + (at - first) / 1000) / span) * 460;
+  return (
+    <svg viewBox="0 0 640 80" className="h-auto w-full max-w-[640px]" fill="none" strokeWidth="1.5" aria-hidden="true">
+      <path d="M20 44H510" strokeDasharray={times.length === 0 && !pending ? "4 6" : undefined} className="stroke-muted" />
+      {(pending || times.length > 0) &&
+        Array.from({ length: 11 }, (_, index) => (
+          <path
+            key={index}
+            d={`M${30 + index * 46} ${index % 5 === 0 ? 36 : 40}V48`}
+            pathLength={1}
+            strokeDasharray="1"
+            className="rulerTick stroke-muted"
+            style={{ animationDelay: `${index * 40}ms` }}
+          />
+        ))}
+      {times.map((at, index) => (
+        <g key={`${at}${index}`} className="font-mono">
+          <circle cx={xOf(at)} cy="44" r="5" className="fill-panel stroke-ink" />
+          <text x={xOf(at)} y={index % 2 === 0 ? 24 : 70} textAnchor="middle" fontSize="10" className="fill-ink">
+            {index === 0 ? "start" : `+${formatGap(at - first)}`}
+          </text>
+        </g>
+      ))}
+      <g transform="rotate(-4 578 44)" className="stroke-muted">
+        <rect x="532" y="28" width="92" height="32" strokeWidth="2" />
+        <text x="578" y="49" textAnchor="middle" fontSize="13" fontWeight="600" letterSpacing="3" className="fill-muted font-mono" stroke="none">
+          REPLAY
+        </text>
+      </g>
+    </svg>
   );
 }

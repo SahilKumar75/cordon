@@ -26,6 +26,46 @@ function Rows({ title, items }: { title: string; items: ReactNode[] }) {
   );
 }
 
+type Breaker = "serving" | "stopped" | "unavailable";
+
+const breakerView: Record<Breaker, { angle: number; color: string; plate: string; label: string }> = {
+  serving: { angle: 0, color: "text-ink", plate: "CLOSED", label: "Breaker closed, flowing" },
+  stopped: { angle: -38, color: "text-accent", plate: "OPEN", label: "Breaker open, blocked by the guard" },
+  unavailable: { angle: -15, color: "text-muted", plate: "OPEN", label: "Breaker open, the check could not run" },
+};
+
+function BreakerSwitch({ state }: { state: Breaker }) {
+  const view = breakerView[state];
+  return (
+    <svg
+      viewBox="0 0 96 48"
+      width="96"
+      height="48"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      role="img"
+      aria-label={view.label}
+      className={`shrink-0 ${view.color} ${state === "serving" ? "" : "breakerTrip"}`}
+    >
+      <rect x="1" y="1" width="94" height="46" strokeLinecap="butt" />
+      <path d="M1 32h16M67 32h28" strokeLinecap="butt" />
+      <path d="M52.3 6.8A41 41 0 0 1 61 32" strokeDasharray="2 3" className="stroke-line" />
+      <circle cx="20" cy="32" r="3" fill="currentColor" />
+      <circle cx="64" cy="32" r="3" className="fill-panel" />
+      <g className="breakerLever" style={{ transformOrigin: "20px 32px", transform: `rotate(${view.angle}deg)` }}>
+        <path d="M20 32h40" strokeWidth="3.5" strokeDasharray={state === "unavailable" ? "5 3" : undefined} strokeLinecap="butt" />
+        <circle cx="61" cy="32" r="3.5" fill="currentColor" />
+      </g>
+      {state === "unavailable" && <path d="M40 6v7M40 15.5v1.5" strokeWidth="2" strokeLinecap="round" />}
+      <rect x="66" y="5" width="26" height="12" className="fill-panel" strokeWidth="1" />
+      <text x="79" y="14" textAnchor="middle" fontSize="7.5" fontWeight="500" letterSpacing="0.5" fill="currentColor" stroke="none" className="font-mono">
+        {view.plate}
+      </text>
+    </svg>
+  );
+}
+
 export function ServiceCard({ status }: { status: ServiceStatus }) {
   const { report } = status;
   const outcome = outcomeView[report.outcome];
@@ -35,12 +75,14 @@ export function ServiceCard({ status }: { status: ServiceStatus }) {
       : report.listSource === "snapshot"
         ? `signed snapshot${report.snapshotAgeSeconds === null ? "" : `, ${formatGap(report.snapshotAgeSeconds * 1000)} old`}`
         : "none, age fallback in use";
+  const breaker: Breaker = status.healthy ? "serving" : report.outcome === "unavailable" ? "unavailable" : "stopped";
   return (
-    <article className="border border-line bg-panel">
+    <article className={`border bg-panel ${breaker === "serving" ? "border-line" : "border-accent"}`}>
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
         <div className="flex flex-wrap items-center gap-4">
+          <BreakerSwitch state={breaker} />
           <span className="font-mono">{status.service}</span>
-          {status.healthy ? <Status icon="check">Serving</Status> : <Status icon="blocked" tone="accent">Stopped serving</Status>}
+          {status.healthy ? <Status icon="check" tone="clean">Flowing</Status> : <Status icon="blocked" tone="blocked">Blocked</Status>}
           <Status icon={outcome.icon} tone={outcome.tone}>{outcome.label}</Status>
         </div>
         <span className="text-sm text-muted">Updated {formatDateTime(status.updatedAt)}</span>
@@ -66,7 +108,7 @@ export function ServiceCard({ status }: { status: ServiceStatus }) {
           title="Blocked versions"
           items={report.blocked.map((item) => (
             <div key={item.key} className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <Status icon="sealed" tone="accent">Sealed</Status>
+              <Status icon="sealed" tone="sealed">Sealed</Status>
               <span className="font-mono">{item.name}@{item.version}</span>
               <span className="font-mono text-muted">{item.lockfilePath}</span>
               {item.alreadyInstalled && <Status icon="warning" tone="accent">Already installed</Status>}
@@ -74,7 +116,7 @@ export function ServiceCard({ status }: { status: ServiceStatus }) {
           ))}
         />
         <Rows
-          title="Git dependencies"
+          title="Non registry sources"
           items={report.nonRegistrySources.map((item) => (
             <div className="space-y-1">
               <Status icon="warning" tone="accent">
@@ -95,7 +137,7 @@ export function ServiceCard({ status }: { status: ServiceStatus }) {
           ))}
         />
         <Rows
-          title="Too young to allow"
+          title="Blocked as too new"
           items={report.tooYoung.map((item) => (
             <div className="flex flex-wrap items-center gap-x-4">
               <Status icon="clock" tone="accent"><span className="font-mono">{item.name}@{item.version}</span></Status>

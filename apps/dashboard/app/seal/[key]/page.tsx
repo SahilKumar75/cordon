@@ -7,7 +7,7 @@ export default async function SealPage({ params }: { params: Promise<{ key: stri
   if (!hex32Schema.safeParse(key).success)
     return (
       <>
-        <PageHeader title="Unknown seal key" />
+        <PageHeader eyebrow="02 Sealed" title="Unknown seal key" />
         <Notice icon="warning" tone="accent">
           A seal key is 0x followed by 64 lowercase hex characters. Open a version from the Sealed page or the attestation feed.
         </Notice>

@@ -5,9 +5,10 @@ import { keccak256, toBytes, type Address } from "viem";
 import { useAccount, useConnect, useDisconnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { hex32Schema, sealRegistryAbi, sealStatusNames, type Hex32 } from "@cordon/shared";
 import { chain } from "@/lib/env";
+import { Dimension } from "./drawing";
 import { formatDateTime, formatGap } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
-import { ChainLink, errorText, Notice, QueryState, SealStatus, Status } from "./ui";
+import { BrokenLine, ChainLink, errorText, Notice, QueryState, SealStatus, Status } from "./ui";
 
 export function Guardian({ registry, initialKey }: { registry: Address; initialKey: string }) {
   const [key, setKey] = useState(initialKey);
@@ -20,8 +21,8 @@ export function Guardian({ registry, initialKey }: { registry: Address; initialK
         <input className="field" value={key} onChange={(event) => setKey(event.target.value.trim())} placeholder="0x…" spellCheck={false} />
       </label>
       {!key && (
-        <Notice icon="info" tone="muted">
-          Paste a seal key, or open a version from the Sealed page and follow its guardian link.
+        <Notice icon="info" tone="muted" art={<LockDrawing />}>
+          Paste a seal key, or open a version on the Sealed page and choose Unseal or reseal.
         </Notice>
       )}
       {key && !valid && (
@@ -143,7 +144,7 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
             </div>
             {write.isPending && <Status icon="wallet" tone="muted">Confirm the transaction in your wallet.</Status>}
             {write.error && (
-              <Notice icon="warning" tone="accent">
+              <Notice icon="warning" tone="accent" art={<BrokenLine label="rpc" />}>
                 {errorText(write.error)}
               </Notice>
             )}
@@ -163,5 +164,30 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
         );
       }}
     </QueryState>
+  );
+}
+
+function LockDrawing() {
+  const { isConnected, chainId } = useAccount();
+  const state = !isConnected ? "none" : chainId === chain?.id ? "seated" : "wrong";
+  return (
+    <svg viewBox="0 0 320 120" width="240" height="90" fill="none" strokeWidth="1.5" aria-hidden="true" className="shrink-0">
+      <rect x="110" y="34" width="100" height="60" fill="url(#hatch)" className="stroke-ink" />
+      <circle cx="160" cy="58" r="7" className="fill-paper stroke-ink" />
+      <path d="M156 63l-3 14h14l-3-14" className="fill-paper stroke-ink" />
+      {state === "seated" ? (
+        <g className="stroke-ink">
+          <circle cx="160" cy="10" r="7" />
+          <path d="M160 17v41M160 40h6M160 47h5" />
+        </g>
+      ) : (
+        <g className={state === "none" ? "stroke-muted" : "stroke-ink"} strokeDasharray={state === "none" ? "4 4" : undefined}>
+          <circle cx="118" cy="16" r="8" />
+          <path d="M126 16h64M178 16v7M186 16v5" />
+        </g>
+      )}
+      {state === "wrong" && <path d="M152 50l16 16M168 50l-16 16" strokeWidth="2.5" className="stroke-accent" />}
+      <Dimension x1={70} x2={250} y={108} label="dispute window" />
+    </svg>
   );
 }
