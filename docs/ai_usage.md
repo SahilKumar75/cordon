@@ -138,3 +138,4 @@ ETHGlobal asks every team to document where and how AI tools were used. We used 
 3. A docs subagent updated docs/coverage_matrix.md, docs/code_tour.md, docs/sponsor_fit.md and docs/open_decisions.md; the orchestrator reviewed the result.
 4. ops/creDemo.sh, written by the orchestrator: runs the two CRE dry run simulations and prints the workflow log lines.
 5. docs/final_report.md, written by the orchestrator.
+6. ops/sealDemo.ts and ops/testnetProof.sh, written by the orchestrator for the testnet demo seal and the guard proof runs; apps/dashboard/components/providers.tsx changed so a build without chain settings succeeds, found by the fresh clone check.
