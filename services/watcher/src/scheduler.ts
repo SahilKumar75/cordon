@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Address } from "viem";
 import { scanResponseSchema, type Attestation, type DetectorId, type Hex32, type ScanRequest, type ScanResponse } from "@bulkhead/shared";
 import type { FetchLike } from "./registryPoller.ts";
 import { cursorOf, inTransaction, setCursor } from "./timeline.ts";
@@ -49,7 +50,7 @@ export async function runScheduler(db: DatabaseSync, detectorsUrl: string, fetch
 type AttestationRow = {
   seal_key: Hex32;
   detector: DetectorId;
-  detector_address: Hex32;
+  detector_address: Address;
   evidence_hash: Hex32;
   malicious: number;
   simulated: number;

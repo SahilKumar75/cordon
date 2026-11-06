@@ -12,7 +12,7 @@ function recordChange(db: DatabaseSync, change: RegistryChange): boolean {
     .prepare("INSERT OR IGNORE INTO publishes (seq, seal_key, name, version, published_at, tarball_url, integrity) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .run(change.seq, key, change.name, change.version, change.publishedAt, change.tarballUrl, change.integrity);
   if (inserted.changes === 0) return false;
-  return appendEvent(db, { key, kind: "published", at: change.publishedAt, actor: "registry", ref: change.tarballUrl });
+  return appendEvent(db, { key, kind: "published", at: change.publishedAt, actor: "registry", ref: `${change.seq} ${change.tarballUrl}` });
 }
 
 export async function pollRegistry(db: DatabaseSync, registryUrl: string, fetchImpl: FetchLike): Promise<number> {

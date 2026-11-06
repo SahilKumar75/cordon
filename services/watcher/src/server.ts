@@ -117,8 +117,8 @@ async function main() {
     [
       ["registry poller", () => pollRegistry(db, registryUrl, fetch)],
       ["scheduler", () => runScheduler(db, detectorsUrl, fetch, (failure) => console.error(`scan failure: ${failure}`))],
-      ["chain poller", () => pollChain(db, client, chainSettings)],
-      ["publisher", async () => (latest = await publishSnapshot(db, snapshotSettings, account, snapshotPath, new Date()))],
+      ["chain poller", () => pollChain(db, client, chainSettings, new Date())],
+      ["publisher", async () => (latest = await publishSnapshot(db, snapshotSettings, account, snapshotPath))],
     ],
     Number(required("POLL_INTERVAL_SECONDS")) * 1000,
   );

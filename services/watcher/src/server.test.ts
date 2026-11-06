@@ -116,7 +116,7 @@ test("the stopwatch shows publish, first verdict, quorum and first block", async
   const { db, app } = watcher();
   const change = { seq: 1, name: demoName, version: demoVersion, publishedAt: "2026-11-06T09:59:00.000Z", tarballUrl: "http://127.0.0.1:4873/colorkit.tgz", integrity: "sha512-x" };
   await pollRegistry(db, "http://127.0.0.1:4873", async () => Response.json([change]));
-  await pollChain(db, fakeChain([verdictLog(2), sealedLog(4)], () => 5).client, { registry: registryAddress, startBlock: 1n, maxBlockRange: 100n });
+  await pollChain(db, fakeChain([verdictLog(2), sealedLog(4)], () => 5).client, { registry: registryAddress, startBlock: 1n, maxBlockRange: 100n }, new Date());
   await postReport(app, await signedReport(guardReport()));
   const stopwatch = stopwatchSchema.parse((await app.inject({ url: `/stopwatch/${demoKey}` })).json());
   const events = timelineOf(db, demoKey);
@@ -126,6 +126,21 @@ test("the stopwatch shows publish, first verdict, quorum and first block", async
   assert.equal(stopwatch.firstBlockAt, checkedAt);
   assert.equal(stopwatch.simulated, true);
   assert.deepEqual((await app.inject({ url: "/stopwatch" })).json(), [stopwatch]);
+});
+
+test("after a republish the stopwatch starts from the latest publish", async () => {
+  const { db, app } = watcher();
+  const first = { seq: 1, name: demoName, version: demoVersion, publishedAt: "2026-11-06T09:00:00.000Z", tarballUrl: "http://127.0.0.1:4873/colorkit.tgz", integrity: "sha512-x" };
+  const second = { ...first, seq: 2, publishedAt: "2026-11-06T09:59:00.000Z" };
+  await pollRegistry(db, "http://127.0.0.1:4873", async () => Response.json([first]));
+  await pollChain(db, fakeChain([verdictLog(2), sealedLog(4)], () => 5).client, { registry: registryAddress, startBlock: 1n, maxBlockRange: 100n }, new Date());
+  await pollRegistry(db, "http://127.0.0.1:4873", async () => Response.json([first, second]));
+  const stopwatch = stopwatchSchema.parse((await app.inject({ url: `/stopwatch/${demoKey}` })).json());
+  assert.deepEqual(timelineOf(db, demoKey).map((event) => event.kind), ["published", "verdict", "sealed", "published"]);
+  assert.equal(stopwatch.publishedAt, second.publishedAt);
+  assert.equal(stopwatch.firstVerdictAt, null);
+  assert.equal(stopwatch.sealedAt, null);
+  assert.equal(stopwatch.firstBlockAt, null);
 });
 
 test("timeline and stopwatch reject bad keys and unknown keys", async () => {

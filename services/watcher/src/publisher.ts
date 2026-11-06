@@ -18,22 +18,24 @@ function sealEntryOf(db: DatabaseSync, seal: { seal_key: Hex32; name: string; ve
   };
 }
 
-function buildSnapshot(db: DatabaseSync, settings: SnapshotSettings, now: Date): SealedSnapshot {
+function buildSnapshot(db: DatabaseSync, settings: SnapshotSettings): SealedSnapshot {
   const seals = db.prepare("SELECT seal_key, name, version FROM seals ORDER BY seal_key").all() as { seal_key: Hex32; name: string; version: string }[];
   const processed = cursorOf(db, "chainBlock");
+  const polledAt = cursorOf(db, "chainPolledAt");
+  if (polledAt === null) throw new Error("no successful chain poll yet, snapshot not signed");
   return {
     product: productName,
     chainId: settings.chainId,
     registry: settings.registry,
     blockNumber: Number(processed ?? settings.startBlock),
-    generatedAt: now.toISOString(),
+    generatedAt: polledAt,
     entries: seals.map((seal) => sealEntryOf(db, seal)),
     timelineHeads: timelineHeads(db),
   };
 }
 
-export async function publishSnapshot(db: DatabaseSync, settings: SnapshotSettings, account: LocalAccount, path: string, now: Date): Promise<SignedSnapshot> {
-  const snapshot = buildSnapshot(db, settings, now);
+export async function publishSnapshot(db: DatabaseSync, settings: SnapshotSettings, account: LocalAccount, path: string): Promise<SignedSnapshot> {
+  const snapshot = buildSnapshot(db, settings);
   const signed = { snapshot, signer: account.address, signature: await account.signMessage({ message: { raw: snapshotDigestOf(snapshot) } }) };
   await writeFile(path, JSON.stringify(signed, null, 2));
   return signed;

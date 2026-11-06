@@ -45,7 +45,7 @@ async function pollRange(db: DatabaseSync, client: PublicClient, registry: Addre
   return logs.length;
 }
 
-export async function pollChain(db: DatabaseSync, client: PublicClient, settings: ChainPollSettings): Promise<number> {
+export async function pollChain(db: DatabaseSync, client: PublicClient, settings: ChainPollSettings, now: Date): Promise<number> {
   const processed = cursorOf(db, "chainBlock");
   const latest = await client.getBlockNumber({ cacheTime: 0 });
   let fromBlock = processed === null ? settings.startBlock : BigInt(processed) + 1n;
@@ -55,5 +55,6 @@ export async function pollChain(db: DatabaseSync, client: PublicClient, settings
     seen += await pollRange(db, client, settings.registry, fromBlock, toBlock);
     fromBlock = toBlock + 1n;
   }
+  setCursor(db, "chainPolledAt", now.toISOString());
   return seen;
 }

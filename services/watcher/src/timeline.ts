@@ -94,7 +94,9 @@ function firstAt(events: TimelineEvent[], kinds: TimelineKind[]): string | null 
 }
 
 function stopwatchOfPublish(db: DatabaseSync, publish: PublishRow, demoRegistry: boolean): Stopwatch {
-  const events = verifiedTimelineOf(db, publish.seal_key);
+  const timeline = verifiedTimelineOf(db, publish.seal_key);
+  const lastPublished = timeline.map((event) => event.kind).lastIndexOf("published");
+  const events = timeline.slice(Math.max(lastPublished, 0));
   const simulatedVerdict = db.prepare("SELECT 1 FROM verdicts WHERE seal_key = ? AND simulated = 1").get(publish.seal_key);
   return {
     key: publish.seal_key,
@@ -108,7 +110,7 @@ function stopwatchOfPublish(db: DatabaseSync, publish: PublishRow, demoRegistry:
   };
 }
 
-const publishColumns = "SELECT seal_key, name, version, MIN(published_at) AS published_at FROM publishes";
+const publishColumns = "SELECT seal_key, name, version, published_at, MAX(seq) FROM publishes";
 
 export function stopwatches(db: DatabaseSync, demoRegistry: boolean): Stopwatch[] {
   const publishes = db.prepare(`${publishColumns} GROUP BY seal_key ORDER BY published_at DESC`).all() as PublishRow[];
