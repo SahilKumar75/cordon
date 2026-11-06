@@ -49,10 +49,10 @@ function entriesOf(packages: Record<string, PackageEntry>): LockEntry[] {
   });
 }
 
-export function readLockfile(path: string): LockfileRead {
+export function readLockfile(path: string, acceptedNames: readonly string[] = lockfileNames): LockfileRead {
   if (!existsSync(path)) return { ok: false, path, reason: `no lockfile at ${path}` };
-  if (![...lockfileNames, hiddenLockfileName].includes(basename(path))) {
-    return { ok: false, path, reason: `${path} is not npm-shrinkwrap.json or package-lock.json, the only formats supported` };
+  if (!acceptedNames.includes(basename(path))) {
+    return { ok: false, path, reason: `${path} is not ${acceptedNames.join(" or ")}, the only formats supported here` };
   }
   if (statSync(path).size > maxLockfileBytes) return { ok: false, path, reason: `${path} is larger than ${maxLockfileBytes} bytes` };
   const parsed = readJson(path) as { lockfileVersion?: unknown; packages?: unknown } | null;

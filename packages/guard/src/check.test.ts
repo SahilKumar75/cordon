@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import { verifyMessage } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -7,8 +9,7 @@ import {
   checkLockfile,
   installChecked,
   installedAdvice,
-  npmGitSettingMinimumVersion,
-  npmGitSettingName,
+  npmGitSetting,
   placeholderFallbackMinAgeDays,
   sendReport, type Npm } from "./check.ts";
 import {
@@ -92,6 +93,15 @@ test("a report from a signed snapshot carries the snapshot age and no age advice
   assert.equal(report.snapshotAgeSeconds, 60);
   assert.equal(report.outcome, "blocked");
   assert.deepEqual(report.advice, []);
+});
+
+test("check rejects a hidden lockfile on its own", async () => {
+  const dir = tempDir();
+  mkdirSync(join(dir, "node_modules"));
+  const hidden = writeLockfile(join(dir, "node_modules"), { "node_modules/widget": { version: "3.0.0" } }, 3, ".package-lock.json");
+  const report = await checkLockfile(settingsFor(hidden, { transport: sealedChain }));
+  assert.equal(report.outcome, "unavailable");
+  assert.match(report.advice[0] ?? "", /is not npm-shrinkwrap\.json or package-lock\.json/);
 });
 
 test("a version 1 or missing lockfile is unavailable", async () => {
@@ -226,7 +236,7 @@ test("install passes the npm git setting only when the installed npm supports it
 });
 
 test("install sets allow-git to none on npm 11.9.0 and later, and npm 10 gets no flag", async () => {
-  assert.deepEqual([npmGitSettingName, npmGitSettingMinimumVersion], ["allow-git", "11.9.0"]);
+  assert.deepEqual(npmGitSetting, { name: "allow-git", minimumVersion: "11.9.0" });
   const clean = tempDir();
   writeLockfile(clean, { "node_modules/widget": { version: "3.0.0" } });
   const runs = await Promise.all(

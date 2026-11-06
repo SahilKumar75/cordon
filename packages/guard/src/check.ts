@@ -38,12 +38,7 @@ export type Npm = { run: Spawner; version: () => Promise<string> };
 
 export type NpmGitSetting = { name: string; minimumVersion: string };
 
-export const npmGitSettingName: string | null = "allow-git";
-
-export const npmGitSettingMinimumVersion: string | null = "11.9.0";
-
-const verifiedNpmGitSetting: NpmGitSetting | null =
-  npmGitSettingName && npmGitSettingMinimumVersion ? { name: npmGitSettingName, minimumVersion: npmGitSettingMinimumVersion } : null;
+export const npmGitSetting: NpmGitSetting = { name: "allow-git", minimumVersion: "11.9.0" };
 
 export const installedAdvice = [
   "First remove persistence: background daemons or services the package installed, and IDE or coding agent hooks, extensions and config it added. Some payloads destroy files when a stolen token is revoked, so do this before revoking anything.",
@@ -171,11 +166,11 @@ export async function sendReport(report: GuardReport, settings: GuardSettings): 
 export async function installChecked(
   settings: GuardSettings,
   npm: Npm,
-  gitSetting: NpmGitSetting | null = verifiedNpmGitSetting,
+  gitSetting: NpmGitSetting = npmGitSetting,
 ): Promise<{ report: GuardReport; exitCode: number }> {
   const report = await checkLockfile({ ...settings, lockfile: directoryOf(settings.lockfile) });
   if (report.outcome !== "allowed") return { report, exitCode: exitCodes[report.outcome] };
-  const supported = gitSetting !== null && compareCores(await npm.version(), gitSetting.minimumVersion) >= 0;
+  const supported = compareCores(await npm.version(), gitSetting.minimumVersion) >= 0;
   const gitFlags = supported ? [`--${gitSetting.name}=none`] : [];
   return { report, exitCode: await npm.run("npm", ["ci", "--ignore-scripts", ...gitFlags], directoryOf(report.lockfile)) };
 }

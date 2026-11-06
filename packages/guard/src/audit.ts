@@ -79,8 +79,8 @@ function vscodeHookFiles(file: string): HookFile[] {
 function scanPath(dir: string): Scan {
   if (!existsSync(dir)) return { found: [], problems: [`no directory at ${dir}`], hookFiles: [] };
   const files = filesUnder(dir);
-  const lockfiles = files.filter((file) => [...lockfileNames, hiddenLockfileName].includes(basename(file)));
-  const reads = lockfiles.map(readLockfile);
+  const auditedNames = [...lockfileNames, hiddenLockfileName];
+  const reads = files.filter((file) => auditedNames.includes(basename(file))).map((file) => readLockfile(file, auditedNames));
   const hookFiles = files.flatMap((file) => {
     if (claudeSettingsPattern.test(file)) return claudeHookFiles(file);
     return vscodeTasksPattern.test(file) ? vscodeHookFiles(file) : [];

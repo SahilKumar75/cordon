@@ -25,7 +25,7 @@ function compiledRegistry(): { abi: unknown; bytecode: Hex } {
   return { abi: artifact.abi, bytecode: artifact.bytecode.object };
 }
 
-const buildLock = join(tmpdir(), "bulkheadForgeBuildLock");
+const buildLock = join(tmpdir(), "forgeBuildLock");
 
 async function acquireBuildLock(): Promise<void> {
   for (let attempt = 0; attempt < 600; attempt += 1) {

@@ -21,7 +21,7 @@ const watcherServer = join(repoRoot, "services", "watcher", "src", "server.ts");
 export const detectorsServer = join(repoRoot, "services", "detectors", "src", "server.ts");
 
 export function makeTempDir(): string {
-  return mkdtempSync(join(tmpdir(), "bulkheadChaos"));
+  return mkdtempSync(join(tmpdir(), "chaosTest"));
 }
 
 export async function deadUrl(): Promise<string> {

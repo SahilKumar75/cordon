@@ -134,7 +134,7 @@ signer: one viem wallet per detector key (STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CA
 6. simulated on Verdict, Attestation and Stopwatch is true when the detector reports simulated or the registry is the demo registry.
 
 HTTP API:
-1. GET /snapshot, response SignedSnapshot.
+1. GET /snapshot, response SignedSnapshot. Answers 503 until the first snapshot is signed. generatedAt is the time of the last successful chain poll, so a snapshot never looks fresher than its chain data.
 2. GET /attestations, response Attestation[] newest first.
 3. GET /timeline/:key, response TimelineEvent[] in chain order.
 4. GET /stopwatch, response Stopwatch[]; GET /stopwatch/:key, response Stopwatch.
@@ -231,7 +231,7 @@ Every simulated detector, verdict, stopwatch and exfiltration is labelled simula
 
 ## Demo (demo/)
 
-1. mockRegistry (MOCK_REGISTRY_PORT, runs as a container on the sandbox network and published to the host): the npm registry endpoints npm needs for packuments and tarballs, plus GET /_changes?since=seq (RegistryChange[]), POST /_demo/publish (DemoPublishRequest) and POST /_demo/reset. Storage under demo/mockRegistry/storage, ignored by git.
+1. mockRegistry (MOCK_REGISTRY_PORT, a dependency free node process bound to 127.0.0.1; the sandbox never needs it because the tarball is copied in): the npm registry endpoints npm needs for packuments and tarballs, plus GET /_changes?since=seq (RegistryChange[]), POST /_demo/publish (DemoPublishRequest) and POST /_demo/reset. Storage under demo/mockRegistry/storage, ignored by git.
 2. poisonedPackage: @bulkheaddemo/colorkit. Version 1.4.0 has no scripts. Version 1.4.1 has a dependency free postinstall that reads only the CANARY_TOKEN env value, writes it to a file in the OS temp folder, and posts it to CANARY_SINK_URL only when that URL's host is localhost, 127.0.0.1 or canarysink (the container name); any other host means it does nothing. Nothing else. Outside the pnpm workspace, never installed outside the sandbox or the demo services.
 3. canarySink: a dependency free Node script outside the pnpm workspace. It runs either as a container on the internal sandbox network (for sandboxCanary) or on the host bound to 127.0.0.1 only (for the demo services). It is never reachable from outside the machine. POST /collect stores what arrives; GET /received?token= answers { received, at }; GET /received lists everything. Labelled simulated exfiltration.
 4. services: ordersApi, searchApi and notifyWorker, each a tiny HTTP service outside the pnpm workspace with its own package-lock.json resolved from mockRegistry, each behind a guard sidecar and answering 503 with a plain message while its sidecar is unhealthy. searchApi stays on 1.4.0 to show that sealing is per version.
