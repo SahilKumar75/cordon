@@ -102,7 +102,7 @@ checkBlocksFromSnapshot() {
 summary() {
   echo
   echo "== summary"
-  printf '%s\n' "${results[@]}"
+  [ "${#results[@]}" -eq 0 ] || printf '%s\n' "${results[@]}"
   [ -z "$timings" ] || printf '%s\n' "$timings"
 }
 
