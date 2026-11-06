@@ -14,6 +14,8 @@ export const sinkImage = "bulkheadcanarysink";
 const sinkUrl = `http://${sinkContainer}:8080`;
 const installTimeoutMs = 60_000;
 const tarballPath = "/tmp/package.tgz";
+const processPollMs = 20;
+const maxRecordedProcesses = 200;
 
 const confinement = ["--network", sandboxNetwork, "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--memory", "512m", "--pids-limit", "256"];
 
@@ -67,15 +69,30 @@ function recreateSinkOnce(docker: DockerRunner): Promise<string> {
   return ready;
 }
 
-async function installInSandbox(docker: DockerRunner, image: string, tarball: Buffer, token: string): Promise<void> {
+async function watchProcesses(docker: DockerRunner, container: string, running: () => boolean): Promise<string[]> {
+  const seen = new Set<string>();
+  while (running() && seen.size < maxRecordedProcesses) {
+    const [header = "", ...rows] = (await docker(["top", container])).stdout.split("\n");
+    const commandColumn = header.indexOf("CMD");
+    if (commandColumn >= 0) rows.map((row) => row.slice(commandColumn).trim()).filter(Boolean).forEach((command) => seen.add(command));
+    await new Promise((resolve) => setTimeout(resolve, processPollMs));
+  }
+  return [...seen];
+}
+
+async function installInSandbox(docker: DockerRunner, image: string, tarball: Buffer, token: string): Promise<string[]> {
   const container = `bulkhead_run_${randomBytes(6).toString("hex")}`;
   const folder = await mkdtemp(join(tmpdir(), "bulkheadSandbox"));
   try {
     await writeFile(join(folder, "package.tgz"), tarball);
     await must(docker, installArgs(image, container, token));
     await must(docker, ["cp", join(folder, "package.tgz"), `${container}:${tarballPath}`]);
+    let running = true;
+    const processes = watchProcesses(docker, container, () => running);
     const run = await docker(["start", "--attach", container], installTimeoutMs);
+    running = false;
     if (run.code !== 0 && !run.timedOut) throw new Error(`sandbox install exited with code ${run.code}: ${run.stderr.trim().slice(-500)}`);
+    return await processes;
   } finally {
     await docker(["rm", "--force", container]);
     await rm(folder, { recursive: true, force: true });
@@ -86,7 +103,7 @@ export async function scanSandbox(request: ScanRequest, tarball: Buffer, image: 
   const token = randomBytes(24).toString("hex");
   await ensureInternalNetwork(docker);
   await recreateSinkOnce(docker);
-  await installInSandbox(docker, image, tarball, token);
+  const processes = await installInSandbox(docker, image, tarball, token);
   const receivedUrl = `http://127.0.0.1:8080/received?token=${encodeURIComponent(token)}`;
   const answer = await must(docker, ["exec", sinkContainer, "wget", "-q", "-O", "-", receivedUrl]);
   const { received, at } = JSON.parse(answer) as { received: boolean; at: string | null };
@@ -97,7 +114,10 @@ export async function scanSandbox(request: ScanRequest, tarball: Buffer, image: 
     integrity: request.integrity,
     malicious: received,
     simulated: true,
-    findings: received ? [{ rule: "canaryTokenExfiltrated", detail: `install sent this run's canary token to the sink at ${at}`, file: null }] : [],
+    findings: [
+      ...(received ? [{ rule: "canaryTokenExfiltrated", detail: `install sent this run's canary token to the sink at ${at}`, file: null }] : []),
+      ...processes.map((command) => ({ rule: "sandboxProcess", detail: command, file: null })),
+    ],
     advisoryUrl: null,
     observedAt: new Date().toISOString(),
   };

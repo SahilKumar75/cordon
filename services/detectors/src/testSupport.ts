@@ -16,7 +16,7 @@ import {
 } from "viem";
 import { defineAppChain, sealKeyOf, sealRegistryAbi } from "@bulkhead/shared";
 
-export async function packFixture(files: Record<string, string>): Promise<Buffer> {
+export async function packFixture(files: Record<string, string | Uint8Array>): Promise<Buffer> {
   const root = await mkdtemp(join(tmpdir(), "detectorsFixture"));
   for (const [path, content] of Object.entries(files)) {
     await mkdir(dirname(join(root, "package", path)), { recursive: true });

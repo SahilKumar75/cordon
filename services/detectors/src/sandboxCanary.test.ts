@@ -18,6 +18,7 @@ const request = {
 function recordingDocker(answer: (args: string[]) => Partial<DockerResult>) {
   const calls: string[][] = [];
   const docker: DockerRunner = async (args) => {
+    if (args[0] === "top") return { code: 1, stdout: "", stderr: "not running", ...answer(args) };
     calls.push(args);
     return { code: 0, stdout: "", stderr: "", ...answer(args) };
   };
@@ -112,6 +113,31 @@ test("a failing install throws but a timed out install still asks the sink", asy
   assert.equal((await scanSandbox(request, Buffer.from("tarball"), image, timedOut.docker)).malicious, true);
 });
 
+const topHeader = "UID    PID    PPID   C      STIME  TTY    TIME       CMD";
+const topSnapshots = [
+  [topHeader, "1000   10     1      0      10:00  ?      00:00:00   npm install /tmp/package.tgz"],
+  [topHeader, "1000   10     1      0      10:00  ?      00:00:00   npm install /tmp/package.tgz", "1000   20     10     0      10:00  ?      00:00:00   sh -c node postinstall.js"],
+  [topHeader, "1000   20     10     0      10:00  ?      00:00:00   sh -c node postinstall.js", "1000   21     20     0      10:00  ?      00:00:00   node postinstall.js"],
+];
+
+test("every process seen in the run container during the install is kept as a finding", async () => {
+  let polls = 0;
+  const docker: DockerRunner = async (args) => {
+    if (args[0] === "network") return { code: 0, stdout: "true", stderr: "" };
+    if (args[0] === "top") return { code: 0, stdout: (topSnapshots[Math.min(polls++, topSnapshots.length - 1)] ?? []).join("\n"), stderr: "" };
+    if (args[0] === "start") await new Promise((resolve) => setTimeout(resolve, 150));
+    if (args[0] === "exec") return { code: 0, stdout: JSON.stringify({ received: false, at: null }), stderr: "" };
+    return { code: 0, stdout: "", stderr: "" };
+  };
+  const evidence = await scanSandbox(request, Buffer.from("tarball"), image, docker);
+  assert.ok(polls >= 3);
+  assert.deepEqual(
+    evidence.findings.map(({ rule, detail }) => `${rule}:${detail}`),
+    ["sandboxProcess:npm install /tmp/package.tgz", "sandboxProcess:sh -c node postinstall.js", "sandboxProcess:node postinstall.js"],
+  );
+  assert.equal(evidence.malicious, false);
+});
+
 test("the run container is removed even when copy fails", async () => {
   const { calls, docker } = recordingDocker((args) => (args[0] === "network" ? { stdout: "true" } : args[0] === "cp" ? { code: 1, stderr: "copy failed" } : {}));
   await assert.rejects(scanSandbox(request, Buffer.from("tarball"), image, docker), /docker cp failed: copy failed/);
@@ -128,5 +154,10 @@ test("real Docker run flags 1.4.1 and passes 1.4.0", { skip: !dockerTests && "se
     const integrity = `sha512-${createHash("sha512").update(tarball).digest("base64")}`;
     const evidence = await scanSandbox({ ...request, version, integrity }, tarball, sandboxImage, runDocker);
     assert.equal(evidence.malicious, expected, `version ${version}`);
+    const processes = evidence.findings.filter(({ rule }) => rule === "sandboxProcess").map(({ detail }) => detail);
+    assert.ok(processes.some((command) => command.startsWith("npm")), `version ${version} npm seen`);
+    if (expected) {
+      assert.ok(processes.some((command) => /^node postinstall\.js/.test(command)), `node seen in ${processes.join(" | ")}`);
+    }
   }
 });
