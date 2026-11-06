@@ -141,3 +141,4 @@ ETHGlobal asks every team to document where and how AI tools were used. We used 
 6. ops/sealDemo.ts and ops/testnetProof.sh, written by the orchestrator for the testnet demo seal and the guard proof runs; apps/dashboard/components/providers.tsx changed so a build without chain settings succeeds, found by the fresh clone check.
 7. docs/testnet_proof.md, written by the orchestrator from the Base Sepolia deploy, the demo seal and the guard runs on 7 Nov 2026; contracts/deployments/84532.json, written by the Foundry deploy script.
 8. docs/screenshots: the 12 empty and normal state screenshots were retaken on 7 Nov 2026 with headless Chrome from the local stack; the loading and error screenshots from 106cc69 were kept, because pausing the backends hung the headless capture and those page states did not change.
+9. ops/packGuard.sh, written by the orchestrator: bundles the guard CLI with esbuild into a publishable npm package in data/npmPackage.
