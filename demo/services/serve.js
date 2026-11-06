@@ -18,7 +18,9 @@ async function stopReason(sidecarUrl) {
     if (!response.ok) return uncheckedReason;
     const status = await response.json();
     return status.healthy ? null : stopReasonOf(status.report);
-  } catch {
+  } catch (error) {
+    const unreachable = error instanceof TypeError || (error instanceof DOMException && ["TimeoutError", "AbortError"].includes(error.name));
+    if (!unreachable) throw error;
     return uncheckedReason;
   }
 }
@@ -31,7 +33,7 @@ export function serve(service, answer) {
     const reason = await stopReason(sidecarUrl);
     if (reason !== null) {
       response.writeHead(503, { "content-type": "text/plain" });
-      return response.end(`Stopped by Bulkhead: ${reason}\n`);
+      return response.end(`Stopped by the guard: ${reason}\n`);
     }
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ service, ...answer(request) }));

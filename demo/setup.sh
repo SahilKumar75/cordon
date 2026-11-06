@@ -5,7 +5,6 @@ nodeImage=node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc6
 
 sh "$demoDir/poisonedPackage/pack.sh"
 docker build --build-arg NODE_IMAGE=$nodeImage -t bulkheadcanarysink "$demoDir/canarySink"
-docker build --build-arg NODE_IMAGE=$nodeImage -t bulkheadmockregistry -f "$demoDir/mockRegistry/Dockerfile" "$demoDir"
 
 setupStorage=$(mktemp -d)
 HOST=127.0.0.1 MOCK_REGISTRY_STORAGE="$setupStorage" node "$demoDir/mockRegistry/server.js" > "$setupStorage/registry.log" 2>&1 &
@@ -17,4 +16,4 @@ curl -fsS -X POST "$NPM_REGISTRY_URL/_demo/publish" -H "content-type: applicatio
 for service in ordersApi searchApi notifyWorker; do
   (cd "$demoDir/services/$service" && npm ci --ignore-scripts --no-audit --no-fund --registry "$NPM_REGISTRY_URL/")
 done
-echo "setup done: tarballs packed, images bulkheadcanarysink and bulkheadmockregistry built, services installed with scripts disabled"
+echo "setup done: tarballs packed, canary sink image built, services installed with scripts disabled"

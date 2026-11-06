@@ -112,7 +112,8 @@ async function readBody(request) {
   for await (const chunk of request) raw += chunk;
   try {
     return JSON.parse(raw);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return null;
   }
 }

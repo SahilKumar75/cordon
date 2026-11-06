@@ -14,7 +14,7 @@ let registryUrl;
 
 before(async () => {
   if (!existsSync(join(packageDir, "dist", "bulkheaddemo-colorkit-1.4.1.tgz"))) execFileSync("sh", [join(packageDir, "pack.sh")]);
-  const storage = mkdtempSync(join(tmpdir(), "bulkheadRegistryTest"));
+  const storage = mkdtempSync(join(tmpdir(), "mockRegistryTest"));
   registry = spawn(process.execPath, [join(here, "server.js")], {
     env: { PATH: process.env.PATH, MOCK_REGISTRY_PORT: "0", MOCK_REGISTRY_STORAGE: storage },
   });
