@@ -1,6 +1,6 @@
 # Chainlink CRE design
 
-Branch: cre. Main stays the submission fallback and is not changed by this work. Facts about CRE come from the docs.chain.link pages linked below, read on 6 Nov 2026. Nothing here runs yet.
+Built on the cre branch and merged into main on 6 Nov 2026. Facts about CRE come from the docs.chain.link pages linked below, read on 6 Nov 2026. The workflow runs in the CRE simulator only (`bash ops/creDemo.sh`); it is not deployed.
 
 ## What moves into CRE
 

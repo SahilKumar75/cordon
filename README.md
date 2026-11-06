@@ -194,6 +194,8 @@ cre workflow simulate cordonAdvisory --target staging-settings --non-interactive
 
 The first called OSV, found MAL-2026-3465, built and signed the report and ran writeReport as a dry run; the second came back clean and wrote nothing. Simulation needs CRE_ETH_PRIVATE_KEY in cre/.env (ignored by git); a dry run never spends it. A broadcast simulation needs that key funded with Base Sepolia ETH and a receiver deployed with contracts/script/DeployCre.s.sol.
 
+Run both simulations with one command: `bash ops/creDemo.sh` (dry run, no transaction).
+
 Tests without the CLI: `cd cre/cordonAdvisory && bun install --ignore-scripts && bun test`, and `cd contracts && forge test --match-contract CordonCreReceiver`.
 
 ## Scale roadmap

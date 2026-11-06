@@ -41,3 +41,4 @@ Source: ethglobal.com/events/mumbai/info/details and info/start, read 5 Nov 2026
 2. Chain stays Base Sepolia, set only by env (CHAIN_ID, RPC_URL, EXPLORER_URL, NATIVE_SYMBOL and their NEXT_PUBLIC_ twins).
 3. Partner prize target: Chainlink CRE, first in the cut order. Nothing depends on Arc Studio until the mentor answers. Arkiv is dropped.
 4. x402 and ERC 8004 are dropped.
+5. Updated 7 Nov 2026: EF Best CROPS App is the primary prize, Chainlink CRE is simulation only, and Arkiv was reinstated on 6 Nov and is claimed only if a real entity write is shown.

@@ -31,7 +31,7 @@ The script for a three minute video: terminal first, then the dashboard, then th
 1. Real time, no speed up and no cuts inside a scene.
 2. Your own voice, no music.
 3. At least 720p, recorded on a computer screen.
-4. Length between two and four minutes.
+4. Length between two and four minutes, and under three minutes in practice: the EF Best CROPS App prize asks for a video of three minutes at most.
 5. Say simulated wherever the detectors appear, and do not say deployed unless the Base Sepolia deployment exists and is on screen.
 6. Upload the video to ETHGlobal.com with the project submission.
 

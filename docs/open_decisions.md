@@ -1,9 +1,9 @@
 # Open decisions
 
-Each entry: the suggested default, then the trade off. The team copies what it agrees with into docs/decisions.md. Until then the code uses the default shown, and says so where it matters.
+Each entry: the suggested default, then the trade off. The team copies what it agrees with into docs/decisions.md. Until then the code uses the default shown, and says so where it matters. Entries marked Decided record a team decision or what the code now does; the rest are still open.
 
 ## Age N for the fallback (GUARD_FALLBACK_MIN_AGE_DAYS)
-Suggested: 3 days (the current placeholder; the guard warns every time it uses it).
+Decided: N stays 3 days (team decision, 7 Nov 2026). The guard still warns every time it uses the built in value when the variable is unset.
 Trade off: a larger N blocks more fresh malicious releases while the Sealed list is down, but also blocks more legitimate fresh releases.
 
 ## Stale list limit (GUARD_SNAPSHOT_MAX_AGE_SECONDS)
@@ -15,20 +15,19 @@ Suggested: 3600 seconds on testnet for the demo; one to six hours if anyone runs
 Trade off: a false seal stays an outage until the window ends, so shorter limits our damage; longer gives reviewers time before a guardian can unseal.
 
 ## Vote lifetime (VOTE_LIFETIME_SECONDS)
-Suggested: 86400 seconds (one day).
+Decided: implemented as an immutable set at deploy (`voteLifetime` in contracts/src/SealRegistry.sol), 86400 seconds in our config (ops/e2eLocal.sh). A detector may refresh its vote once half the lifetime has passed.
 Trade off: shorter makes stale or replayed agreement expire sooner but needs detectors to agree within that time; longer lets a slow second detector still count.
 
 ## Quorum (QUORUM with three detectors)
 Suggested: 2 of 3.
 Trade off: 1 of 3 seals faster but lets one faulty or compromised detector cause an outage; 3 of 3 is safest against false seals but stops sealing when any detector is down.
 
-## Three level model: Clean, Suspected, Sealed (proposed, not built)
-Suggested: add Suspected for a version with at least one live detector vote and no quorum yet. The dashboard shows it as a warning, never as Sealed. The guard prints a warning and does not block; the stale list rule still blocks only versions younger than N days. A hard block happens only at Sealed.
-How it is derived, with no contract change and no change to the frozen roles: the watcher already reads every VerdictSubmitted event (key, detector, time). A key is Suspected when getSeal reports status None and at least one vote is younger than voteLifetime(). The votes field in getSeal is only updated when a vote arrives, so expiry has to be computed from the event times, not read from that field. The watcher would put Suspected keys in the signed snapshot, so the guard learns them without extra RPC calls.
-Trade off: Suspected tells users early, minutes before quorum, at no outage risk, because it never blocks. It also shows a single faulty or compromised detector's opinion to everyone, so the warning must say it is one vote and not a seal. Combined with a quorum of 1 it would add nothing, because one vote already seals.
+## Suspect versions
+Decided: Suspect versions block by default, with `--allow-suspect name@version` as the per version override (team decision, 7 Nov 2026). Built: a key is Suspect while its status is None and it has a live vote (`isSuspect` in contracts/src/SealRegistry.sol); the guardian can promote it to Sealed or clear it, and a Cleared key takes no more votes. The guard reads Suspect keys from the chain or the signed snapshot (packages/guard/src/sealedList.ts) and blocks them in packages/guard/src/check.ts; the sidecar only warns.
+Trade off: one faulty or compromised detector key can hold any version for up to the vote lifetime, so the advice names the override and the guardian clear.
 
 ## Fail mode when the Sealed list is unavailable
-Suggested: the age fallback rather than fail open or fail closed. The team chose it on 6 Nov 2026 and CLAUDE.md design rule 8 records it; N stays for docs/decisions.md.
+Decided: the age fallback rather than fail open or fail closed. The team chose it on 6 Nov 2026 and CLAUDE.md design rule 8 records it; N is 3 (above).
 Trade off: fail open lets every install through during an outage; fail closed stops all installs; the fallback stops only fresh versions and depends on N above.
 
 ## Seal rate limit (MAX_SEALS_PER_DAY)
@@ -40,12 +39,20 @@ Suggested: unset, so git, GitHub, commit and tarball sources block by default.
 Trade off: blocking is safe against the TanStack style git dependency vector; projects that rely on git dependencies must opt out per environment.
 
 ## Target prizes
-Suggested: Ethereum Foundation Best CROPS App and Chainlink Best workflow with CRE, both on Base Sepolia (details in docs/sponsor_fit.md). Arkiv only if the team reverses its earlier drop.
+Current plan: Ethereum Foundation Best CROPS App as the primary target; Chainlink Best workflow with CRE as a simulation only; Arkiv only if a real entity write is shown, which needs a funded writer (details in docs/sponsor_fit.md).
 Trade off: each extra prize adds required files, demo time and sometimes a second chain; the deadline is Sat 7 Nov, 09:00 IST.
 
 ## Guardian key
-Suggested: a single guardian key for the demo, documented in docs/limits.md; a Safe multisig for any real deployment.
-Trade off: one key is quick to demo but is a single point of failure for unseal and reseal.
+Open. Suggested: a single guardian key for the demo, documented in docs/limits.md; a Safe multisig for any real deployment.
+Trade off: one key is quick to demo but is a single point of failure for unseal, reseal, promote and clear.
+
+## Snapshot hosting (GUARD_SNAPSHOT_URL)
+Open. The watcher serves the signed snapshot today, so a watcher outage leaves guards on their local cache. Options: keep the watcher, or also publish the signed file to static hosting the guard can fetch.
+Trade off: a second host keeps fresh lists flowing when the watcher is down, but is one more thing to run, and the signature check is what makes any host safe.
+
+## Independent detector operators
+Open. The team runs all three detector keys, so the quorum shows the mechanism, not independence (docs/limits.md). A CRE vote, if deployed, would be one more operator chosen by Chainlink, still one vote.
+Trade off: outside operators make a false seal harder to cause, but need recruiting, and roles are frozen, so adding them means a new registry deployment.
 
 ## Public repo timing
 Suggested: make the repo public just before submission, after a final secret scan, so judges can open it from the submission page.
