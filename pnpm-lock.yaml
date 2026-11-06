@@ -10,7 +10,7 @@ importers:
 
   apps/dashboard:
     dependencies:
-      '@bulkhead/shared':
+      '@cordon/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@tanstack/react-query':
@@ -55,7 +55,7 @@ importers:
 
   packages/guard:
     dependencies:
-      '@bulkhead/shared':
+      '@cordon/shared':
         specifier: workspace:*
         version: link:../shared
       tar:
@@ -90,7 +90,7 @@ importers:
 
   services/detectors:
     dependencies:
-      '@bulkhead/shared':
+      '@cordon/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       fastify:
@@ -115,7 +115,7 @@ importers:
 
   services/watcher:
     dependencies:
-      '@bulkhead/shared':
+      '@cordon/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       fastify:
@@ -134,7 +134,7 @@ importers:
 
   tests:
     dependencies:
-      '@bulkhead/shared':
+      '@cordon/shared':
         specifier: workspace:*
         version: link:../packages/shared
       viem:

@@ -5,7 +5,7 @@ import { after, before, test } from "node:test";
 import { createPublicClient, http } from "viem";
 import { generatePrivateKey } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { sealKeyOf, sealRegistryAbi } from "@bulkhead/shared";
+import { sealKeyOf, sealRegistryAbi } from "@cordon/shared";
 import { installArgs, sinkArgs } from "../../services/detectors/src/sandboxCanary.ts";
 import { buildContracts, repoRoot, startChain, type LocalChain } from "../support/chain.ts";
 
@@ -44,7 +44,7 @@ test("shared depends on nothing in the workspace", () => {
   const files = readdirSync(join(repoRoot, "packages", "shared", "src"), { recursive: true }) as string[];
   for (const file of files.filter((name) => name.endsWith(".ts"))) {
     const text = readFileSync(join(repoRoot, "packages", "shared", "src", file), "utf8");
-    assert.doesNotMatch(text, /from ["'](@bulkhead\/|\.\.\/\.\.\/)/, `${file} imports outside shared`);
+    assert.doesNotMatch(text, /from ["'](@cordon\/|\.\.\/\.\.\/)/, `${file} imports outside shared`);
   }
 });
 
@@ -66,7 +66,7 @@ test("the deployed contract key equals the shared seal key", async () => {
     maxSealsPerDay: 10,
   });
   const client = createPublicClient({ chain: foundry, transport: http(chain.rpcUrl) });
-  for (const [name, version] of [["@bulkheaddemo/colorkit", "1.4.1"], ["@tanstack/react-router", "1.169.5"], ["a", "bc"]] as const) {
+  for (const [name, version] of [["@cordondemo/colorkit", "1.4.1"], ["@tanstack/react-router", "1.169.5"], ["a", "bc"]] as const) {
     const onChain = await client.readContract({ address: registry, abi: sealRegistryAbi, functionName: "keyOf", args: ["npm", name, version] });
     assert.equal(onChain, sealKeyOf(name, version));
   }

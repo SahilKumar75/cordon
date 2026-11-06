@@ -1,7 +1,7 @@
 {
-  "name": "@bulkheaddemo/colorkit",
+  "name": "@cordondemo/colorkit",
   "version": "1.4.0",
-  "description": "Demo package for Bulkhead. Clean version.",
+  "description": "Demo package for Cordon. Clean version.",
   "type": "module",
   "main": "index.js",
   "license": "MIT"

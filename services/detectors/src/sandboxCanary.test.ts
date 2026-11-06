@@ -8,7 +8,7 @@ import { installArgs, isSandboxEligible, runDocker, scanSandbox, sinkArgs, type 
 
 const image = "node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914";
 const request = {
-  name: "@bulkheaddemo/colorkit",
+  name: "@cordondemo/colorkit",
   version: "1.4.1",
   tarballUrl: "http://localhost:4873/colorkit-1.4.1.tgz",
   integrity: "sha512-fixture",
@@ -32,10 +32,10 @@ function flagValue(args: string[], flag: string): string | undefined {
 const forbiddenFlags = ["-v", "--volume", "--mount", "--tmpfs", "--volumes-from", "--privileged", "--cap-add"];
 
 test("install container args are confined and mount nothing", () => {
-  const args = installArgs(image, "bulkhead_run_abc", "tokenvalue");
+  const args = installArgs(image, "cordon_run_abc", "tokenvalue");
   assert.equal(args[0], "create");
   assert.ok(args.includes("--rm"));
-  assert.equal(flagValue(args, "--network"), "bulkhead_sandbox");
+  assert.equal(flagValue(args, "--network"), "cordon_sandbox");
   assert.equal(flagValue(args, "--cap-drop"), "ALL");
   assert.equal(flagValue(args, "--security-opt"), "no-new-privileges");
   assert.equal(flagValue(args, "--memory"), "512m");
@@ -66,7 +66,7 @@ test("first run creates the internal network, recreates the sink, copies the tar
   });
   const evidence = await scanSandbox(request, Buffer.from("tarball"), image, docker);
   assert.deepEqual(calls.map((args) => args[0]), ["network", "network", "rm", "run", "create", "cp", "start", "rm", "exec"]);
-  assert.deepEqual(calls[1], ["network", "create", "--internal", "bulkhead_sandbox"]);
+  assert.deepEqual(calls[1], ["network", "create", "--internal", "cordon_sandbox"]);
   assert.deepEqual(calls[2], ["rm", "--force", "canarysink"]);
   assert.deepEqual(calls[3], sinkArgs());
   const container = flagValue(calls[4] ?? [], "--name");
@@ -97,7 +97,7 @@ test("the sink is recreated once per runner and a silent install is not maliciou
 test("an existing network that is not internal stops the run before any container starts", async () => {
   const { calls, docker } = recordingDocker((args) => (args[0] === "network" ? { stdout: "false\n" } : {}));
   await assert.rejects(scanSandbox(request, Buffer.from("tarball"), image, docker), /not internal, refusing/);
-  assert.deepEqual(calls, [["network", "inspect", "--format", "{{.Internal}}", "bulkhead_sandbox"]]);
+  assert.deepEqual(calls, [["network", "inspect", "--format", "{{.Internal}}", "cordon_sandbox"]]);
 });
 
 test("a failing install throws but a timed out install still asks the sink", async () => {
@@ -145,12 +145,12 @@ test("the run container is removed even when copy fails", async () => {
 });
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
-const dockerTests = process.env.BULKHEAD_DOCKER_TESTS === "1";
+const dockerTests = process.env.CORDON_DOCKER_TESTS === "1";
 
-test("real Docker run flags 1.4.1 and passes 1.4.0", { skip: !dockerTests && "set BULKHEAD_DOCKER_TESTS=1 to run" }, async () => {
+test("real Docker run flags 1.4.1 and passes 1.4.0", { skip: !dockerTests && "set CORDON_DOCKER_TESTS=1 to run" }, async () => {
   const sandboxImage = process.env.SANDBOX_IMAGE ?? image;
   for (const [version, expected] of [["1.4.0", false], ["1.4.1", true]] as const) {
-    const tarball = await readFile(join(repoRoot, "demo/poisonedPackage/dist", `bulkheaddemo-colorkit-${version}.tgz`));
+    const tarball = await readFile(join(repoRoot, "demo/poisonedPackage/dist", `cordondemo-colorkit-${version}.tgz`));
     const integrity = `sha512-${createHash("sha512").update(tarball).digest("base64")}`;
     const evidence = await scanSandbox({ ...request, version, integrity }, tarball, sandboxImage, runDocker);
     assert.equal(evidence.malicious, expected, `version ${version}`);

@@ -1,5 +1,5 @@
 {
-  "name": "@bulkhead/dashboard",
+  "name": "@cordon/dashboard",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bulkhead/shared": "workspace:*",
+    "@cordon/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "next": "^15.1.0",
     "react": "^19.0.0",

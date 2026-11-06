@@ -1,6 +1,6 @@
 # Edge cases
 
-Cases that change how Bulkhead must behave. All sources accessed 6 Nov 2026. Source code references are to GitHub repos read through the GitHub API; nothing was installed or run.
+Cases that change how Cordon must behave. All sources accessed 6 Nov 2026. Source code references are to GitHub repos read through the GitHub API; nothing was installed or run.
 
 ## 1. Provenance passes on a hijacked build
 
@@ -22,7 +22,7 @@ Cases that change how Bulkhead must behave. All sources accessed 6 Nov 2026. Sou
 2. Claude Code hooks are shell commands that run automatically; project hooks live in .claude/settings.json, which can be committed, and a SessionStart event exists. https://code.claude.com/docs/en/hooks
 3. VS Code runs a task with runOn folderOpen when the folder opens, but only if task.allowAutomaticTasks allows it (default off, with a one time prompt) and never in an untrusted workspace. https://code.visualstudio.com/docs/debugtest/tasks
 4. Nx, Aug 2025: the Nx Console VS Code extension (18.6.30 to 18.65.1) installed nx@latest on editor start, which ran the malicious postinstall without any user install. The Nx postmortem says the payload tried to use local AI tools such as Claude and Gemini. https://nx.dev/blog/s1ngularity-postmortem
-5. Design effect: bulkhead audit should list .claude/, .vscode/tasks.json and shell rc files changed near the install time as places to inspect. Editors and agents can trigger installs, so the guard belongs in CI and in any agent install path, not only in a human shell.
+5. Design effect: cordon audit should list .claude/, .vscode/tasks.json and shell rc files changed near the install time as places to inspect. Editors and agents can trigger installs, so the guard belongs in CI and in any agent install path, not only in a human shell.
 
 ## 4. Install scripts disabled does not cover git dependency prepare on npm 10 and 11
 
@@ -53,7 +53,7 @@ Cases that change how Bulkhead must behave. All sources accessed 6 Nov 2026. Sou
 2. From cacache source (https://github.com/npm/cacache): the index is under index-v5, bucketed by the sha256 of the key into two 2 character directories; content is under content-v2/sha512/xx/yy/rest, named by the integrity hash. Index entries hold the key, the integrity and metadata.
 3. Registry responses are cached under keys of the form make-fetch-happen:request-cache: followed by the full URL (https://github.com/npm/make-fetch-happen/blob/main/lib/cache/key.js), so a tarball URL in the index reveals name and version.
 4. npx keeps its own installs under _npx in the cache root (Nx advisory cleanup steps).
-5. Design effect: bulkhead audit --cache can walk index-v5, read keys that are tarball URLs, and match name and version against the Sealed list without touching content files.
+5. Design effect: cordon audit --cache can walk index-v5, read keys that are tarball URLs, and match name and version against the Sealed list without touching content files.
 
 ## 8. What a registry takedown or deprecation does and does not remove
 
@@ -84,11 +84,11 @@ c. The npm setting that disallows git dependencies. Verified.
 3. Defaults: all in npm 11. none from npm 12.0.0 (changelog: "allow-git and allow-remote now default to "none"", #9466). npm 10.9.10 does not have the setting, so Node 22 with its bundled npm 10 cannot use it.
 4. Known bug: npm/cli#9189 (opened 3 Apr 2026) reported that allow-git=root refused root level git dependencies; the fix PR #9206 merged 15 Apr 2026. Which npm 11 release first carries the fix is not verified.
 5. npm 11.15.0 (20 May 2026) added the sibling settings allow-file, allow-directory and allow-remote (#9339).
-6. Design effect: bulkhead install should pass --allow-git=none when npm is 11.9.0 or later, and on npm 10 refuse or flag any lockfile entry resolved from git.
+6. Design effect: cordon install should pass --allow-git=none when npm is 11.9.0 or later, and on npm 10 refuse or flag any lockfile entry resolved from git.
 
 ## 10. Out of scope: theft of short lived CI tokens from runner memory
 
-In TanStack the attacker read an OIDC token from the memory of the GitHub Actions runner and published with it (postmortem). That happens inside the publisher's CI before any version reaches the registry. Bulkhead acts on versions after they are published, so it cannot prevent this theft; it can only seal the versions that result. Hardening the publisher's CI (pinning actions, auditing pull_request_target, scoping OIDC trust to one workflow and branch) is out of scope for Bulkhead and should be listed in docs/limits.md.
+In TanStack the attacker read an OIDC token from the memory of the GitHub Actions runner and published with it (postmortem). That happens inside the publisher's CI before any version reaches the registry. Cordon acts on versions after they are published, so it cannot prevent this theft; it can only seal the versions that result. Hardening the publisher's CI (pinning actions, auditing pull_request_target, scoping OIDC trust to one workflow and branch) is out of scope for Cordon and should be listed in docs/limits.md.
 
 ## 11. Loaders that start another runtime such as Bun
 

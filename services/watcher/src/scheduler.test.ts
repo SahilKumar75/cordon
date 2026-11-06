@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { ScanRequest, ScanResponse } from "@bulkhead/shared";
+import type { ScanRequest, ScanResponse } from "@cordon/shared";
 import { pollRegistry } from "./registryPoller.ts";
 import { attestations, runScheduler } from "./scheduler.ts";
 import { demoKey, demoName, demoVersion, detectorAddress, tempDatabasePath } from "./testSupport.ts";
@@ -67,7 +67,7 @@ test("each publish is scanned once, in order, and a failed scan is retried next 
   assert.equal(await runScheduler(db, detectorsUrl, fetchImpl, (failure) => failures.push(failure)), 0);
   assert.deepEqual(scanned, ["1.4.0", demoVersion, demoVersion]);
   assert.equal(failures.length, 2);
-  assert.match(failures[0] ?? "", /advisoryFeed on @bulkheaddemo\/colorkit@1\.4\.0: osv unreachable/);
+  assert.match(failures[0] ?? "", /advisoryFeed on @cordondemo\/colorkit@1\.4\.0: osv unreachable/);
 });
 
 test("scan verdicts become attestations, simulated on the demo registry", async () => {

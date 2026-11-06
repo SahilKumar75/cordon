@@ -1,4 +1,4 @@
-import type { DetectorId } from "@bulkhead/shared";
+import type { DetectorId } from "@cordon/shared";
 
 export const detectorNames: Record<DetectorId, string> = {
   staticScripts: "Static scripts",

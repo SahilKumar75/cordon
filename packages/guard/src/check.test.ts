@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { verifyMessage } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { guardReportDigestOf, guardReportSchema, signedGuardReportSchema } from "@bulkhead/shared";
+import { guardReportDigestOf, guardReportSchema, signedGuardReportSchema } from "@cordon/shared";
 import {
   checkLockfile,
   installChecked,

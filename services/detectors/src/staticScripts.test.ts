@@ -6,7 +6,7 @@ import { packFixture } from "./testSupport.ts";
 
 function requestFor(version: string, tarball: Buffer) {
   return {
-    name: "@bulkheaddemo/colorkit",
+    name: "@cordondemo/colorkit",
     version,
     tarballUrl: `http://localhost:4873/colorkit-${version}.tgz`,
     integrity: `sha512-${createHash("sha512").update(tarball).digest("base64")}`,
@@ -14,9 +14,9 @@ function requestFor(version: string, tarball: Buffer) {
   };
 }
 
-const cleanManifest = JSON.stringify({ name: "@bulkheaddemo/colorkit", version: "1.4.0", main: "index.js" });
+const cleanManifest = JSON.stringify({ name: "@cordondemo/colorkit", version: "1.4.0", main: "index.js" });
 const poisonedManifest = JSON.stringify({
-  name: "@bulkheaddemo/colorkit",
+  name: "@cordondemo/colorkit",
   version: "1.4.1",
   scripts: { postinstall: "node postinstall.js", test: "curl example" },
 });

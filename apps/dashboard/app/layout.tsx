@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
-import { productName } from "@bulkhead/shared";
+import { productName } from "@cordon/shared";
 import { Nav } from "@/components/nav";
 import { Providers } from "@/components/providers";
 import { demoEnabled, missingSettings } from "@/lib/env";

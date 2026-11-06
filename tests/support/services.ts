@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Address, Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import type { GuardReport } from "@bulkhead/shared";
+import type { GuardReport } from "@cordon/shared";
 import { freePort, repoRoot, type LocalChain } from "./chain.ts";
 
 export type Env = Record<string, string>;

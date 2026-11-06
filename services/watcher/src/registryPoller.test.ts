@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { RegistryChange } from "@bulkhead/shared";
+import type { RegistryChange } from "@cordon/shared";
 import { pollRegistry } from "./registryPoller.ts";
 import { demoKey, demoName, tempDatabasePath } from "./testSupport.ts";
 import { openDatabase, timelineOf } from "./timeline.ts";

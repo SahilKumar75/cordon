@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import type { DatabaseSync } from "node:sqlite";
 import type { Address, LocalAccount } from "viem";
-import { productName, snapshotDigestOf, type Hex32, type SealEntry, type SealedSnapshot, type SignedSnapshot } from "@bulkhead/shared";
+import { productName, snapshotDigestOf, type Hex32, type SealEntry, type SealedSnapshot, type SignedSnapshot } from "@cordon/shared";
 import { cursorOf, timelineHeads, timelineOf } from "./timeline.ts";
 
 export type SnapshotSettings = { chainId: number; registry: Address; startBlock: bigint };

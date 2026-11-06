@@ -1,6 +1,6 @@
 ---
 name: guard
-description: Builds the bulkhead CLI (check, install, audit, rollback, sidecar) that blocks Sealed npm versions locally before they run. Use for work in packages/guard/.
+description: Builds the cordon CLI (check, install, audit, rollback, sidecar) that blocks Sealed npm versions locally before they run. Use for work in packages/guard/.
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

@@ -8,7 +8,7 @@ const sinkUrl = process.env.CANARY_SINK_URL;
 const sinkIsLocal = sinkUrl && URL.canParse(sinkUrl) && localSinkHosts.has(new URL(sinkUrl).hostname);
 
 if (token && sinkIsLocal) {
-  writeFileSync(join(tmpdir(), "bulkheadDemoCanary.txt"), token);
+  writeFileSync(join(tmpdir(), "cordonDemoCanary.txt"), token);
   await fetch(new URL("/collect", sinkUrl), {
     method: "POST",
     headers: { "content-type": "application/json" },

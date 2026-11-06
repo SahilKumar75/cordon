@@ -16,7 +16,7 @@ import {
   type DetectorId,
   type Evidence,
   type ScanResponse,
-} from "@bulkhead/shared";
+} from "@cordon/shared";
 import { replayAdvisory, scanAdvisories } from "./advisoryFeed.ts";
 import { isSandboxEligible, runDocker, scanSandbox, type DockerRunner } from "./sandboxCanary.ts";
 import { createSigner } from "./signer.ts";

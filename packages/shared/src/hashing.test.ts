@@ -7,7 +7,7 @@ import { evidenceHashOf, sealKeyOf, snapshotDigestOf, timelineEventHashOf } from
 import type { Evidence, SealedSnapshot, TimelineEvent } from "./types.ts";
 
 const evidence: Evidence = {
-  name: "@bulkheaddemo/colorkit",
+  name: "@cordondemo/colorkit",
   version: "1.4.1",
   detector: "staticScripts",
   integrity: "sha512 placeholder for test",
@@ -19,9 +19,9 @@ const evidence: Evidence = {
 };
 
 test("seal key is per version and stable", () => {
-  assert.equal(sealKeyOf("@bulkheaddemo/colorkit", "1.4.1"), sealKeyOf("@bulkheaddemo/colorkit", "1.4.1"));
-  assert.notEqual(sealKeyOf("@bulkheaddemo/colorkit", "1.4.1"), sealKeyOf("@bulkheaddemo/colorkit", "1.4.0"));
-  assert.notEqual(sealKeyOf("@bulkheaddemo/colorkit", "1.4.1"), sealKeyOf("@bulkheaddemo/colorkits", "1.4.1"));
+  assert.equal(sealKeyOf("@cordondemo/colorkit", "1.4.1"), sealKeyOf("@cordondemo/colorkit", "1.4.1"));
+  assert.notEqual(sealKeyOf("@cordondemo/colorkit", "1.4.1"), sealKeyOf("@cordondemo/colorkit", "1.4.0"));
+  assert.notEqual(sealKeyOf("@cordondemo/colorkit", "1.4.1"), sealKeyOf("@cordondemo/colorkits", "1.4.1"));
 });
 
 test("seal key does not collide when name and version boundaries shift", () => {
@@ -36,7 +36,7 @@ test("evidence hash ignores key order and tracks content", () => {
 
 test("timeline event hash excludes its own hash and covers the previous hash", () => {
   const event: TimelineEvent = {
-    key: sealKeyOf("@bulkheaddemo/colorkit", "1.4.1"),
+    key: sealKeyOf("@cordondemo/colorkit", "1.4.1"),
     kind: "sealed",
     at: "2026-11-06T10:00:05.000Z",
     actor: "registry",

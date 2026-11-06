@@ -1,4 +1,4 @@
-import { sealKeyOf, type GuardReport, type Hex32, type PackageVersion } from "@bulkhead/shared";
+import { sealKeyOf, type GuardReport, type Hex32, type PackageVersion } from "@cordon/shared";
 import { compareCores, isOlderThan, isRelease, publishedAtOf, type PackumentReader } from "./registry.ts";
 
 export type RollbackLimits = { sealedKeys: Set<Hex32>; minAgeDays: number; now: Date };

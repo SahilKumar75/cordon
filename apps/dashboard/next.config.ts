@@ -12,7 +12,7 @@ const upstreams = {
 };
 
 const config: NextConfig = {
-  transpilePackages: ["@bulkhead/shared"],
+  transpilePackages: ["@cordon/shared"],
   async rewrites() {
     return Object.entries(upstreams).flatMap(([name, url]) =>
       url ? [{ source: `/proxy/${name}/:path*`, destination: `${url.replace(/\/$/, "")}/:path*` }] : [],

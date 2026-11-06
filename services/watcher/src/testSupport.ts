@@ -13,12 +13,12 @@ import {
   type PublicClient,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { guardReportDigestOf, productName, sealKeyOf, sealRegistryAbi, type GuardReport, type SignedGuardReport } from "@bulkhead/shared";
+import { guardReportDigestOf, productName, sealKeyOf, sealRegistryAbi, type GuardReport, type SignedGuardReport } from "@cordon/shared";
 
 export const registryAddress: Address = "0x00000000000000000000000000000000000000aa";
 export const detectorAddress: Address = "0x00000000000000000000000000000000000000d1";
 export const guardianAddress: Address = "0x00000000000000000000000000000000000000c1";
-export const demoName = "@bulkheaddemo/colorkit";
+export const demoName = "@cordondemo/colorkit";
 export const demoVersion = "1.4.1";
 export const demoKey = sealKeyOf(demoName, demoVersion);
 
@@ -96,7 +96,7 @@ export function guardReport(overrides: Partial<GuardReport> = {}): GuardReport {
     listSource: "chain",
     fallback: null,
     packagesChecked: 12,
-    blocked: [{ name: demoName, version: demoVersion, key: demoKey, lockfilePath: "node_modules/@bulkheaddemo/colorkit", alreadyInstalled: false }],
+    blocked: [{ name: demoName, version: demoVersion, key: demoKey, lockfilePath: "node_modules/@cordondemo/colorkit", alreadyInstalled: false }],
     snapshotAgeSeconds: null,
     gitDependencies: [],
     hookFiles: [],

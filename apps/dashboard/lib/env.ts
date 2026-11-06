@@ -1,5 +1,5 @@
 import { isAddress, type Address } from "viem";
-import { addressSchema, defineAppChain } from "@bulkhead/shared";
+import { addressSchema, defineAppChain } from "@cordon/shared";
 
 const settings = {
   NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID,

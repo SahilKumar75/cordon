@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Address, PublicClient } from "viem";
-import { sealRegistryAbi } from "@bulkhead/shared";
+import { sealRegistryAbi } from "@cordon/shared";
 import { appendEvent, cursorOf, inTransaction, setCursor } from "./timeline.ts";
 
 export type ChainPollSettings = { registry: Address; startBlock: bigint; maxBlockRange: bigint };

@@ -4,12 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { generatePrivateKey } from "viem/accounts";
-import { sealKeyOf, type Evidence } from "@bulkhead/shared";
+import { sealKeyOf, type Evidence } from "@cordon/shared";
 import { createSigner } from "./signer.ts";
 import { mockRegistryTransport, newRegistryState, testChain } from "./testSupport.ts";
 
 const evidence: Evidence = {
-  name: "@bulkheaddemo/colorkit",
+  name: "@cordondemo/colorkit",
   version: "1.4.1",
   detector: "staticScripts",
   integrity: "sha512-fixture",

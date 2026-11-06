@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { create } from "tar";
-import { guardReportSchema } from "@bulkhead/shared";
+import { guardReportSchema } from "@cordon/shared";
 import { audit, packageFromTarballUrl } from "./audit.ts";
 import { installedAdvice } from "./check.ts";
 import { chainTransport, failingTransport, sealedKey, sealedName, sealedVersion, settingsFor, tempDir, writeInstalled, writeLockfile } from "./testFixtures.ts";
@@ -15,8 +15,8 @@ function auditSettings(scope: { paths?: string[]; cacheDirs?: string[]; dockerIm
 }
 
 test("tarball URLs from the npm cache map to name and version", () => {
-  assert.deepEqual(packageFromTarballUrl("http://r.test/@bulkheaddemo/colorkit/-/colorkit-1.4.1.tgz"), { name: sealedName, version: "1.4.1" });
-  assert.deepEqual(packageFromTarballUrl("http://r.test/@bulkheaddemo%2fcolorkit/-/colorkit-1.4.1.tgz"), { name: sealedName, version: "1.4.1" });
+  assert.deepEqual(packageFromTarballUrl("http://r.test/@cordondemo/colorkit/-/colorkit-1.4.1.tgz"), { name: sealedName, version: "1.4.1" });
+  assert.deepEqual(packageFromTarballUrl("http://r.test/@cordondemo%2fcolorkit/-/colorkit-1.4.1.tgz"), { name: sealedName, version: "1.4.1" });
   assert.deepEqual(packageFromTarballUrl("http://r.test/left-pad/-/left-pad-1.3.0.tgz"), { name: "left-pad", version: "1.3.0" });
   assert.equal(packageFromTarballUrl("http://r.test/left-pad"), null);
 });
@@ -64,7 +64,7 @@ test("audit reads node_modules package.json files inside saved Docker image laye
   assert.equal(report.packagesChecked, 2);
   assert.equal(report.outcome, "blocked");
   assert.equal(report.blocked[0]?.alreadyInstalled, true);
-  assert.match(report.blocked[0]?.lockfilePath ?? "", /node_modules\/@bulkheaddemo\/colorkit\/package\.json$/);
+  assert.match(report.blocked[0]?.lockfilePath ?? "", /node_modules\/@cordondemo\/colorkit\/package\.json$/);
 });
 
 async function savedImage(work: string, layers: Record<string, (path: string) => Promise<void> | void>): Promise<string> {

@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { registryChangeSchema, sealKeyOf, type RegistryChange } from "@bulkhead/shared";
+import { registryChangeSchema, sealKeyOf, type RegistryChange } from "@cordon/shared";
 import { appendEvent, cursorOf, inTransaction, setCursor } from "./timeline.ts";
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;

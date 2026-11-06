@@ -1,6 +1,6 @@
 "use client";
 
-import { serviceStatusSchema } from "@bulkhead/shared";
+import { serviceStatusSchema } from "@cordon/shared";
 import { ServiceCard } from "@/components/serviceCard";
 import { PageHeader, QueryState } from "@/components/ui";
 import { usePolled } from "@/lib/api";

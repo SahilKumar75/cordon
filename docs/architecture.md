@@ -1,8 +1,8 @@
 # Architecture
 
-Every part of Bulkhead talks through the types, schemas, hashing and ABI in packages/shared. If a contract, service or page needs a different shape, change packages/shared first, then the callers. The Solidity interface below, including the inherited AccessControlUnauthorizedAccount error, must match packages/shared/src/abis/sealRegistry.ts exactly; the compiled contract may add further OpenZeppelin entries.
+Every part of Cordon talks through the types, schemas, hashing and ABI in packages/shared. If a contract, service or page needs a different shape, change packages/shared first, then the callers. The Solidity interface below, including the inherited AccessControlUnauthorizedAccount error, must match packages/shared/src/abis/sealRegistry.ts exactly; the compiled contract may add further OpenZeppelin entries.
 
-The product name lives in productName. The only other places it appears are package names (bulkhead, @bulkhead/shared and siblings), the CLI name bulkhead, and the demo scope @bulkheaddemo, because npm and the shell need literal names there.
+The product name lives in productName. The only other places it appears are package names (cordon, @cordon/shared and siblings), the CLI name cordon, and the demo scope @cordondemo, because npm and the shell need literal names there.
 
 ## Flow
 
@@ -184,7 +184,7 @@ Three more tables, added during the build: verdicts (evidence hash and detector 
 
 Rules settled during the build: _changes?since=N returns changes with seq greater than N, starting from 0. A scan whose response lists failures counts as done and the failures are logged, so one detector that stays down never stalls the queue. A guard report dated more than 60 seconds in the future is refused. A service is healthy only when its last outcome is allowed. The guardBlocked key is recomputed from name and version, never taken from the report. Snapshot blockNumber is the last block the chain poller processed. CORS allows only DASHBOARD_ORIGIN. REGISTRY_START_BLOCK is the registry's deploy block for the first log query.
 
-## Guard (packages/guard, CLI named bulkhead)
+## Guard (packages/guard, CLI named cordon)
 
 Configuration from env, overridable by flags:
 1. GUARD_FALLBACK_MIN_AGE_DAYS: N for the age fallback (below). The team sets N in docs/decisions.md. Until then, when the variable is unset, the guard uses a placeholder of 3 days, prints a warning that the placeholder is in use, and sets fallback.placeholder true in the report.
@@ -205,11 +205,11 @@ Reading lockfiles:
 3. Git dependencies: any entry resolved from git or GitHub (a resolved value starting with git+, git:, github: or a GitHub codeload URL, or a version that is a git URL) is high risk. It is listed under gitDependencies and blocks the outcome by default. GUARD_ALLOW_GIT_DEPENDENCIES=true turns the block into a warning. When the installed npm supports a setting that disallows git dependencies, install sets it to none; the setting name and the first npm version that has it come from docs/research/edge_cases.md, never from memory. The mechanisms behind this rule are documented in docs/research/edge_cases.md and docs/limits.md: a fake npmrc that replaces the git binary for a nested git dependency, and pnpm running prepare scripts when it fetches a git dependency.
 
 Commands (exit codes: allowed 0, blocked 1, unavailable 2):
-1. bulkhead check [--lockfile path] [--service name]: reads the lockfile, computes each seal key and matches locally. With a minimum age, reads publish times from NPM_REGISTRY_URL and lists versions younger than the limit under tooYoung, which blocks. Prints the GuardReport and sends it signed when reporting is configured.
-2. bulkhead install [--lockfile path]: runs check, then npm ci with --ignore-scripts only when the outcome is allowed.
-3. bulkhead audit [--path dir]... [--cache dir]... [--docker image.tar]...: scans lockfiles under each path (the current directory when no path is given), each npm cache index, and node_modules package.json files inside the layers of each image saved with docker save. Every hit has alreadyInstalled true. Audit needs the Sealed list: with listSource none its outcome is unavailable and no age fallback runs, because it inspects what is already installed. A layer or manifest it cannot read also makes the outcome unavailable.
-4. bulkhead rollback [--lockfile path]: for each blocked package, reads its registry metadata and proposes the highest earlier version that is neither Sealed nor too young, as an npm overrides snippet. Writes no files.
-5. bulkhead sidecar --lockfile path --service name --port n: rechecks every POLL_INTERVAL_SECONDS. GET /health answers 200 when allowed and 503 when blocked or unavailable. GET /status answers ServiceStatus. Sends changes signed when reporting is configured.
+1. cordon check [--lockfile path] [--service name]: reads the lockfile, computes each seal key and matches locally. With a minimum age, reads publish times from NPM_REGISTRY_URL and lists versions younger than the limit under tooYoung, which blocks. Prints the GuardReport and sends it signed when reporting is configured.
+2. cordon install [--lockfile path]: runs check, then npm ci with --ignore-scripts only when the outcome is allowed.
+3. cordon audit [--path dir]... [--cache dir]... [--docker image.tar]...: scans lockfiles under each path (the current directory when no path is given), each npm cache index, and node_modules package.json files inside the layers of each image saved with docker save. Every hit has alreadyInstalled true. Audit needs the Sealed list: with listSource none its outcome is unavailable and no age fallback runs, because it inspects what is already installed. A layer or manifest it cannot read also makes the outcome unavailable.
+4. cordon rollback [--lockfile path]: for each blocked package, reads its registry metadata and proposes the highest earlier version that is neither Sealed nor too young, as an npm overrides snippet. Writes no files.
+5. cordon sidecar --lockfile path --service name --port n: rechecks every POLL_INTERVAL_SECONDS. GET /health answers 200 when allowed and 503 when blocked or unavailable. GET /status answers ServiceStatus. Sends changes signed when reporting is configured.
 
 Audit also scans each path for editor and coding agent hook files (for example .claude/settings.json, .vscode/tasks.json and the scripts they call) and lists them under hookFiles, separate from blocked versions. When any are found, advice says to inspect and remove them before revoking any token.
 
@@ -232,7 +232,7 @@ Every simulated detector, verdict, stopwatch and exfiltration is labelled simula
 ## Demo (demo/)
 
 1. mockRegistry (MOCK_REGISTRY_PORT, a dependency free node process bound to 127.0.0.1; the sandbox never needs it because the tarball is copied in): the npm registry endpoints npm needs for packuments and tarballs, plus GET /_changes?since=seq (RegistryChange[]), POST /_demo/publish (DemoPublishRequest) and POST /_demo/reset. Storage under demo/mockRegistry/storage, ignored by git.
-2. poisonedPackage: @bulkheaddemo/colorkit. Version 1.4.0 has no scripts. Version 1.4.1 has a dependency free postinstall that reads only the CANARY_TOKEN env value, writes it to a file in the OS temp folder, and posts it to CANARY_SINK_URL only when that URL's host is localhost, 127.0.0.1 or canarysink (the container name); any other host means it does nothing. Nothing else. Outside the pnpm workspace, never installed outside the sandbox or the demo services.
+2. poisonedPackage: @cordondemo/colorkit. Version 1.4.0 has no scripts. Version 1.4.1 has a dependency free postinstall that reads only the CANARY_TOKEN env value, writes it to a file in the OS temp folder, and posts it to CANARY_SINK_URL only when that URL's host is localhost, 127.0.0.1 or canarysink (the container name); any other host means it does nothing. Nothing else. Outside the pnpm workspace, never installed outside the sandbox or the demo services.
 3. canarySink: a dependency free Node script outside the pnpm workspace. It runs either as a container on the internal sandbox network (for sandboxCanary) or on the host bound to 127.0.0.1 only (for the demo services). It is never reachable from outside the machine. POST /collect stores what arrives; GET /received?token= answers { received, at }; GET /received lists everything. Labelled simulated exfiltration.
 4. services: ordersApi, searchApi and notifyWorker, each a tiny HTTP service outside the pnpm workspace with its own package-lock.json resolved from mockRegistry, each behind a guard sidecar and answering 503 with a plain message while its sidecar is unhealthy. searchApi stays on 1.4.0 to show that sealing is per version.
 
@@ -240,7 +240,7 @@ Demo quorum is 2 of 3 detectors.
 
 ## Tests plan
 
-Unit tests live next to the code in each package. Two cross cutting suites live in tests/ (workspace package @bulkhead/tests, owned by the orchestrator, run by pnpm test):
+Unit tests live next to the code in each package. Two cross cutting suites live in tests/ (workspace package @cordon/tests, owned by the orchestrator, run by pnpm test):
 
 tests/fitness, structural rules that must always hold:
 1. The guard never runs install scripts: every npm invocation in packages/guard passes --ignore-scripts, and none runs when the outcome is not allowed.
@@ -271,7 +271,7 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 8. NPM_REGISTRY_URL: watcher, guard.
 9. POLL_INTERVAL_SECONDS: watcher, guard sidecar.
 10. GUARD_FALLBACK_MIN_AGE_DAYS, GUARD_ALLOW_GIT_DEPENDENCIES, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard.
-11. MOCK_REGISTRY_PORT, MOCK_REGISTRY_STORAGE, MOCK_REGISTRY_DIST, CANARY_SINK_PORT, HOST, SERVICE_PORT, GUARD_SIDECAR_URL: demo. BULKHEAD_DOCKER_TESTS=1 turns on the real Docker sandbox test in services/detectors.
+11. MOCK_REGISTRY_PORT, MOCK_REGISTRY_STORAGE, MOCK_REGISTRY_DIST, CANARY_SINK_PORT, HOST, SERVICE_PORT, GUARD_SIDECAR_URL: demo. CORDON_DOCKER_TESTS=1 turns on the real Docker sandbox test in services/detectors.
 12. NEXT_PUBLIC_*: dashboard.
 
 ## Open decisions for the team

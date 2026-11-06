@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { replayTimelineSchema } from "@bulkhead/shared";
+import { replayTimelineSchema } from "@cordon/shared";
 import { request } from "@/lib/api";
 import { formatDateTime, formatGap } from "@/lib/format";
 import { Icon } from "./icon";

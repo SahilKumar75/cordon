@@ -43,7 +43,7 @@ Numbers come from each paper's arXiv abstract unless noted. Venues come from the
 13. OpenSSF Package Analysis. https://github.com/ossf/package-analysis
     Runs packages in gVisor sandboxes and records file access, network connections and commands. Its README gives no detection numbers. The MAL ids in OSV come from the ossf/malicious-packages repository (seen in the malicious-packages-origins field of MAL-2026-3465); the link between the two projects was not confirmed from the README.
 
-## What this means for Bulkhead
+## What this means for Cordon
 
 1. No single method is enough: static triage plus dynamic runs (DONAPI, OSCAR) and evasion (FV8) all point to several independent detectors, which is the quorum design.
 2. Reported precision is measured on curated benchmarks. A false seal is an outage, so these numbers do not justify a quorum of one.

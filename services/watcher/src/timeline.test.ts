@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { timelineEventHashOf, zeroHash } from "@bulkhead/shared";
+import { timelineEventHashOf, zeroHash } from "@cordon/shared";
 import { demoKey, tempDatabasePath } from "./testSupport.ts";
 import { appendEvent, isChainIntact, openDatabase, timelineHeads, timelineOf, verifiedTimelineOf } from "./timeline.ts";
 

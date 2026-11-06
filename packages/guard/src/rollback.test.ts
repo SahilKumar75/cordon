@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { sealKeyOf } from "@bulkhead/shared";
+import { sealKeyOf } from "@cordon/shared";
 import { checkLockfile } from "./check.ts";
 import { packumentReader } from "./registry.ts";
 import { overridesOf, proposeRollbacks } from "./rollback.ts";

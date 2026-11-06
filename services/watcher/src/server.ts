@@ -9,7 +9,7 @@ import {
   hex32Schema,
   signedGuardReportSchema,
   type SignedSnapshot,
-} from "@bulkhead/shared";
+} from "@cordon/shared";
 import { pollChain, type ChainPollSettings } from "./chainPoller.ts";
 import { publishSnapshot, type SnapshotSettings } from "./publisher.ts";
 import { pollRegistry } from "./registryPoller.ts";

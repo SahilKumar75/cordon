@@ -8,10 +8,10 @@ import {ISealRegistry} from "../src/interfaces/ISealRegistry.sol";
 
 contract SealRegistryTest is Test {
     string constant npm = "npm";
-    string constant packageName = "@bulkheaddemo/colorkit";
+    string constant packageName = "@cordondemo/colorkit";
     string constant badVersion = "1.4.1";
     string constant goodVersion = "1.4.0";
-    bytes32 constant sharedColorkitKey = 0xcaccc21823241057a2f46d40967c70130ebb0f8d5d6b85e3b92eefc40c71ce71;
+    bytes32 constant sharedColorkitKey = 0x405f99113d19f40ba72ef07960e394e0c0f8540c16f8b225145ce90e129616b4;
     bytes32 constant evidence = keccak256("evidence");
     bytes32 constant reason = keccak256("reason");
     uint64 constant window = 1 days;

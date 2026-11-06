@@ -1,6 +1,6 @@
 "use client";
 
-import { detectorIds, evidenceHashOf, evidenceSchema, type Attestation, type Hex32 } from "@bulkhead/shared";
+import { detectorIds, evidenceHashOf, evidenceSchema, type Attestation, type Hex32 } from "@cordon/shared";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { usePolled } from "@/lib/api";
 import { detectorNames, formatDateTime, shortHash } from "@/lib/format";

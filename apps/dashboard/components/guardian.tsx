@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { keccak256, toBytes, type Address } from "viem";
 import { useAccount, useConnect, useDisconnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
-import { hex32Schema, sealRegistryAbi, sealStatusNames, type Hex32 } from "@bulkhead/shared";
+import { hex32Schema, sealRegistryAbi, sealStatusNames, type Hex32 } from "@cordon/shared";
 import { chain } from "@/lib/env";
 import { formatDateTime, formatGap } from "@/lib/format";
 import { useNow } from "@/lib/useNow";

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { stopwatchSchema, type Stopwatch as StopwatchData } from "@bulkhead/shared";
+import { stopwatchSchema, type Stopwatch as StopwatchData } from "@cordon/shared";
 import { usePolled } from "@/lib/api";
 import { formatClock, formatGap } from "@/lib/format";
 import { useNow } from "@/lib/useNow";

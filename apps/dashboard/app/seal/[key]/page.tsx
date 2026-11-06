@@ -1,4 +1,4 @@
-import { hex32Schema, type Hex32 } from "@bulkhead/shared";
+import { hex32Schema, type Hex32 } from "@cordon/shared";
 import { SealDetail } from "@/components/sealDetail";
 import { Notice, PageHeader } from "@/components/ui";
 

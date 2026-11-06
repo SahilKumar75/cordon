@@ -7,14 +7,14 @@ import { after, before, test } from "node:test";
 import { createPublicClient, http, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { sealKeyOf, sealRegistryAbi, type ScanResponse } from "@bulkhead/shared";
+import { sealKeyOf, sealRegistryAbi, type ScanResponse } from "@cordon/shared";
 import { buildContracts, freePort, repoRoot, startChain, type LocalChain } from "../support/chain.ts";
 import { deadUrl, detectorsServer, makeTempDir, serve, startService, type Running, type Service } from "../support/services.ts";
 
-const name = "@bulkheaddemo/colorkit";
+const name = "@cordondemo/colorkit";
 const version = "1.4.1";
 const demoFolder = join(repoRoot, "demo", "poisonedPackage");
-const tarballPath = join(demoFolder, "dist", "bulkheaddemo-colorkit-1.4.1.tgz");
+const tarballPath = join(demoFolder, "dist", "cordondemo-colorkit-1.4.1.tgz");
 
 let chain: LocalChain;
 let registry: Address;

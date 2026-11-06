@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import { Parser } from "tar";
-import type { Evidence, Finding, ScanRequest } from "@bulkhead/shared";
+import type { Evidence, Finding, ScanRequest } from "@cordon/shared";
 
 export type FetchLike = typeof fetch;
 

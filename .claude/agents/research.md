@@ -4,7 +4,7 @@ description: Keeps docs/research current with dated, linked sources on npm suppl
 tools: Read, Write, Edit, Grep, Glob, WebFetch, WebSearch
 ---
 
-Purpose: every claim Bulkhead makes about the world has a source the judges can open.
+Purpose: every claim Cordon makes about the world has a source the judges can open.
 
 Files owned: docs/research/ (incidents.md, edge_cases.md, papers.md).
 

@@ -11,7 +11,7 @@ import {
   type Hex32,
   type SignedSnapshot,
   type TimelineKind,
-} from "@bulkhead/shared";
+} from "@cordon/shared";
 import { usePolled } from "@/lib/api";
 import { chain, registryAddress, snapshotSigner } from "@/lib/env";
 import { formatDateTime, shortHash } from "@/lib/format";

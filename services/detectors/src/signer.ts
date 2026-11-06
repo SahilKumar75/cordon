@@ -13,7 +13,7 @@ import {
   type DetectorInfo,
   type Evidence,
   type Verdict,
-} from "@bulkhead/shared";
+} from "@cordon/shared";
 
 export type SignerConfig = {
   chain: Chain;

@@ -9,7 +9,7 @@ import {
   type GuardReport,
   type Hex32,
   type PackageVersion,
-} from "@bulkhead/shared";
+} from "@cordon/shared";
 import { directoryOf, isGitSource, readJson, readLockfile, resolveLockfilePath, type LockEntry } from "./lockfile.ts";
 import { compareCores, isOlderThan, packumentReader, publishedAtOf, type PackumentReader } from "./registry.ts";
 import { proposeRollbacks } from "./rollback.ts";

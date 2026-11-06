@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { replayTimelineSchema } from "@bulkhead/shared";
+import { replayTimelineSchema } from "@cordon/shared";
 import { replayAdvisory, scanAdvisories } from "./advisoryFeed.ts";
 import type { FetchLike } from "./staticScripts.ts";
 

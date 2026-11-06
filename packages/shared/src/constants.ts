@@ -1,4 +1,4 @@
-export const productName = "Bulkhead"
+export const productName = "Cordon"
 
 export const ecosystem = "npm"
 

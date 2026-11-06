@@ -3,10 +3,10 @@ import { after, before, test } from "node:test";
 import { BaseError, ContractFunctionRevertedError, createPublicClient, http, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { sealKeyOf, sealRegistryAbi } from "@bulkhead/shared";
+import { sealKeyOf, sealRegistryAbi } from "@cordon/shared";
 import { buildContracts, startChain, submitVerdict, type LocalChain } from "../support/chain.ts";
 
-const name = "@bulkheaddemo/colorkit";
+const name = "@cordondemo/colorkit";
 
 let chain: LocalChain;
 let registry: Address;

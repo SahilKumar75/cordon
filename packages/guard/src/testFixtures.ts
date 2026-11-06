@@ -3,14 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { custom, decodeFunctionData, encodeFunctionResult, type Address } from "viem";
 import type { PrivateKeyAccount } from "viem/accounts";
-import { productName, sealKeyOf, sealRegistryAbi, snapshotDigestOf, type Hex32, type SealedSnapshot, type SignedSnapshot } from "@bulkhead/shared";
+import { productName, sealKeyOf, sealRegistryAbi, snapshotDigestOf, type Hex32, type SealedSnapshot, type SignedSnapshot } from "@cordon/shared";
 import type { GuardSettings } from "./check.ts";
 import type { Packument } from "./registry.ts";
 
 export const now = new Date("2026-11-06T12:00:00.000Z");
 export const chainId = 84532;
 export const registryAddress: Address = "0x00000000000000000000000000000000000000aa";
-export const sealedName = "@bulkheaddemo/colorkit";
+export const sealedName = "@cordondemo/colorkit";
 export const sealedVersion = "1.4.1";
 export const sealedKey = sealKeyOf(sealedName, sealedVersion);
 

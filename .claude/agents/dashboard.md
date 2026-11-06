@@ -23,6 +23,6 @@ Done when: next build and typecheck pass, each route renders its loading, error 
 
 Rules:
 1. Edit only files under apps/dashboard/.
-2. Chain only from NEXT_PUBLIC_ env through defineBulkheadChain.
-3. Never claim Bulkhead prevents all supply chain attacks or detects every malicious package.
+2. Chain only from NEXT_PUBLIC_ env through defineAppChain.
+3. Never claim Cordon prevents all supply chain attacks or detects every malicious package.
 4. Follow CLAUDE.md.

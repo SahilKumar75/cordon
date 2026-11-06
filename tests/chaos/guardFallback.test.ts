@@ -3,11 +3,11 @@ import { rmSync } from "node:fs";
 import { after, before, test } from "node:test";
 import { type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { productName, sealKeyOf, snapshotDigestOf, type SealedSnapshot, type SignedSnapshot } from "@bulkhead/shared";
+import { productName, sealKeyOf, snapshotDigestOf, type SealedSnapshot, type SignedSnapshot } from "@cordon/shared";
 import { buildContracts, startChain, submitVerdict, type LocalChain } from "../support/chain.ts";
 import { deadUrl, eventually, makeTempDir, runGuard, serve, startWatcher, writeLockfile, type Env, type Running, type Service } from "../support/services.ts";
 
-const name = "@bulkheaddemo/colorkit";
+const name = "@cordondemo/colorkit";
 const poisoned = sealKeyOf(name, "1.4.1");
 const dayMs = 86_400_000;
 
@@ -40,10 +40,10 @@ before(async () => {
   await eventually(listsPoisoned, "the watcher snapshot to list the sealed version");
   const now = Date.now();
   const time = { "1.4.0": new Date(now - 30 * dayMs).toISOString(), "1.4.1": new Date(now - 3_600_000).toISOString() };
-  packuments = await serve({ "/@bulkheaddemo%2fcolorkit": JSON.stringify({ versions: { "1.4.0": {}, "1.4.1": {} }, time }) });
+  packuments = await serve({ "/@cordondemo%2fcolorkit": JSON.stringify({ versions: { "1.4.0": {}, "1.4.1": {} }, time }) });
   lockfile = writeLockfile(temp(), [
-    { path: "node_modules/@bulkheaddemo/colorkit", name, version: "1.4.1" },
-    { path: "node_modules/legacy/node_modules/@bulkheaddemo/colorkit", name, version: "1.4.0" },
+    { path: "node_modules/@cordondemo/colorkit", name, version: "1.4.1" },
+    { path: "node_modules/legacy/node_modules/@cordondemo/colorkit", name, version: "1.4.0" },
   ]);
 });
 

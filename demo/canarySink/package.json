@@ -1,5 +1,5 @@
 {
-  "name": "bulkheaddemo_canarysink",
+  "name": "cordondemo_canarysink",
   "private": true,
   "type": "module",
   "scripts": {

@@ -3,14 +3,14 @@ import { randomBytes } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Evidence, ScanRequest } from "@bulkhead/shared";
+import type { Evidence, ScanRequest } from "@cordon/shared";
 
 export type DockerResult = { code: number; stdout: string; stderr: string; timedOut?: boolean };
 export type DockerRunner = (args: string[], timeoutMs?: number) => Promise<DockerResult>;
 
-export const sandboxNetwork = "bulkhead_sandbox";
+export const sandboxNetwork = "cordon_sandbox";
 export const sinkContainer = "canarysink";
-export const sinkImage = "bulkheadcanarysink";
+export const sinkImage = "cordoncanarysink";
 const sinkUrl = `http://${sinkContainer}:8080`;
 const installTimeoutMs = 60_000;
 const tarballPath = "/tmp/package.tgz";
@@ -20,10 +20,10 @@ const maxRecordedProcesses = 200;
 const confinement = ["--network", sandboxNetwork, "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--memory", "512m", "--pids-limit", "256"];
 
 const fakeSecrets = {
-  AWS_ACCESS_KEY_ID: "AKIAFAKEBULKHEADCANARY",
-  AWS_SECRET_ACCESS_KEY: "fakeBulkheadCanarySecretAccessKey",
-  NPM_TOKEN: "npm_fakeBulkheadCanaryToken",
-  GITHUB_TOKEN: "ghp_fakeBulkheadCanaryToken",
+  AWS_ACCESS_KEY_ID: "AKIAFAKECORDONCANARY",
+  AWS_SECRET_ACCESS_KEY: "fakeCordonCanarySecretAccessKey",
+  NPM_TOKEN: "npm_fakeCordonCanaryToken",
+  GITHUB_TOKEN: "ghp_fakeCordonCanaryToken",
 };
 
 export const runDocker: DockerRunner = (args, timeoutMs) =>
@@ -81,8 +81,8 @@ async function watchProcesses(docker: DockerRunner, container: string, running: 
 }
 
 async function installInSandbox(docker: DockerRunner, image: string, tarball: Buffer, token: string): Promise<string[]> {
-  const container = `bulkhead_run_${randomBytes(6).toString("hex")}`;
-  const folder = await mkdtemp(join(tmpdir(), "bulkheadSandbox"));
+  const container = `cordon_run_${randomBytes(6).toString("hex")}`;
+  const folder = await mkdtemp(join(tmpdir(), "cordonSandbox"));
   try {
     await writeFile(join(folder, "package.tgz"), tarball);
     await must(docker, installArgs(image, container, token));

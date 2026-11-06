@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { Parser, list as listTar, type ReadEntry } from "tar";
-import { productName, sealKeyOf, type GuardReport } from "@bulkhead/shared";
+import { productName, sealKeyOf, type GuardReport } from "@cordon/shared";
 import { adviceFor, gitVerdict, type GuardSettings } from "./check.ts";
 import { hiddenLockfileName, isGitSource, lockfileNames, readJson, readLockfile } from "./lockfile.ts";
 import { packumentReader } from "./registry.ts";

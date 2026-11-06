@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ecosystem, type Evidence, type PackageVersion, type ReplayTimeline, type ScanRequest } from "@bulkhead/shared";
+import { ecosystem, type Evidence, type PackageVersion, type ReplayTimeline, type ScanRequest } from "@cordon/shared";
 import type { FetchLike } from "./staticScripts.ts";
 
 export const publicNpmRegistry = "https://registry.npmjs.org";

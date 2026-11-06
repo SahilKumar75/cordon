@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Address } from "viem";
-import type { SealStatusName } from "@bulkhead/shared";
+import type { SealStatusName } from "@cordon/shared";
 import { chain, explorerUrl, registryAddress } from "@/lib/env";
 import { shortHash } from "@/lib/format";
 import { Icon, type IconName } from "./icon";

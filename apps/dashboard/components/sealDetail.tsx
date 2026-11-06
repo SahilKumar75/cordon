@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { attestationSchema, signedSnapshotSchema, type Hex32 } from "@bulkhead/shared";
+import { attestationSchema, signedSnapshotSchema, type Hex32 } from "@cordon/shared";
 import { usePolled } from "@/lib/api";
 import { EvidenceList } from "./evidenceList";
 import { TimelineView } from "./timelineView";

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { readJson } from "./lockfile.ts";
 import { dirname, join } from "node:path";
 import { createPublicClient, http, verifyMessage, type Address, type Transport } from "viem";
-import { sealRegistryAbi, signedSnapshotSchema, snapshotDigestOf, type Hex32, type ListSource, type SignedSnapshot } from "@bulkhead/shared";
+import { sealRegistryAbi, signedSnapshotSchema, snapshotDigestOf, type Hex32, type ListSource, type SignedSnapshot } from "@cordon/shared";
 
 export type ListSettings = {
   chainId: number | null;

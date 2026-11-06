@@ -14,7 +14,7 @@ import {
   type Hex,
   type TransactionSerialized,
 } from "viem";
-import { defineAppChain, sealKeyOf, sealRegistryAbi } from "@bulkhead/shared";
+import { defineAppChain, sealKeyOf, sealRegistryAbi } from "@cordon/shared";
 
 export async function packFixture(files: Record<string, string | Uint8Array>): Promise<Buffer> {
   const root = await mkdtemp(join(tmpdir(), "detectorsFixture"));

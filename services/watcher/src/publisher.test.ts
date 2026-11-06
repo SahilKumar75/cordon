@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { verifyMessage } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { signedSnapshotSchema, snapshotDigestOf } from "@bulkhead/shared";
+import { signedSnapshotSchema, snapshotDigestOf } from "@cordon/shared";
 import { pollChain } from "./chainPoller.ts";
 import { publishSnapshot } from "./publisher.ts";
 import { demoKey, demoName, demoVersion, fakeChain, guardianLog, registryAddress, sealedLog, tempDatabasePath, verdictLog } from "./testSupport.ts";

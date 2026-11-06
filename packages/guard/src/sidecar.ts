@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { ServiceStatus } from "@bulkhead/shared";
+import type { ServiceStatus } from "@cordon/shared";
 import { checkLockfile, sendReport, type GuardSettings } from "./check.ts";
 
 export type SidecarSettings = GuardSettings & { service: string; port: number; intervalSeconds: number };

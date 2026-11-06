@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { anyJson, request } from "@/lib/api";
 import { Notice, SimulatedTag } from "./ui";
 
-const demoPackage = "@bulkheaddemo/colorkit";
+const demoPackage = "@cordondemo/colorkit";
 
 const actions = [
   { id: "poisoned", label: "Publish 1.4.1, poisoned", path: "/_demo/publish", body: { name: demoPackage, version: "1.4.1" } },

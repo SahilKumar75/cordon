@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { serviceStatusSchema } from "@bulkhead/shared";
+import { serviceStatusSchema } from "@cordon/shared";
 import { generatePrivateKey } from "viem/accounts";
 import { startSidecar } from "./sidecar.ts";
 import { chainTransport, sealedKey, sealedName, sealedVersion, settingsFor, stubFetch, tempDir, writeLockfile, type FetchCall } from "./testFixtures.ts";

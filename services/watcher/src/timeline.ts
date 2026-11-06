@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { timelineEventHashOf, zeroHash, type Hex32, type Stopwatch, type TimelineEvent, type TimelineKind } from "@bulkhead/shared";
+import { timelineEventHashOf, zeroHash, type Hex32, type Stopwatch, type TimelineEvent, type TimelineKind } from "@cordon/shared";
 
 export type NewEvent = Omit<TimelineEvent, "prevHash" | "hash">;
 

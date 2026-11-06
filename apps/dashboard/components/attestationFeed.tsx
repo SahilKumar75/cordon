@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { attestationSchema } from "@bulkhead/shared";
+import { attestationSchema } from "@cordon/shared";
 import { usePolled } from "@/lib/api";
 import { detectorNames, formatClock } from "@/lib/format";
 import { ChainLink, QueryState, SimulatedTag, Status } from "./ui";

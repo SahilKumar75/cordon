@@ -1,8 +1,8 @@
-# Bulkhead
+# Cordon
 
 Circuit breaker for npm dependencies. Independent detectors vote that a package version is malicious; at quorum an onchain registry marks that version Sealed; a guard in installs, CI and running services blocks Sealed versions before they execute. ETHGlobal Mumbai 2026, From Scratch track. Submission deadline Sat 7 Nov 2026, 09:00 IST.
 
-The product name lives only in productName in packages/shared/src/constants.ts. Recorded exceptions, because npm and the shell need literal names: package names (bulkhead, @bulkhead/shared and siblings), the CLI name bulkhead, and the demo scope @bulkheaddemo. Renaming means changing productName and these names together.
+The product name lives only in productName in packages/shared/src/constants.ts. Recorded exceptions, because npm and the shell need literal names: package names (cordon, @cordon/shared and siblings), the CLI name cordon, the demo scope @cordondemo, the Docker image cordoncanarysink, the Docker network cordon_sandbox and the test switch CORDON_DOCKER_TESTS. Renaming means changing productName and these names together.
 
 Read docs/architecture.md before touching code. packages/shared holds the types, schemas, hashing and ABIs every part uses. Change shared first, then callers. The full team brief is docs/prompts/bulkhead.md.
 

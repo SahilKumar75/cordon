@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Address } from "viem";
-import { scanResponseSchema, type Attestation, type DetectorId, type Hex32, type ScanRequest, type ScanResponse } from "@bulkhead/shared";
+import { scanResponseSchema, type Attestation, type DetectorId, type Hex32, type ScanRequest, type ScanResponse } from "@cordon/shared";
 import type { FetchLike } from "./registryPoller.ts";
 import { cursorOf, inTransaction, setCursor } from "./timeline.ts";
 

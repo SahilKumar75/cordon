@@ -56,7 +56,7 @@ Each TanStack timestamp above, with its source. Postmortem rows are excerpts fro
 12. Counts 42 packages, 84 versions, 295 packages scanned, initial 14 packages: verified. Postmortem rows: "42 packages, 84 versions (two per package", "Comprehensive scan of all 295 @tanstack/* packages", and "(initially 14 of the 42)".
 
 
-Use in Bulkhead: the timestamps above are the reference case for the replay timeline, built from OSV and npm registry data and labelled as a replay. See replay_candidates.md.
+Use in Cordon: the timestamps above are the reference case for the replay timeline, built from OSV and npm registry data and labelled as a replay. See replay_candidates.md.
 
 ## Nx (s1ngularity), 26 to 27 Aug 2025
 

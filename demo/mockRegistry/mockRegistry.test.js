@@ -13,7 +13,7 @@ let registry;
 let registryUrl;
 
 before(async () => {
-  if (!existsSync(join(packageDir, "dist", "bulkheaddemo-colorkit-1.4.1.tgz"))) execFileSync("sh", [join(packageDir, "pack.sh")]);
+  if (!existsSync(join(packageDir, "dist", "cordondemo-colorkit-1.4.1.tgz"))) execFileSync("sh", [join(packageDir, "pack.sh")]);
   const storage = mkdtempSync(join(tmpdir(), "mockRegistryTest"));
   registry = spawn(process.execPath, [join(here, "server.js")], {
     env: { PATH: process.env.PATH, MOCK_REGISTRY_PORT: "0", MOCK_REGISTRY_STORAGE: storage },
@@ -35,7 +35,7 @@ test("startup publishes only 1.4.0, backdated, with a tarball matching its integ
   const changes = await getJson("/_changes?since=0");
   assert.equal(changes.length, 1);
   const [change] = changes;
-  assert.equal(change.name, "@bulkheaddemo/colorkit");
+  assert.equal(change.name, "@cordondemo/colorkit");
   assert.equal(change.version, "1.4.0");
   assert.ok(Date.now() - Date.parse(change.publishedAt) > 7 * 86_400_000);
   assert.match(change.integrity, /^sha512-/);
@@ -44,12 +44,12 @@ test("startup publishes only 1.4.0, backdated, with a tarball matching its integ
 });
 
 test("packument answers on the encoded scoped path in the shape npm reads", async () => {
-  const packument = await getJson("/@bulkheaddemo%2fcolorkit");
-  assert.equal(packument.name, "@bulkheaddemo/colorkit");
+  const packument = await getJson("/@cordondemo%2fcolorkit");
+  assert.equal(packument.name, "@cordondemo/colorkit");
   assert.equal(packument["dist-tags"].latest, "1.4.0");
   assert.deepEqual(Object.keys(packument.versions), ["1.4.0"]);
   assert.equal(packument.versions["1.4.0"].version, "1.4.0");
-  assert.match(packument.versions["1.4.0"].dist.tarball, /\/@bulkheaddemo\/colorkit\/-\/bulkheaddemo-colorkit-1\.4\.0\.tgz$/);
+  assert.match(packument.versions["1.4.0"].dist.tarball, /\/@cordondemo\/colorkit\/-\/cordondemo-colorkit-1\.4\.0\.tgz$/);
   assert.ok(packument.time["1.4.0"]);
 });
 
@@ -60,29 +60,29 @@ test("unknown packages answer 404 and are never proxied", async () => {
 
 test("publish adds 1.4.1 to the changes feed and packument, reset removes it and seq keeps rising", async () => {
   const [startup] = await getJson("/_changes?since=0");
-  const published = await post("/_demo/publish", { name: "@bulkheaddemo/colorkit", version: "1.4.1" });
+  const published = await post("/_demo/publish", { name: "@cordondemo/colorkit", version: "1.4.1" });
   assert.equal(published.status, 201);
   const fresh = await getJson(`/_changes?since=${startup.seq}`);
   assert.deepEqual(fresh.map((change) => change.version), ["1.4.1"]);
   assert.ok(fresh[0].seq > startup.seq);
-  const packument = await getJson("/@bulkheaddemo%2Fcolorkit");
+  const packument = await getJson("/@cordondemo%2Fcolorkit");
   assert.equal(packument["dist-tags"].latest, "1.4.1");
   assert.equal(packument.versions["1.4.1"].scripts.postinstall, "node postinstall.js");
-  assert.equal((await post("/_demo/publish", { name: "@bulkheaddemo/colorkit", version: "1.4.1" })).status, 409);
+  assert.equal((await post("/_demo/publish", { name: "@cordondemo/colorkit", version: "1.4.1" })).status, 409);
 
   assert.equal((await post("/_demo/reset", {})).status, 200);
   const afterReset = await getJson("/_changes?since=0");
   assert.deepEqual(afterReset.map((change) => change.version), ["1.4.0"]);
   assert.equal((await fetch(fresh[0].tarballUrl)).status, 404);
 
-  await post("/_demo/publish", { name: "@bulkheaddemo/colorkit", version: "1.4.1" });
+  await post("/_demo/publish", { name: "@cordondemo/colorkit", version: "1.4.1" });
   const republished = await getJson(`/_changes?since=${fresh[0].seq}`);
   assert.deepEqual(republished.map((change) => change.version), ["1.4.1"]);
 });
 
 test("publish refuses other packages, unknown versions and bad bodies", async () => {
   assert.equal((await post("/_demo/publish", { name: "left-pad", version: "1.4.1" })).status, 400);
-  assert.equal((await post("/_demo/publish", { name: "@bulkheaddemo/colorkit", version: "../../x" })).status, 400);
-  assert.equal((await post("/_demo/publish", { name: "@bulkheaddemo/colorkit", version: "9.9.9" })).status, 404);
-  assert.equal((await post("/_demo/publish", { name: "@bulkheaddemo/colorkit" })).status, 400);
+  assert.equal((await post("/_demo/publish", { name: "@cordondemo/colorkit", version: "../../x" })).status, 400);
+  assert.equal((await post("/_demo/publish", { name: "@cordondemo/colorkit", version: "9.9.9" })).status, 404);
+  assert.equal((await post("/_demo/publish", { name: "@cordondemo/colorkit" })).status, 400);
 });

@@ -1,5 +1,5 @@
 {
-  "name": "bulkheaddemo_notifyworker",
+  "name": "cordondemo_notifyworker",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,6 +7,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@bulkheaddemo/colorkit": "1.4.1"
+    "@cordondemo/colorkit": "1.4.1"
   }
 }

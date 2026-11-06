@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { generatePrivateKey } from "viem/accounts";
-import { evidenceSchema, replayTimelineSchema, scanResponseSchema } from "@bulkhead/shared";
+import { evidenceSchema, replayTimelineSchema, scanResponseSchema } from "@cordon/shared";
 import type { DockerRunner } from "./sandboxCanary.ts";
 import { buildServer } from "./server.ts";
 import { createSigner } from "./signer.ts";
@@ -13,13 +13,13 @@ import type { FetchLike } from "./staticScripts.ts";
 import { mockRegistryTransport, newRegistryState, packFixture, testChain } from "./testSupport.ts";
 
 const mockRegistryUrl = "http://localhost:4873";
-const tarballUrl = `${mockRegistryUrl}/@bulkheaddemo/colorkit/-/colorkit-1.4.1.tgz`;
+const tarballUrl = `${mockRegistryUrl}/@cordondemo/colorkit/-/colorkit-1.4.1.tgz`;
 const tarball = await packFixture({
-  "package.json": JSON.stringify({ name: "@bulkheaddemo/colorkit", version: "1.4.1", scripts: { postinstall: "node postinstall.js" } }),
+  "package.json": JSON.stringify({ name: "@cordondemo/colorkit", version: "1.4.1", scripts: { postinstall: "node postinstall.js" } }),
   "postinstall.js": "await fetch(process.env.CANARY_SINK_URL);",
 });
 const scanBody = {
-  name: "@bulkheaddemo/colorkit",
+  name: "@cordondemo/colorkit",
   version: "1.4.1",
   tarballUrl,
   integrity: `sha512-${createHash("sha512").update(tarball).digest("base64")}`,

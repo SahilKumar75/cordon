@@ -37,7 +37,7 @@ Source: ethglobal.com/events/mumbai/info/details and info/start, read 5 Nov 2026
 
 ## Stack after the event brief
 
-1. Project changed from Sluice to Bulkhead on 5 Nov 2026 (docs/prompts/bulkhead.md). Sluice is archived under the git tag sluice_archived.
+1. Project changed from Sluice to Bulkhead on 5 Nov 2026 (docs/prompts/bulkhead.md) and was renamed Cordon on 6 Nov 2026. Sluice is archived under the git tag sluice_archived.
 2. Chain stays Base Sepolia, set only by env (CHAIN_ID, RPC_URL, EXPLORER_URL, NATIVE_SYMBOL and their NEXT_PUBLIC_ twins).
 3. Partner prize target: Chainlink CRE, first in the cut order. Nothing depends on Arc Studio until the mentor answers. Arkiv is dropped.
 4. x402 and ERC 8004 are dropped.

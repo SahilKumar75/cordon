@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { GuardOutcome, ServiceStatus } from "@bulkhead/shared";
+import type { GuardOutcome, ServiceStatus } from "@cordon/shared";
 import { formatDateTime, formatGap } from "@/lib/format";
 import type { IconName } from "./icon";
 import { Notice, Status } from "./ui";

@@ -1,5 +1,5 @@
 {
-  "name": "@bulkhead/tests",
+  "name": "@cordon/tests",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
     "test": "node --test --experimental-strip-types fitness/*.test.ts chaos/*.test.ts"
   },
   "dependencies": {
-    "@bulkhead/shared": "workspace:*",
+    "@cordon/shared": "workspace:*",
     "viem": "^2.21.0"
   },
   "devDependencies": {

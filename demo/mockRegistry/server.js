@@ -12,7 +12,7 @@ const storageDir = process.env.MOCK_REGISTRY_STORAGE ?? join(here, "storage");
 const distDir = process.env.MOCK_REGISTRY_DIST ?? join(here, "..", "poisonedPackage", "dist");
 const tarballDir = join(storageDir, "tarballs");
 const statePath = join(storageDir, "state.json");
-const demoPackage = "@bulkheaddemo/colorkit";
+const demoPackage = "@cordondemo/colorkit";
 const startupVersion = "1.4.0";
 const startupVersionAgeDays = 30;
 let baseUrl;

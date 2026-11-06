@@ -3,11 +3,11 @@ import { rmSync } from "node:fs";
 import { after, before, test } from "node:test";
 import { type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { guardReportDigestOf, sealKeyOf, type GuardReport, type TimelineEvent } from "@bulkhead/shared";
+import { guardReportDigestOf, sealKeyOf, type GuardReport, type TimelineEvent } from "@cordon/shared";
 import { buildContracts, startChain, submitVerdict, type LocalChain } from "../support/chain.ts";
 import { eventually, makeTempDir, runGuard, startWatcher, writeLockfile, type Service } from "../support/services.ts";
 
-const name = "@bulkheaddemo/colorkit";
+const name = "@cordondemo/colorkit";
 const poisoned = sealKeyOf(name, "1.4.1");
 const reporterKey = generatePrivateKey();
 const temps = [makeTempDir(), makeTempDir()];
@@ -33,7 +33,7 @@ after(async () => {
 });
 
 async function blockedReport(): Promise<GuardReport> {
-  const lockfile = writeLockfile(temps[1] as string, [{ path: "node_modules/@bulkheaddemo/colorkit", name, version: "1.4.1" }]);
+  const lockfile = writeLockfile(temps[1] as string, [{ path: "node_modules/@cordondemo/colorkit", name, version: "1.4.1" }]);
   const env = { CHAIN_ID: String(chain.chainId), RPC_URL: chain.rpcUrl, REGISTRY_ADDRESS: registry };
   const run = await runGuard(["check", "--lockfile", lockfile, "--service", "ordersApi"], env);
   assert.equal(run.report.outcome, "blocked");

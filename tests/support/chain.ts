@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createPublicClient, createTestClient, createWalletClient, http, keccak256, toHex, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { sealRegistryAbi } from "@bulkhead/shared";
+import { sealRegistryAbi } from "@cordon/shared";
 
 export const repoRoot = join(import.meta.dirname, "..", "..");
 const foundryBin = join(homedir(), ".foundry", "bin");

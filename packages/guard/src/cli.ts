@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { parseArgs, promisify } from "node:util";
 import type { Address } from "viem";
-import type { GuardReport, Hex32 } from "@bulkhead/shared";
+import type { GuardReport, Hex32 } from "@cordon/shared";
 import { audit } from "./audit.ts";
 import { checkLockfile, exitCodes, installChecked, sendReport, type GuardSettings, type Npm } from "./check.ts";
 import { overridesOf } from "./rollback.ts";
@@ -9,7 +9,7 @@ import { startSidecar } from "./sidecar.ts";
 
 type Env = Record<string, string | undefined>;
 
-const usage = "usage: bulkhead <check|install|audit|rollback|sidecar> [--lockfile path] [--service name] [--path dir]... [--cache dir]... [--docker image.tar]... [--port n]";
+const usage = "usage: cordon <check|install|audit|rollback|sidecar> [--lockfile path] [--service name] [--path dir]... [--cache dir]... [--docker image.tar]... [--port n]";
 
 function numberFrom(env: Env, name: string, minimum: number): number | null {
   const raw = env[name];

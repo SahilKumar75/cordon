@@ -1,4 +1,4 @@
-# Bulkhead
+# Cordon
 
 Circuit breaker for npm dependencies. Detectors vote that a specific package version is malicious. When a quorum agrees, an onchain registry marks that version Sealed, and a guard in installs, CI and running services blocks it before it runs.
 

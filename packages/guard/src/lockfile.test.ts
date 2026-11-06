@@ -20,7 +20,7 @@ test("versions 2 and 3 include transitive entries and key aliases by their real 
       {
         "node_modules/left": { version: "2.0.0" },
         "node_modules/left/node_modules/@scope/deep": { version: "0.3.1" },
-        "node_modules/colors": { name: "@bulkheaddemo/colorkit", version: "1.4.1" },
+        "node_modules/colors": { name: "@cordondemo/colorkit", version: "1.4.1" },
         "packages/local": { name: "local", version: "1.0.0" },
         "node_modules/local": { resolved: "packages/local", link: true },
       },
@@ -30,7 +30,7 @@ test("versions 2 and 3 include transitive entries and key aliases by their real 
     assert.ok(read.ok);
     assert.deepEqual(
       read.entries.map(({ name, version: entryVersion }) => `${name}@${entryVersion}`),
-      ["left@2.0.0", "@scope/deep@0.3.1", "@bulkheaddemo/colorkit@1.4.1"],
+      ["left@2.0.0", "@scope/deep@0.3.1", "@cordondemo/colorkit@1.4.1"],
     );
   }
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { stopwatchSchema, type SignedGuardReport } from "@bulkhead/shared";
+import { stopwatchSchema, type SignedGuardReport } from "@cordon/shared";
 import { pollChain } from "./chainPoller.ts";
 import { pollRegistry } from "./registryPoller.ts";
 import { buildServer } from "./server.ts";

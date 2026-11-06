@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useReadContract } from "wagmi";
 import type { Address } from "viem";
-import { sealRegistryAbi, sealStatusNames, signedSnapshotSchema } from "@bulkhead/shared";
+import { sealRegistryAbi, sealStatusNames, signedSnapshotSchema } from "@cordon/shared";
 import { usePolled } from "@/lib/api";
 import { formatDateTime, shortHash } from "@/lib/format";
 import { Notice, QueryState, SealStatus } from "./ui";

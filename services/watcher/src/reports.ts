@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { verifyMessage, type Hex } from "viem";
-import { guardReportDigestOf, sealKeyOf, type ReportAck, type ServiceStatus, type SignedGuardReport } from "@bulkhead/shared";
+import { guardReportDigestOf, sealKeyOf, type ReportAck, type ServiceStatus, type SignedGuardReport } from "@cordon/shared";
 import { appendEvent, inTransaction } from "./timeline.ts";
 
 export class ReportRefused extends Error {}

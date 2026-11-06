@@ -20,10 +20,10 @@ before(async () => {
 after(() => sink.kill());
 
 function runPostinstall(env) {
-  const tempFolder = mkdtempSync(join(tmpdir(), "bulkheadSinkTest"));
+  const tempFolder = mkdtempSync(join(tmpdir(), "cordonSinkTest"));
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [postinstall], { env: { PATH: process.env.PATH, TMPDIR: tempFolder, ...env } });
-    child.on("exit", (code) => resolve({ code, canaryFile: join(tempFolder, "bulkheadDemoCanary.txt") }));
+    child.on("exit", (code) => resolve({ code, canaryFile: join(tempFolder, "cordonDemoCanary.txt") }));
   });
 }
 

@@ -1,10 +1,10 @@
 {
-  "name": "@bulkhead/guard",
+  "name": "@cordon/guard",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "bulkhead": "bin/bulkhead.js"
+    "cordon": "bin/cordon.js"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -12,7 +12,7 @@
     "start": "node --experimental-strip-types src/cli.ts"
   },
   "dependencies": {
-    "@bulkhead/shared": "workspace:*",
+    "@cordon/shared": "workspace:*",
     "tar": "^7.4.0",
     "viem": "^2.21.0"
   },

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { keccak256, toHex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import type { Hex32 } from "@bulkhead/shared";
+import type { Hex32 } from "@cordon/shared";
 import { loadSealedList } from "./sealedList.ts";
 import { chainTransport, failingTransport, now, sealedKey, settingsFor, sign, snapshotOf, stubFetch, tempDir } from "./testFixtures.ts";
 
