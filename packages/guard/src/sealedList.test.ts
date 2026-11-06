@@ -83,3 +83,78 @@ test("a snapshot dated within the clock skew allowance is accepted", async () =>
   assert.equal(list.source, "snapshot");
   assert.equal(list.snapshotAgeSeconds, 0);
 });
+
+function monotonicSettings(transport: ReturnType<typeof chainTransport>, cacheDir: string, served: unknown = null) {
+  return settingsFor("", {
+    transport,
+    cacheDir,
+    snapshotUrl,
+    snapshotSigner: signer.address,
+    fetchFn: stubFetch(served === null ? {} : { [snapshotUrl]: served }),
+  });
+}
+
+test("an RPC that returns an empty list after a seal is rejected and the cached signed snapshot keeps the version blocked", async () => {
+  const cacheDir = tempDir();
+  const signed = await sign(signer, snapshotOf());
+  const first = await loadSealedList(monotonicSettings(chainTransport([{ key: sealedKey, status: 1 }]), cacheDir, signed));
+  assert.equal(first.source, "chain");
+  await loadSealedList(snapshotSettings(signed, cacheDir));
+  const settings = monotonicSettings(chainTransport([]), cacheDir);
+  const list = await loadSealedList(settings);
+  assert.equal(list.source, "snapshot");
+  assert.ok(list.keys.has(sealedKey));
+  assert.ok(settings.warnings.some((warning) => warning.includes("chain list rejected") && warning.includes(sealedKey)));
+  assert.ok(settings.warnings.some((warning) => warning.includes("snapshot fetch failed")));
+});
+
+test("with no snapshot at all a previously sealed version stays blocked when the RPC drops it", async () => {
+  const cacheDir = tempDir();
+  await loadSealedList(monotonicSettings(chainTransport([{ key: sealedKey, status: 1 }]), cacheDir));
+  const settings = monotonicSettings(chainTransport([]), cacheDir);
+  const list = await loadSealedList(settings);
+  assert.equal(list.source, "none");
+  assert.ok(list.keys.has(sealedKey));
+  assert.ok(settings.warnings.some((warning) => warning.includes("stay blocked")));
+});
+
+test("a key the chain marks Unsealed with a matching Unsealed event is released", async () => {
+  const cacheDir = tempDir();
+  await loadSealedList(monotonicSettings(chainTransport([{ key: sealedKey, status: 1 }]), cacheDir));
+  const calls: string[] = [];
+  const settings = monotonicSettings(chainTransport([{ key: sealedKey, status: 2 }], { unsealEvents: [sealedKey], calls }), cacheDir);
+  const list = await loadSealedList(settings);
+  assert.equal(list.source, "chain");
+  assert.equal(list.keys.has(sealedKey), false);
+  assert.ok(calls.includes("eth_getLogs"));
+  assert.deepEqual(settings.warnings, []);
+  const later = await loadSealedList(monotonicSettings(chainTransport([{ key: sealedKey, status: 2 }]), cacheDir));
+  assert.equal(later.source, "chain");
+});
+
+test("a key the chain marks Unsealed without an Unsealed event is kept blocked", async () => {
+  const cacheDir = tempDir();
+  await loadSealedList(monotonicSettings(chainTransport([{ key: sealedKey, status: 1 }]), cacheDir));
+  const settings = monotonicSettings(chainTransport([{ key: sealedKey, status: 2 }]), cacheDir);
+  const list = await loadSealedList(settings);
+  assert.notEqual(list.source, "chain");
+  assert.ok(list.keys.has(sealedKey));
+});
+
+test("a signed snapshot that omits a previously sealed version does not release it", async () => {
+  const cacheDir = tempDir();
+  await loadSealedList(monotonicSettings(chainTransport([{ key: sealedKey, status: 1 }]), cacheDir));
+  const settings = snapshotSettings(await sign(signer, snapshotOf({ entries: [] })), cacheDir);
+  const list = await loadSealedList(settings);
+  assert.equal(list.source, "snapshot");
+  assert.ok(list.keys.has(sealedKey));
+});
+
+test("seals remembered for another registry are not applied", async () => {
+  const cacheDir = tempDir();
+  await loadSealedList(monotonicSettings(chainTransport([{ key: sealedKey, status: 1 }]), cacheDir));
+  const settings = settingsFor("", { transport: chainTransport([]), cacheDir, registryAddress: "0x00000000000000000000000000000000000000cc" });
+  const list = await loadSealedList(settings);
+  assert.equal(list.source, "chain");
+  assert.equal(list.keys.size, 0);
+});

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { custom, decodeFunctionData, encodeFunctionResult, type Address } from "viem";
+import { custom, decodeFunctionData, encodeAbiParameters, encodeEventTopics, encodeFunctionResult, type Address } from "viem";
 import type { PrivateKeyAccount } from "viem/accounts";
 import { productName, sealKeyOf, sealRegistryAbi, snapshotDigestOf, type Hex32, type SealedSnapshot, type SignedSnapshot } from "@cordon/shared";
 import type { GuardSettings } from "./check.ts";
@@ -48,12 +48,33 @@ export function daysAgo(days: number): string {
   return new Date(now.getTime() - days * 86_400_000).toISOString();
 }
 
-export function chainTransport(seals: { key: Hex32; status: number }[], options: { remoteChainId?: number; calls?: string[] } = {}) {
+function unsealLog(key: Hex32) {
+  return {
+    address: registryAddress,
+    topics: encodeEventTopics({ abi: sealRegistryAbi, eventName: "Unsealed", args: { key, guardian: registryAddress } }),
+    data: encodeAbiParameters([{ type: "bytes32" }, { type: "uint64" }], [key, 1n]),
+    blockNumber: "0x1",
+    blockHash: `0x${"11".repeat(32)}`,
+    transactionHash: `0x${"22".repeat(32)}`,
+    transactionIndex: "0x0",
+    logIndex: "0x0",
+    removed: false,
+  };
+}
+
+export function chainTransport(
+  seals: { key: Hex32; status: number }[],
+  options: { remoteChainId?: number; calls?: string[]; unsealEvents?: Hex32[] } = {},
+) {
   return custom(
     {
       request: async ({ method, params }: { method: string; params?: unknown }) => {
         options.calls?.push(method);
         if (method === "eth_chainId") return `0x${(options.remoteChainId ?? chainId).toString(16)}`;
+        if (method === "eth_getLogs") {
+          const [filter] = params as [{ topics: (string | null)[] }];
+          return (options.unsealEvents ?? []).filter((key) => key === filter.topics[1]).map(unsealLog);
+        }
         if (method !== "eth_call") throw new Error(`unexpected ${method}`);
         const [call] = params as [{ data: `0x${string}` }];
         const decoded = decodeFunctionData({ abi: sealRegistryAbi, data: call.data });

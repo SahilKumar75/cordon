@@ -1,13 +1,14 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { readJson } from "./lockfile.ts";
 import { dirname, join } from "node:path";
-import { createPublicClient, http, verifyMessage, type Address, type Transport } from "viem";
+import { createPublicClient, http, verifyMessage, type Address, type PublicClient, type Transport } from "viem";
 import { sealRegistryAbi, signedSnapshotSchema, snapshotDigestOf, type Hex32, type ListSource, type SignedSnapshot } from "@cordon/shared";
 
 export type ListSettings = {
   chainId: number | null;
   rpcUrl: string | null;
   registryAddress: Address | null;
+  registryStartBlock?: number | null;
   snapshotUrl: string | null;
   snapshotSigner: Address | null;
   snapshotMaxAgeSeconds: number | null;
@@ -21,17 +22,22 @@ export type ListSettings = {
 export type SealedList = { source: ListSource; keys: Set<Hex32>; snapshotAgeSeconds: number | null };
 
 const sealedStatus = 1;
+const unsealedStatus = 2;
 const pageSize = 500n;
 const cacheFileName = "sealedSnapshot.json";
+const knownFileName = "knownSealed.json";
 const clockSkewSeconds = 60;
 
-async function loadFromChain(settings: ListSettings, registry: Address, chainId: number): Promise<Set<Hex32>> {
+type ChainRead = { client: PublicClient; sealed: Set<Hex32>; unsealed: Set<Hex32> };
+
+async function readChain(settings: ListSettings, registry: Address, chainId: number): Promise<ChainRead> {
   const transport = settings.transport ?? http(settings.rpcUrl ?? undefined, { retryCount: 0, timeout: 10_000 });
   const client = createPublicClient({ transport });
   const remoteChainId = await client.getChainId();
   if (remoteChainId !== chainId) throw new Error(`RPC reports chain ${remoteChainId}, expected ${chainId}`);
   const total = await client.readContract({ address: registry, abi: sealRegistryAbi, functionName: "sealedKeyCount" });
-  const keys = new Set<Hex32>();
+  const sealed = new Set<Hex32>();
+  const unsealed = new Set<Hex32>();
   for (let offset = 0n; offset < total; offset += pageSize) {
     const [page, statuses] = await client.readContract({
       address: registry,
@@ -39,9 +45,40 @@ async function loadFromChain(settings: ListSettings, registry: Address, chainId:
       functionName: "sealedKeys",
       args: [offset, pageSize],
     });
-    page.forEach((key, index) => statuses[index] === sealedStatus && keys.add(key.toLowerCase() as Hex32));
+    page.forEach((key, index) => {
+      if (statuses[index] === sealedStatus) sealed.add(key.toLowerCase() as Hex32);
+      if (statuses[index] === unsealedStatus) unsealed.add(key.toLowerCase() as Hex32);
+    });
   }
-  return keys;
+  return { client, sealed, unsealed };
+}
+
+async function hasUnsealEvent(read: ChainRead, registry: Address, key: Hex32, fromBlock: number): Promise<boolean> {
+  if (!read.unsealed.has(key)) return false;
+  const logs = await read.client
+    .getContractEvents({ address: registry, abi: sealRegistryAbi, eventName: "Unsealed", args: { key }, fromBlock: BigInt(fromBlock) })
+    .catch(() => []);
+  return logs.length > 0;
+}
+
+async function chainList(settings: ListSettings, known: Set<Hex32>): Promise<SealedList | null> {
+  const { registryAddress, chainId } = settings;
+  if (!registryAddress || chainId === null || !(settings.transport || settings.rpcUrl)) return null;
+  const read = await readChain(settings, registryAddress, chainId).catch((error: Error) => {
+    settings.warn(`chain unavailable: ${error.message.split("\n")[0]}`);
+    return null;
+  });
+  if (!read) return null;
+  const dropped = [...known].filter((key) => !read.sealed.has(key));
+  const explained = await Promise.all(dropped.map((key) => hasUnsealEvent(read, registryAddress, key, settings.registryStartBlock ?? 0)));
+  const unexplained = dropped.filter((_, index) => !explained[index]);
+  if (unexplained.length) {
+    settings.warn(
+      `chain list rejected: it drops ${unexplained.length} previously sealed version(s) with no matching Unsealed event (${unexplained.join(", ")}), so the guard uses the signed snapshot and keeps them blocked`,
+    );
+    return null;
+  }
+  return { source: "chain", keys: read.sealed, snapshotAgeSeconds: null };
 }
 
 async function snapshotProblem(signed: SignedSnapshot, settings: ListSettings): Promise<string | null> {
@@ -98,17 +135,39 @@ async function loadSnapshot(settings: ListSettings): Promise<SignedSnapshot | nu
   return acceptSnapshot(readJson(cache), "cached", settings);
 }
 
-export async function loadSealedList(settings: ListSettings): Promise<SealedList> {
-  const { registryAddress, chainId } = settings;
-  if (registryAddress && chainId !== null && (settings.transport || settings.rpcUrl)) {
-    const keys = await loadFromChain(settings, registryAddress, chainId).catch((error: Error) => {
-      settings.warn(`chain unavailable: ${error.message.split("\n")[0]}`);
-      return null;
-    });
-    if (keys) return { source: "chain", keys, snapshotAgeSeconds: null };
-  }
+function knownPath(settings: ListSettings): string | null {
+  return settings.cacheDir ? join(settings.cacheDir, knownFileName) : null;
+}
+
+function readKnown(settings: ListSettings): Set<Hex32> {
+  const path = knownPath(settings);
+  const stored = path ? (readJson(path) as { chainId?: number; registry?: string; keys?: Hex32[] } | null) : null;
+  const sameRegistry = stored?.chainId === settings.chainId && stored?.registry?.toLowerCase() === settings.registryAddress?.toLowerCase();
+  return new Set(sameRegistry ? (stored?.keys ?? []) : []);
+}
+
+function writeKnown(settings: ListSettings, keys: Set<Hex32>): void {
+  const path = knownPath(settings);
+  if (!path) return;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify({ chainId: settings.chainId, registry: settings.registryAddress, keys: [...keys] }));
+}
+
+async function snapshotList(settings: ListSettings, known: Set<Hex32>): Promise<SealedList> {
   const signed = await loadSnapshot(settings);
-  if (!signed) return { source: "none", keys: new Set(), snapshotAgeSeconds: null };
-  const keys = new Set(signed.snapshot.entries.filter((entry) => entry.status === "Sealed").map((entry) => entry.key as Hex32));
+  const entries = signed?.snapshot.entries ?? [];
+  const keys = new Set(entries.filter((entry) => entry.status === "Sealed").map((entry) => entry.key as Hex32));
+  const unsealed = new Set(entries.filter((entry) => entry.status === "Unsealed").map((entry) => entry.key as Hex32));
+  const kept = [...known].filter((key) => !keys.has(key) && !unsealed.has(key));
+  if (kept.length) settings.warn(`${kept.length} previously sealed version(s) missing from the available list stay blocked: ${kept.join(", ")}`);
+  kept.forEach((key) => keys.add(key));
+  if (!signed) return { source: "none", keys, snapshotAgeSeconds: null };
   return { source: "snapshot", keys, snapshotAgeSeconds: snapshotAgeOf(signed, settings) };
+}
+
+export async function loadSealedList(settings: ListSettings): Promise<SealedList> {
+  const known = readKnown(settings);
+  const list = (await chainList(settings, known)) ?? (await snapshotList(settings, known));
+  writeKnown(settings, list.keys);
+  return list;
 }

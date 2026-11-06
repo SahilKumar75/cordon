@@ -40,6 +40,7 @@ export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: 
     chainId: numberFrom(env, "CHAIN_ID", 1),
     rpcUrl: textFrom(env, "RPC_URL"),
     registryAddress: textFrom(env, "REGISTRY_ADDRESS") as Address | null,
+    registryStartBlock: numberFrom(env, "REGISTRY_START_BLOCK", 0),
     snapshotUrl: textFrom(env, "GUARD_SNAPSHOT_URL"),
     snapshotSigner: textFrom(env, "GUARD_SNAPSHOT_SIGNER") as Address | null,
     snapshotMaxAgeSeconds: numberFrom(env, "GUARD_SNAPSHOT_MAX_AGE_SECONDS", 1),
