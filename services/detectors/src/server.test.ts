@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -152,4 +152,29 @@ test("at most two sandbox scans run at once when many scans arrive together", as
   const responses = await Promise.all(Array.from({ length: 5 }, () => app.inject({ method: "POST", url: "/scan", payload: scanBody })));
   assert.deepEqual(responses.map((response) => response.statusCode), [200, 200, 200, 200, 200]);
   assert.equal(peak, 2);
+});
+
+test("a detector listed as off chain keeps its evidence but sends no vote", async () => {
+  const evidenceDir = await mkdtemp(join(tmpdir(), "detectorsOffChain"));
+  const state = newRegistryState();
+  const keys = { staticScripts: generatePrivateKey(), sandboxCanary: generatePrivateKey(), advisoryFeed: generatePrivateKey() };
+  const signer = createSigner({ chain: testChain, transport: mockRegistryTransport(state), registry: "0x00000000000000000000000000000000000000aa", keys, pendingDir: join(evidenceDir, "pending") });
+  const osvMalicious: FetchLike = async (input, init) =>
+    String(input) === "https://api.osv.dev/v1/query" ? Response.json({ vulns: [{ id: "MAL-2026-3465", published: "2026-05-11T23:44:35Z", modified: "2026-05-12T07:09:29Z" }] }) : networkEdge(input, init);
+  const app = buildServer({
+    evidenceDir,
+    mockRegistryUrl,
+    osvApiUrl: "https://api.osv.dev",
+    sandboxImage: "node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914",
+    fetchImpl: osvMalicious,
+    docker: sinkReceivesEverything,
+    signer,
+    offChainDetectors: ["advisoryFeed"],
+  });
+  const scan = scanResponseSchema.parse((await app.inject({ method: "POST", url: "/scan", payload: scanBody })).json());
+  assert.deepEqual(scan.verdicts.map(({ detector }) => detector).sort(), ["sandboxCanary", "staticScripts"]);
+  assert.equal(state.sent.length, 2);
+  assert.deepEqual(scan.failures, []);
+  const stored = await readdir(evidenceDir);
+  assert.equal(stored.filter((name) => name.endsWith(".json")).length, 3);
 });

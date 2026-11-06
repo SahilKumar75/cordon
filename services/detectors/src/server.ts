@@ -8,6 +8,7 @@ import { z, ZodError } from "zod";
 import {
   addressSchema,
   defineAppChain,
+  detectorIds,
   evidenceHashOf,
   hex32Schema,
   replayRequestSchema,
@@ -31,6 +32,7 @@ export type DetectorsDeps = {
   fetchImpl: FetchLike;
   docker: DockerRunner;
   signer: ReturnType<typeof createSigner>;
+  offChainDetectors?: DetectorId[];
 };
 
 const evidenceParamsSchema = z.object({ evidenceHash: hex32Schema });
@@ -77,7 +79,8 @@ export function buildServer(deps: DetectorsDeps) {
     await mkdir(deps.evidenceDir, { recursive: true });
     await Promise.all(evidences.map((evidence) => writeFile(join(deps.evidenceDir, `${evidenceHashOf(evidence)}.json`), JSON.stringify(evidence, null, 2))));
     const verdicts: Verdict[] = [];
-    for (const evidence of evidences) verdicts.push(await deps.signer.submit(evidence));
+    const onChain = evidences.filter((evidence) => !deps.offChainDetectors?.includes(evidence.detector));
+    for (const evidence of onChain) verdicts.push(await deps.signer.submit(evidence));
     return { name: scan.name, version: scan.version, key: sealKeyOf(scan.name, scan.version), verdicts, failures };
   });
 
@@ -113,6 +116,7 @@ const envSchema = z.object({
   SANDBOX_IMAGE: z.string().regex(/@sha256:[0-9a-f]{64}$/, "must be pinned by digest"),
   OSV_API_URL: z.string().url(),
   MOCK_REGISTRY_URL: z.string().url().optional(),
+  OFF_CHAIN_DETECTORS: z.string().optional(),
 });
 
 async function main() {
@@ -133,6 +137,7 @@ async function main() {
     fetchImpl: fetch,
     docker: runDocker,
     signer,
+    offChainDetectors: (env.OFF_CHAIN_DETECTORS ?? "").split(",").filter((id): id is DetectorId => (detectorIds as readonly string[]).includes(id)),
   });
   setInterval(() => signer.retryPending().catch((error) => console.error(`pending retry failed: ${String(error)}`)), retryIntervalMs);
   await app.listen({ port: env.DETECTORS_PORT, host: "127.0.0.1" });

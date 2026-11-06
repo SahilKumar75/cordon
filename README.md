@@ -142,8 +142,9 @@ On this branch the advisoryFeed check (an OSV lookup for MAL ids) is also writte
 1. This is simulation only unless Chainlink approves deployment for this project. It is not deployed on the CRE network.
 2. When a workflow is deployed, Chainlink chooses and runs the node operators; we do not.
 3. On chain, a CRE report is still one detector vote, so quorum still needs a second detector.
-4. Tests that run without the CRE CLI: `cd cre/cordonAdvisory && bun install --ignore-scripts && bun test`, and `cd contracts && forge test --match-contract CordonCreReceiver`.
-5. A dry run simulation (no transaction, no funds): `cd cre && cre workflow simulate cordonAdvisory --target staging-settings --non-interactive --trigger-index 0 --http-payload @cordonAdvisory/payload.tanstack.json`.
+4. Run the detectors service with OFF_CHAIN_DETECTORS=advisoryFeed so the local advisory check keeps its evidence but stops voting; the CRE workflow becomes the only advisory vote. In simulation the workflow runs in one local process, so the multi node agreement applies only to a deployed workflow.
+5. Tests that run without the CRE CLI: `cd cre/cordonAdvisory && bun install --ignore-scripts && bun test`, and `cd contracts && forge test --match-contract CordonCreReceiver`.
+6. A dry run simulation (no transaction, no funds): `cd cre && cre workflow simulate cordonAdvisory --target staging-settings --non-interactive --trigger-index 0 --http-payload @cordonAdvisory/payload.tanstack.json`.
 
 Install the CRE CLI with the official script, or download it manually and check its SHA256 against the release checksums (macOS on Apple silicon shown):
 
