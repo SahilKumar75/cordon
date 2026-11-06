@@ -22,6 +22,11 @@ Trade off: shorter makes stale or replayed agreement expire sooner but needs det
 Suggested: 2 of 3.
 Trade off: 1 of 3 seals faster but lets one faulty or compromised detector cause an outage; 3 of 3 is safest against false seals but stops sealing when any detector is down.
 
+## Three level model: Clean, Suspected, Sealed (proposed, not built)
+Suggested: add Suspected for a version with at least one live detector vote and no quorum yet. The dashboard shows it as a warning, never as Sealed. The guard prints a warning and does not block; the stale list rule still blocks only versions younger than N days. A hard block happens only at Sealed.
+How it is derived, with no contract change and no change to the frozen roles: the watcher already reads every VerdictSubmitted event (key, detector, time). A key is Suspected when getSeal reports status None and at least one vote is younger than voteLifetime(). The votes field in getSeal is only updated when a vote arrives, so expiry has to be computed from the event times, not read from that field. The watcher would put Suspected keys in the signed snapshot, so the guard learns them without extra RPC calls.
+Trade off: Suspected tells users early, minutes before quorum, at no outage risk, because it never blocks. It also shows a single faulty or compromised detector's opinion to everyone, so the warning must say it is one vote and not a seal. Combined with a quorum of 1 it would add nothing, because one vote already seals.
+
 ## Fail mode when the Sealed list is unavailable
 Suggested: the age fallback rather than fail open or fail closed. The team chose it on 6 Nov 2026 and CLAUDE.md design rule 8 records it; N stays for docs/decisions.md.
 Trade off: fail open lets every install through during an outage; fail closed stops all installs; the fallback stops only fresh versions and depends on N above.
