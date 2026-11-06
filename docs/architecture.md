@@ -26,7 +26,7 @@ If time runs short, cut in this order: Chainlink CRE, the minimum age option, th
 3. watcher: services/watcher/, and cre/ if CRE survives the cut order.
 4. guard: packages/guard/.
 5. dashboard: apps/dashboard/.
-6. demo: demo/ (mockRegistry, poisonedPackage, canarySink, services). Built in Phase 2 by the orchestrator or a subagent briefed from this file.
+6. demo: demo/ (mockRegistry, poisonedPackage, canarySink, services). Built by the orchestrator: poisonedPackage and canarySink in Phase 1, mockRegistry and services in Phase 2.
 7. research: docs/research/.
 8. docs: README.md, docs/demo.md, docs/limits.md, docs/rules.md.
 9. reviewer: reads everything, edits nothing.
@@ -186,7 +186,7 @@ Configuration from env, overridable by flags:
 3. CHAIN_ID, RPC_URL, REGISTRY_ADDRESS: where the Sealed list lives.
 4. GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR: the fallback list.
 5. GUARD_REPORT_URL and GUARD_REPORTER_PRIVATE_KEY: both unset means nothing is sent anywhere.
-6. NPM_REGISTRY_URL: only for minimum age and rollback.
+6. NPM_REGISTRY_URL: only for the age fallback, the minimum age check and rollback.
 
 Loading the Sealed list, in order:
 1. Chain: page through sealedKeys and keep status Sealed. listSource chain. The chain result is not cached.
@@ -201,7 +201,7 @@ Reading lockfiles:
 Commands (exit codes: allowed 0, blocked 1, unavailable 2):
 1. bulkhead check [--lockfile path] [--service name]: reads the lockfile, computes each seal key and matches locally. With a minimum age, reads publish times from NPM_REGISTRY_URL and lists versions younger than the limit under tooYoung, which blocks. Prints the GuardReport and sends it signed when reporting is configured.
 2. bulkhead install [--lockfile path]: runs check, then npm ci with --ignore-scripts only when the outcome is allowed.
-3. bulkhead audit [--path dir]... [--cache dir] [--docker image]: scans lockfiles under each path, the npm cache index, and node_modules package.json files inside the layers of a saved Docker image. Every hit has alreadyInstalled true.
+3. bulkhead audit [--path dir]... [--cache dir]... [--docker image.tar]...: scans lockfiles under each path (the current directory when no path is given), each npm cache index, and node_modules package.json files inside the layers of each image saved with docker save. Every hit has alreadyInstalled true. Audit needs the Sealed list: with listSource none its outcome is unavailable and no age fallback runs, because it inspects what is already installed. A layer or manifest it cannot read also makes the outcome unavailable.
 4. bulkhead rollback [--lockfile path]: for each blocked package, reads its registry metadata and proposes the highest earlier version that is neither Sealed nor too young, as an npm overrides snippet. Writes no files.
 5. bulkhead sidecar --lockfile path --service name --port n: rechecks every POLL_INTERVAL_SECONDS. GET /health answers 200 when allowed and 503 when blocked or unavailable. GET /status answers ServiceStatus. Sends changes signed when reporting is configured.
 
