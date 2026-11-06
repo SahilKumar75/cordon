@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -232,4 +232,31 @@ test("evidence missing on disk is read from Arkiv, and unknown evidence is still
   assert.deepEqual((await app.inject({ method: "GET", url: `/evidence/${hash}/arkiv` })).json(), { entityKey: arkivKey, txHash: null, owner: arkivOwner });
   assert.equal((await app.inject({ method: "GET", url: `/evidence/0x${"1".repeat(64)}` })).statusCode, 404);
   assert.equal((await app.inject({ method: "GET", url: `/evidence/0x${"1".repeat(64)}/arkiv` })).statusCode, 404);
+});
+
+test("a detector listed as off chain keeps its evidence but sends no vote", async () => {
+  const evidenceDir = await mkdtemp(join(tmpdir(), "detectorsOffChain"));
+  const state = newRegistryState();
+  const keys = { staticScripts: generatePrivateKey(), sandboxCanary: generatePrivateKey(), advisoryFeed: generatePrivateKey() };
+  const signer = createSigner({ chain: testChain, transport: mockRegistryTransport(state), registry: "0x00000000000000000000000000000000000000aa", keys, pendingDir: join(evidenceDir, "pending") });
+  const osvMalicious: FetchLike = async (input, init) =>
+    String(input) === "https://api.osv.dev/v1/query" ? Response.json({ vulns: [{ id: "MAL-2026-3465", published: "2026-05-11T23:44:35Z", modified: "2026-05-12T07:09:29Z" }] }) : networkEdge(input, init);
+  const app = buildServer({
+    evidenceDir,
+    mockRegistryUrl,
+    osvApiUrl: "https://api.osv.dev",
+    sandboxImage: "node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914",
+    fetchImpl: osvMalicious,
+    docker: sinkReceivesEverything,
+    signer,
+    arkivWriter: undefined,
+    arkivReader: undefined,
+    offChainDetectors: ["advisoryFeed"],
+  });
+  const scan = scanResponseSchema.parse((await app.inject({ method: "POST", url: "/scan", payload: scanBody })).json());
+  assert.deepEqual(scan.verdicts.map(({ detector }) => detector).sort(), ["sandboxCanary", "staticScripts"]);
+  assert.equal(state.sent.length, 2);
+  assert.deepEqual(scan.failures, []);
+  const stored = await readdir(evidenceDir);
+  assert.equal(stored.filter((name) => name.endsWith(".json")).length, 3);
 });

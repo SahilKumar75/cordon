@@ -149,6 +149,29 @@ What Cordon does not do is in [docs/limits.md](docs/limits.md). In short:
 8. Votes expire after VOTE_LIFETIME_SECONDS (fixed at deploy, 86400 in our config), so a stale vote no longer counts toward quorum. A detector key that is compromised can still vote again inside each lifetime until the registry is replaced, because roles are frozen.
 9. Provenance and npm signatures are never an allow signal: the May 2026 TanStack releases carried valid provenance ([docs/research/incidents.md](docs/research/incidents.md#tanstack-npm-compromise-11-may-2026)).
 
+## Chainlink CRE, simulation only
+
+The advisoryFeed check (an OSV lookup for MAL ids) is also a Chainlink CRE workflow in cre/cordonAdvisory, and contracts/src/CordonCreReceiver.sol turns a CRE report into a vote on SealRegistry. Design and trade offs: docs/cre_design.md.
+
+1. Deployment access is pending: we requested it from Chainlink and it has not been granted. Nothing here is deployed on the CRE network; everything below is simulation only.
+2. When a workflow is deployed, Chainlink chooses and runs its node operators. We do not choose them.
+3. Simulation runs the workflow in one local process, so the agreement between many nodes applies only to a deployed workflow.
+4. On chain, a CRE report is one detector vote, so quorum still needs a second detector. Run the detectors service with OFF_CHAIN_DETECTORS=advisoryFeed so the local advisory check keeps its evidence but no longer votes.
+5. Each node parses the OSV answer itself and only the sorted MAL ids and the advisory's modified time go to consensus; the raw OSV answer (44 KB for the TanStack advisory) exceeds the 25 KB observation limit.
+6. The CRE CLI v1.39.0 was installed from the official release script after we checked its source repository, smartcontractkit/cre-cli.
+
+What ran on 6 Nov 2026, as a dry run with no transaction and no funds:
+
+```sh
+cd cre
+cre workflow simulate cordonAdvisory --target staging-settings --non-interactive --trigger-index 0 --http-payload '{"name":"@tanstack/react-router","version":"1.169.5"}'
+cre workflow simulate cordonAdvisory --target staging-settings --non-interactive --trigger-index 0 --http-payload '{"name":"ms","version":"2.1.3"}'
+```
+
+The first called OSV, found MAL-2026-3465, built and signed the report and ran writeReport as a dry run; the second came back clean and wrote nothing. Simulation needs CRE_ETH_PRIVATE_KEY in cre/.env (ignored by git); a dry run never spends it. A broadcast simulation needs that key funded with Base Sepolia ETH and a receiver deployed with contracts/script/DeployCre.s.sol.
+
+Tests without the CLI: `cd cre/cordonAdvisory && bun install --ignore-scripts && bun test`, and `cd contracts && forge test --match-contract CordonCreReceiver`.
+
 ## Scale roadmap
 
 Built for the demo: every outbound request in the watcher and guard has a timeout (the guard's is GUARD_HTTP_TIMEOUT_MS, default 5 seconds), the registry and chain pollers run in parallel, SQLite runs in write ahead mode, the watcher serves its last saved snapshot right after a restart, and the detectors run at most two sandbox scans at once. Not built yet:

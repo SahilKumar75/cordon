@@ -11,6 +11,7 @@ import { z, ZodError } from "zod";
 import {
   addressSchema,
   defineAppChain,
+  detectorIds,
   evidenceHashOf,
   hex32Schema,
   replayRequestSchema,
@@ -37,6 +38,7 @@ export type DetectorsDeps = {
   signer: ReturnType<typeof createSigner>;
   arkivWriter: EvidenceWriter | undefined;
   arkivReader: EvidenceReader | undefined;
+  offChainDetectors?: DetectorId[];
 };
 
 const evidenceParamsSchema = z.object({ evidenceHash: hex32Schema });
@@ -92,7 +94,8 @@ export function buildServer(deps: DetectorsDeps) {
       }
     }
     const verdicts: Verdict[] = [];
-    for (const evidence of evidences) verdicts.push(await deps.signer.submit(evidence));
+    const onChain = evidences.filter((evidence) => !deps.offChainDetectors?.includes(evidence.detector));
+    for (const evidence of onChain) verdicts.push(await deps.signer.submit(evidence));
     return { name: scan.name, version: scan.version, key: sealKeyOf(scan.name, scan.version), verdicts, failures };
   });
 
@@ -141,6 +144,7 @@ const envSchema = z.object({
   MOCK_REGISTRY_URL: z.string().url().optional(),
   ARKIV_PRIVATE_KEY: privateKeySchema.optional(),
   ARKIV_ACCESS_KEY: z.string().optional(),
+  OFF_CHAIN_DETECTORS: z.string().optional(),
 });
 
 async function main() {
@@ -164,6 +168,7 @@ async function main() {
     signer,
     arkivWriter: env.ARKIV_PRIVATE_KEY ? createWalletClient({ chain: arkivChain, transport: http(), account: privateKeyToAccount(env.ARKIV_PRIVATE_KEY) }) : undefined,
     arkivReader: createPublicClient({ chain: arkivChain, transport: http() }),
+    offChainDetectors: (env.OFF_CHAIN_DETECTORS ?? "").split(",").filter((id): id is DetectorId => (detectorIds as readonly string[]).includes(id)),
   });
   setInterval(() => signer.retryPending().catch((error) => console.error(`pending retry failed: ${String(error)}`)), retryIntervalMs);
   await app.listen({ port: env.DETECTORS_PORT, host: "127.0.0.1" });
