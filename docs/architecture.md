@@ -79,6 +79,7 @@ interface ISealRegistry {
     function GUARDIAN_ROLE() external view returns (bytes32);
     function quorum() external view returns (uint16);
     function disputeWindow() external view returns (uint64);
+    function voteLifetime() external view returns (uint64);
     function maxSealsPerDay() external view returns (uint16);
     function keyOf(string calldata ecosystem, string calldata name, string calldata version) external pure returns (bytes32);
     function submitVerdict(string calldata ecosystem, string calldata name, string calldata version, bytes32 evidenceHash) external returns (bytes32 key);
@@ -92,14 +93,14 @@ interface ISealRegistry {
 }
 ```
 
-1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint16 maxSealsPerDay). The guardian (a multisig in a real deployment, one key in the demo) gets GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. Nobody gets DEFAULT_ADMIN_ROLE, so the detector set and quorum are frozen for the life of the deployment; rotating a detector key means a new deployment. renounceRole always reverts with RolesFrozen, so no detector or guardian can drop out and make the quorum unreachable. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, the guardian is zero, or maxSealsPerDay is 0.
-2. submitVerdict, DETECTOR_ROLE only, in this order: ecosystem other than "npm" reverts InvalidEcosystem; evidenceHash zero reverts EmptyEvidence; status Sealed reverts AlreadySealed; status Unsealed reverts KeyUnsealed (only the guardian can reseal); a repeat vote reverts DuplicateVote. Then the vote is recorded, firstVoteAt is set on the first vote, votes goes up by one, and VerdictSubmitted is emitted.
-3. When votes reach quorum: if seals already made in the current UTC day (block.timestamp / 1 days) equal maxSealsPerDay, the whole call reverts SealRateLimited and the signer retries later (see Detectors). Otherwise status becomes Sealed, sealedAt is set, the key is appended to the sealed key list once, and Sealed is emitted.
+1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint64 voteLifetime, uint16 maxSealsPerDay). The guardian (a multisig in a real deployment, one key in the demo) gets GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. Nobody gets DEFAULT_ADMIN_ROLE, so the detector set and quorum are frozen for the life of the deployment; rotating a detector key means a new deployment. renounceRole always reverts with RolesFrozen, so no detector or guardian can drop out and make the quorum unreachable. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, the guardian is zero, voteLifetime is 0, or maxSealsPerDay is 0.
+2. submitVerdict, DETECTOR_ROLE only, in this order: ecosystem other than "npm" reverts InvalidEcosystem; evidenceHash zero reverts EmptyEvidence; status Sealed reverts AlreadySealed; status Unsealed reverts KeyUnsealed (only the guardian can reseal); a repeat vote while the sender's earlier vote on the key is still live reverts DuplicateVote. A vote is live while block.timestamp < votedAt + voteLifetime; a detector whose vote expired may vote again, which refreshes its time. Then the vote is recorded, firstVoteAt is set on the first vote ever on the key, votes is set to the number of live votes (bounded by the detector count), and VerdictSubmitted is emitted with that number. hasVoted is true only while the detector's vote is live.
+3. When live votes reach quorum: if seals already made in the current UTC day (block.timestamp / 1 days) equal maxSealsPerDay, the whole call reverts SealRateLimited and the signer retries later (see Detectors). Otherwise status becomes Sealed, sealedAt is set, the key is appended to the sealed key list once, and Sealed is emitted.
 4. unseal, GUARDIAN_ROLE only: status must be Sealed (else NotSealed) and block.timestamp at least sealedAt + disputeWindow (else DisputeWindowOpen with the opening time). Sets Unsealed and unsealedAt, emits Unsealed.
 5. reseal, GUARDIAN_ROLE only: status must be Unsealed (else NotUnsealed). Sets Sealed and a new sealedAt, emits Resealed. Not rate limited.
 6. Versions are independent: sealing one version of a package never changes another version's key.
 7. sealedKeys pages through every key that was ever sealed, with its current status, so the guard can download the whole list without revealing what it looks for.
-8. Deploy script reads GUARDIAN_ADDRESS, DETECTOR_ADDRESSES (comma separated), QUORUM, DISPUTE_WINDOW_SECONDS, MAX_SEALS_PER_DAY and DEPLOYER_PRIVATE_KEY, and writes contracts/deployments/{chainId}.json.
+8. Deploy script reads GUARDIAN_ADDRESS, DETECTOR_ADDRESSES (comma separated), QUORUM, DISPUTE_WINDOW_SECONDS, VOTE_LIFETIME_SECONDS, MAX_SEALS_PER_DAY and DEPLOYER_PRIVATE_KEY, and writes contracts/deployments/{chainId}.json.
 
 ## Detectors service (services/detectors, Fastify on DETECTORS_PORT)
 
@@ -195,7 +196,7 @@ Configuration from env, overridable by flags:
 6. NPM_REGISTRY_URL: only for the age fallback, the minimum age check and rollback.
 
 Loading the Sealed list, in order:
-1. Chain: page through sealedKeys and keep status Sealed. listSource chain. The chain result is not cached.
+1. Chain: page through sealedKeys and keep status Sealed. listSource chain. The guard records every key it accepts as Sealed in GUARD_CACHE_DIR/knownSealed.json, scoped to CHAIN_ID and REGISTRY_ADDRESS. A chain list that drops a recorded key is rejected unless the chain reports that key Unsealed and an Unsealed event for it exists from REGISTRY_START_BLOCK on; the guard warns and goes to step 2. Any recorded key missing from the list finally used, and not marked Unsealed there, stays blocked.
 2. Signed snapshot from GUARD_SNAPSHOT_URL, then the last good copy in GUARD_CACHE_DIR. Accepted only when verifyMessage passes for GUARD_SNAPSHOT_SIGNER, chainId equals CHAIN_ID, registry equals REGISTRY_ADDRESS, and generatedAt is within GUARD_SNAPSHOT_MAX_AGE_SECONDS. Every accepted snapshot fetched from the URL replaces the cached copy. listSource snapshot; the report sets snapshotAgeSeconds (null for other sources).
 3. Neither (chain unreachable, and no snapshot that passes every check, including one older than GUARD_SNAPSHOT_MAX_AGE_SECONDS): listSource none, and the age fallback runs. The guard reads publish times from NPM_REGISTRY_URL and blocks every version younger than N days, listing them under tooYoung. Versions older than N days are allowed. A version whose publish time cannot be read is treated as younger than N and blocked, listed in tooYoung with publishedAt null. The report carries fallback { minAgeDays, placeholder } and a warning in advice that the Sealed list was not checked. When the list loads, fallback is null.
 
@@ -262,7 +263,7 @@ tests/chaos, failure behaviour end to end on a local anvil chain:
 All variables are listed with empty values in .env.example. For Base Sepolia: chain id 84532, explorer sepolia.basescan.org, native symbol ETH. Changing chain means changing env only.
 
 1. CHAIN_ID, RPC_URL, EXPLORER_URL, NATIVE_SYMBOL: contracts, detectors, watcher, guard.
-2. DEPLOYER_PRIVATE_KEY, GUARDIAN_ADDRESS, DETECTOR_ADDRESSES, QUORUM, DISPUTE_WINDOW_SECONDS, MAX_SEALS_PER_DAY: contracts.
+2. DEPLOYER_PRIVATE_KEY, GUARDIAN_ADDRESS, DETECTOR_ADDRESSES, QUORUM, DISPUTE_WINDOW_SECONDS, VOTE_LIFETIME_SECONDS, MAX_SEALS_PER_DAY: contracts.
 3. REGISTRY_ADDRESS: detectors, watcher, guard.
 4. STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY, DETECTORS_PORT, EVIDENCE_DIR, SANDBOX_IMAGE, OSV_API_URL: detectors.
 5. MOCK_REGISTRY_URL: detectors (sandbox allow rule).
@@ -270,7 +271,7 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 7. DETECTORS_URL, WATCHER_PORT, DATABASE_PATH, SNAPSHOT_SIGNER_PRIVATE_KEY, SNAPSHOT_PATH, GUARD_REPORTER_ADDRESSES, DASHBOARD_ORIGIN, REGISTRY_START_BLOCK: watcher. MOCK_REGISTRY_URL is also read by the watcher to mark demo publishes simulated.
 8. NPM_REGISTRY_URL: watcher, guard.
 9. POLL_INTERVAL_SECONDS: watcher, guard sidecar.
-10. GUARD_FALLBACK_MIN_AGE_DAYS, GUARD_ALLOW_NON_REGISTRY_SOURCES, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard.
+10. GUARD_FALLBACK_MIN_AGE_DAYS, GUARD_ALLOW_NON_REGISTRY_SOURCES, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard. The guard also reads REGISTRY_START_BLOCK for its Unsealed event query.
 11. MOCK_REGISTRY_PORT, MOCK_REGISTRY_STORAGE, MOCK_REGISTRY_DIST, CANARY_SINK_PORT, HOST, SERVICE_PORT, GUARD_SIDECAR_URL: demo. CORDON_DOCKER_TESTS=1 turns on the real Docker sandbox test in services/detectors.
 12. NEXT_PUBLIC_*: dashboard.
 

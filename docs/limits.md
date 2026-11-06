@@ -62,6 +62,14 @@ The demo deployment uses one guardian key, not a Safe multisig. There is no mult
 
 SealRegistry grants the detector and guardian roles in its constructor and nobody holds the admin role, so no role can be granted, revoked or renounced afterwards. A stolen detector key keeps its vote until the registry is replaced, and adding a detector, removing one or moving the guardian to a multisig all mean deploying a new SealRegistry and pointing every guard, watcher and dashboard at its address.
 
+## The chain read trusts the RPC
+
+The guard asks one RPC provider for the Sealed list and checks only that it reports the right chain id. Its one defence against a provider that lies is monotonic: every version the guard has seen sealed is recorded in GUARD_CACHE_DIR for that chain and registry, and a later list that drops one is rejected unless the chain marks that key Unsealed and an Unsealed event for it is found. The guard then uses the signed snapshot and keeps every recorded version blocked, and says so on stderr. This cannot catch a provider that hides a seal the guard never saw: a first read, a new cache directory, or a version sealed and hidden before this guard ever read it. It also cannot catch a provider that invents seals; that only causes a block, never an install.
+
+## Vote lifetime
+
+A vote counts toward quorum for VOTE_LIFETIME_SECONDS after it is cast, fixed at deploy (86400 seconds in our config). A stale vote from an old scan no longer combines with a new one to seal. A detector can vote again on the same version once its earlier vote expired. Expiry does not limit a compromised detector key, which can keep voting until the registry is replaced, because roles freeze at deploy.
+
 ## Age fallback when the Sealed list is unavailable
 
 When the chain is unreachable and no fresh signed snapshot passes every check, the guard has no Sealed list. It then blocks every version younger than N days and allows older ones. A version whose publish time cannot be read is blocked. A Sealed version older than N days is allowed in this mode, because the list was not checked.

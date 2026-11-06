@@ -126,12 +126,14 @@ Limits that weaken these properties:
 What Cordon does not do is in [docs/limits.md](docs/limits.md). In short:
 
 1. npm only. Typosquatting and dependency confusion are out of scope.
-2. Only npm-shrinkwrap.json and package-lock.json with lockfileVersion 2 or 3. No claim of npm 12 support.
+2. Only npm lockfiles are protected: npm-shrinkwrap.json and package-lock.json with lockfileVersion 2 or 3. pnpm, yarn and bun lockfiles, and npm lockfile version 1, return outcome unavailable (exit 2): the guard neither blocks nor allows them. No claim of npm 12 support.
 3. Git and other non registry sources block by default.
 4. A runtime stop cannot undo install time theft that already happened.
 5. A false seal is an outage until the guardian unseals after the dispute window. The demo uses a single guardian key.
 6. The abuse protection (quorum, evidence hash, seal rate limit, dispute window, guardian), the runtime stop limits and the dispute window length are design choices, not research backed.
-7. Provenance and npm signatures are never an allow signal: the May 2026 TanStack releases carried valid provenance ([docs/research/incidents.md](docs/research/incidents.md#tanstack-npm-compromise-11-may-2026)).
+7. The chain read trusts the RPC. The one check against a lying RPC is monotonic: the guard records every version it has seen sealed (in GUARD_CACHE_DIR, per chain and registry) and rejects a list that drops one unless the chain marks it Unsealed and an Unsealed event for it exists; it then uses the signed snapshot and keeps the recorded versions blocked. A guard with no record yet, or no GUARD_CACHE_DIR, cannot detect an RPC that hides seals on its first read.
+8. Votes expire after VOTE_LIFETIME_SECONDS (fixed at deploy, 86400 in our config), so a stale vote no longer counts toward quorum. A detector key that is compromised can still vote again inside each lifetime until the registry is replaced, because roles are frozen.
+9. Provenance and npm signatures are never an allow signal: the May 2026 TanStack releases carried valid provenance ([docs/research/incidents.md](docs/research/incidents.md#tanstack-npm-compromise-11-may-2026)).
 
 ## Roadmap
 
