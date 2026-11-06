@@ -38,6 +38,24 @@ IDE and coding agent persistence, per Endor Labs: .claude/settings.json hooks wi
 
 Team instruction, 6 Nov 2026, applied to the guard's advice: remove persistence daemons and IDE or coding agent hooks before revoking any tokens, then rotate credentials. This holds whether or not the wiper detail above is confirmed.
 
+### Timeline check, 6 Nov 2026
+
+Each TanStack timestamp above, with its source. Postmortem rows are excerpts from https://tanstack.com/blog/npm-supply-chain-compromise-postmortem , whose timeline says all times are UTC. All accessed 6 Nov 2026.
+
+1. Window 19:20 to 19:26: verified. Postmortem summary: "between 19:20 and 19:26 UTC, an attacker published 84 malicious versions across 42 @tanstack/* npm packages".
+2. First batch 19:20:39: verified. Postmortem 19:20:39 row: "npm registry receives publish for @tanstack/history@1.161.9 and 41 sibling packages". Registry metadata agrees: @tanstack/history 1.161.9 at 19:20:39.565 (https://registry.npmjs.org/@tanstack%2fhistory).
+3. Second batch 19:26:14: verified. Postmortem 19:26:14 row names "(@tanstack/history@1.161.12 etc.)". Registry metadata: @tanstack/history 1.161.12 at 19:26:14.690.
+4. @tanstack/react-router 1.169.5 at 19:20:42.105 and 1.169.8 at 19:26:17.716: verified from registry metadata (https://registry.npmjs.org/@tanstack%2freact-router).
+5. Issue #7383 at 19:46:46: verified. The postmortem row reads 19:46 and says ashishkurmi "opens issue #7383"; the GitHub API gives created_at 19:46:46 (https://api.github.com/repos/TanStack/router/issues/7383).
+6. About 26 minutes to detection: verified. Postmortem timing table: "Compromise publicly detected | ~26 min".
+7. First deprecations at about 20:19, about 59 minutes: verified. Postmortem 20:19 row: "Tanner deprecates @tanstack/history@1.161.9 and @1.161.12". Timing table: "First versions deprecated (2 of 84) | ~59 min".
+8. All deprecated by about 21:03, 1 hour 43 minutes: verified. Postmortem 21:03 row: "Final batch deprecation runs across the remaining versions". Timing table: "Full scope deprecated (84 of 84) | ~1h 43m".
+9. Tarball removals 22:13:38 to 23:55:26: verified. Postmortem: "first removal at 22:13:38 (@tanstack/query-core), last at 23:55:26 (@tanstack/router-core)".
+10. IOC email 05:02 on 12 May: verified. Postmortem 05:02 row: "Tanner emails security@npmjs.com and GitHub security with full IOC list".
+11. MAL-2026-3465 published 23:44:35 and GHSA-g7cv-rxg3-hmpx published 00:12:49 on 12 May: verified from OSV (links in the source list above).
+12. Counts 42 packages, 84 versions, 295 packages scanned, initial 14 packages: verified. Postmortem rows: "42 packages, 84 versions (two per package", "Comprehensive scan of all 295 @tanstack/* packages", and "(initially 14 of the 42)".
+
+
 Use in Bulkhead: the timestamps above are the reference case for the replay timeline, built from OSV and npm registry data and labelled as a replay. See replay_candidates.md.
 
 ## Nx (s1ngularity), 26 to 27 Aug 2025
