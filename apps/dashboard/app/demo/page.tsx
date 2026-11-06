@@ -10,7 +10,7 @@ export default function DemoPage() {
     <>
       <DemoControls />
       <RunHero />
-      <details className="fold mt-16 border-t border-hair pt-4">
+      <details className="fold mt-12">
         <summary>Replay: TanStack, May 2026</summary>
         <ReplayPanel />
       </details>

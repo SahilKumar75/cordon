@@ -9,7 +9,7 @@ export default async function SealPage({ params }: { params: Promise<{ key: stri
       <>
         <PageHeader title="Unknown seal key" />
         <Notice icon="warning" tone="accent">
-          A seal key is 0x followed by 64 lowercase hex characters. Open a version from the Sealed page.
+          A seal key is 0x followed by 64 lowercase hex characters. Open a version from the vault.
         </Notice>
       </>
     );

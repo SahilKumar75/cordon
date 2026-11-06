@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { detectorIds, signedSnapshotSchema } from "@cordon/shared";
-import { usePolled } from "@/lib/api";
+import { detectorIds } from "@cordon/shared";
 import { useQuorum } from "@/lib/useQuorum";
 
 const links = [
   { href: "/", label: "Stopwatch" },
-  { href: "/sealed", label: "Sealed" },
+  { href: "/sealed", label: "Vault" },
   { href: "/services", label: "Services" },
   { href: "/guardian", label: "Guardian" },
 ];
@@ -16,26 +15,10 @@ const links = [
 export function BrandMark() {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" className="shrink-0">
-      <rect x="3" y="4" width="3" height="16" className="fill-fg" />
-      <rect x="18" y="4" width="3" height="16" className="fill-fg" />
-      <rect x="6" y="9" width="12" height="5" className="fill-live" />
-      <path d="M10 9l-2.5 5M14.5 9l-2.5 5" strokeWidth="1.6" strokeLinecap="butt" fill="none" className="stroke-ground" />
-    </svg>
-  );
-}
-
-export function HeaderTape() {
-  const snapshot = usePolled("watcher", "/snapshot", signedSnapshotSchema, 4000);
-  const sealed = snapshot.data?.snapshot.entries.some((entry) => entry.status === "Sealed") ?? false;
-  return (
-    <svg className="block h-2.5 w-full" aria-hidden="true">
-      <defs>
-        <pattern id="hazardTape" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="20" height="20" className="fill-ground" />
-          <rect width="10" height="20" className={sealed ? "fill-signal" : "fill-live"} />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#hazardTape)" />
+      <path d="M4 8l8-4 8 4-8 4z" className="fill-persimmon" opacity="0.7" />
+      <path d="M4 8l8 4v9l-8-4z" className="fill-persimmon" />
+      <path d="M20 8l-8 4v9l8-4z" className="fill-persimmon" opacity="0.55" />
+      <path d="M6.5 12.2l3 1.5v3.2l-3-1.5z" className="fill-ground" />
     </svg>
   );
 }
@@ -43,8 +26,8 @@ export function HeaderTape() {
 export function LiveStatus() {
   const quorum = useQuorum();
   return (
-    <span className="font-mono text-[13px] text-dim">
-      Live, {detectorIds.length} detectors, quorum {quorum ?? "unknown"}
+    <span className="text-[13px] text-jade">
+      {detectorIds.length} detectors, quorum {quorum ?? "unknown"}
     </span>
   );
 }
@@ -52,7 +35,7 @@ export function LiveStatus() {
 export function Nav({ demo }: { demo: boolean }) {
   const pathname = usePathname();
   return (
-    <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+    <nav className="flex flex-wrap gap-x-7 gap-y-2 text-[13px]">
       {[...links, ...(demo ? [{ href: "/demo", label: "Demo" }] : [])].map(({ href, label }) => {
         const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
         return (
@@ -60,7 +43,7 @@ export function Nav({ demo }: { demo: boolean }) {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={active ? "text-fg underline decoration-live decoration-2 underline-offset-8" : "text-dim hover:text-fg"}
+            className={active ? "text-bone underline decoration-copper underline-offset-8" : "text-jade hover:text-bone"}
           >
             {label}
           </Link>

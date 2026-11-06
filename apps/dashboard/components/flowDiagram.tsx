@@ -70,13 +70,13 @@ const guardNodes: { title: string; glyph: GlyphName }[] = [
 type Tone = "idle" | "lit" | "live" | "accent";
 
 const nodeTone: Record<Tone, { box: string; text: string; sub: string }> = {
-  idle: { box: "fill-raised stroke-hair", text: "fill-dim", sub: "fill-dim" },
-  lit: { box: "fill-raised stroke-dim", text: "fill-fg", sub: "fill-dim" },
-  live: { box: "fill-raised stroke-live", text: "fill-live", sub: "fill-live" },
-  accent: { box: "fill-signalDeep stroke-signal", text: "fill-signal", sub: "fill-signal" },
+  idle: { box: "fill-surface stroke-plum", text: "fill-jade", sub: "fill-jade" },
+  lit: { box: "fill-surface stroke-jade", text: "fill-bone", sub: "fill-jade" },
+  live: { box: "fill-surface stroke-copper", text: "fill-copper", sub: "fill-copper" },
+  accent: { box: "fill-surface stroke-persimmon", text: "fill-persimmon", sub: "fill-persimmon" },
 };
 
-const edgeTone: Record<Tone, string> = { idle: "stroke-hair", lit: "stroke-dim", live: "stroke-live", accent: "stroke-signal" };
+const edgeTone: Record<Tone, string> = { idle: "stroke-plum", lit: "stroke-jade", live: "stroke-copper", accent: "stroke-persimmon" };
 
 export type FlowProps = { stage: number; version: string | null; votes: Partial<Record<DetectorId, boolean>> };
 
@@ -126,7 +126,7 @@ function Diagram({ layout, className, stage, version, votes, quorum }: FlowProps
   const tokenWidth = tokenText.length * 7.5 + 14;
   const pipTotal = quorum ?? malicious;
   return (
-    <svg viewBox={`0 0 ${layout.width} ${layout.height}`} className={`h-auto w-full overflow-visible ${sealed ? "barrierSlam" : ""} ${className}`} aria-hidden="true">
+    <svg viewBox={`0 0 ${layout.width} ${layout.height}`} className={`h-auto w-full overflow-visible ${className}`} aria-hidden="true">
       {edges.map(({ from, to, tone, pending, delay }, index) => {
         const d = edgePath(layout, from, to);
         return (
@@ -136,7 +136,7 @@ function Diagram({ layout, className, stage, version, votes, quorum }: FlowProps
               fill="none"
               strokeWidth={1.5}
               strokeDasharray={pending ? "4 6" : undefined}
-              className={`stroke-hair ${pending ? "flowPending" : ""} ${pending && stage === 0 ? "flowIdle" : ""}`}
+              className={`stroke-plum ${pending ? "flowPending" : ""} ${pending && stage === 0 ? "flowIdle" : ""}`}
             />
             {tone !== "idle" && (
               <path
@@ -207,7 +207,7 @@ function Diagram({ layout, className, stage, version, votes, quorum }: FlowProps
       {tokenAt && tokenText && (
         <g className="tokenMove" style={{ transform: `translate(${tokenAt.x}px, ${tokenAt.y}px)` }}>
           <g key={stage} className="tokenSettle fillBox">
-            <rect x={-tokenWidth / 2} y={-12} width={tokenWidth} height={24} className={`relayCut ${sealed ? "fill-signal" : "fill-live"}`} />
+            <rect x={-tokenWidth / 2} y={-12} width={tokenWidth} height={24} className={`relayCut ${sealed ? "fill-persimmon" : "fill-copper"}`} />
             <text textAnchor="middle" y={4.5} className="fill-ground font-mono" fontSize="12" fontWeight="500">
               {tokenText}
             </text>
@@ -256,7 +256,7 @@ function Node({
           width={w}
           height={h}
           strokeWidth={tone === "idle" ? 1.5 : 2}
-          className={`relayCut ${blocked ? "fill-signal stroke-signal" : style.box}`}
+          className={`relayCut ${blocked ? "fill-persimmon stroke-persimmon" : style.box}`}
           style={{ transitionDelay: `${relayDelay}ms` }}
         />
         {!layout.vertical && <Glyph name={glyph} x={-w / 2 + 12} y={-12} size={24} blocked={blocked} {...state} />}
@@ -277,7 +277,7 @@ function Node({
               cy={h / 2}
               r={4.5}
               strokeWidth={1.5}
-              className={`fillBox ${lit ? "pipSnap fill-live stroke-live" : "fill-raised stroke-dim"}`}
+              className={`fillBox ${lit ? "pipSnap fill-copper stroke-copper" : "fill-surface stroke-jade"}`}
             />
           );
         })}
@@ -289,10 +289,7 @@ function Barrier({ layout }: { layout: Layout }) {
   const [a, b] = layout.barrier;
   return (
     <g className={layout.vertical ? "barrierFall" : "barrierWipe"}>
-      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth="8" className="stroke-signal" />
-      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth="8" strokeDasharray="10 10" className="stroke-ground" />
-      <rect x={a.x - 5} y={a.y - 5} width="10" height="10" className="fill-fg" />
-      <rect x={b.x - 5} y={b.y - 5} width="10" height="10" className="fill-fg" />
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth="6" strokeLinecap="round" className="stroke-persimmon" />
     </g>
   );
 }

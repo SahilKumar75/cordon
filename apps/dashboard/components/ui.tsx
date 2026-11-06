@@ -8,18 +8,18 @@ import { Icon, type IconName } from "./icon";
 type Tone = "ink" | "accent" | "muted" | "clean" | "sealed" | "blocked" | "pending";
 
 const toneClass: Record<Tone, string> = {
-  ink: "text-fg",
-  accent: "text-fg [&>svg]:text-signal",
-  muted: "text-dim",
-  clean: "text-clean",
-  sealed: "text-signal",
-  blocked: "text-signal",
-  pending: "text-dim",
+  ink: "text-bone",
+  accent: "text-bone [&>svg]:text-persimmon",
+  muted: "text-jade",
+  clean: "text-jade",
+  sealed: "text-persimmon",
+  blocked: "text-persimmon",
+  pending: "text-jade",
 };
 
 export function Status({ icon, tone = "ink", children }: { icon: IconName; tone?: Tone; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${toneClass[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 text-[13px] ${toneClass[tone]}`}>
       <Icon name={icon} />
       {children}
     </span>
@@ -28,7 +28,7 @@ export function Status({ icon, tone = "ink", children }: { icon: IconName; tone?
 
 export function Tag({ icon, children }: { icon: IconName; children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 border border-dim px-1.5 py-px font-mono text-[11px] font-medium uppercase leading-4 tracking-[0.08em] text-dim">
+    <span className="inline-flex items-center gap-1 rounded-[2px] border border-jade/60 px-1.5 py-px text-[11px] uppercase leading-4 tracking-[0.1em] text-jade">
       <Icon name={icon} />
       {children}
     </span>
@@ -53,9 +53,9 @@ export function SealStatus({ status }: { status: SealStatusName }) {
 }
 
 const noticeClass: Record<"ink" | "accent" | "muted", string> = {
-  ink: "text-fg",
-  muted: "text-dim",
-  accent: "text-fg [&>span>svg]:text-signal",
+  ink: "text-bone",
+  muted: "text-jade",
+  accent: "text-bone [&>span>svg]:text-persimmon",
 };
 
 export function Notice({
@@ -70,7 +70,7 @@ export function Notice({
   children: ReactNode;
 }) {
   return (
-    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 py-3 text-sm ${noticeClass[tone]}`} role="status">
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 py-3 text-[13px] ${noticeClass[tone]}`} role="status">
       {art ?? (
         <span className="self-start pt-1">
           <Icon name={icon} />
@@ -83,35 +83,35 @@ export function Notice({
 
 export function PageHeader({ title, children }: { title: ReactNode; children?: ReactNode }) {
   return (
-    <header className="mb-10">
-      <h1 className="text-[32px] font-semibold leading-[38px] tracking-[-0.02em]">{title}</h1>
-      {children && <p className="mt-2 max-w-2xl text-[15px] text-dim">{children}</p>}
+    <header className="mb-12">
+      <h1 className="font-serif text-[44px] leading-[48px] tracking-[-0.01em]">{title}</h1>
+      {children && <p className="mt-3 max-w-3xl text-[13px] text-jade">{children}</p>}
     </header>
   );
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="mb-3 mt-12 text-sm font-medium text-dim">{children}</h2>;
+  return <h2 className="mb-4 mt-14 font-serif text-[28px] leading-8">{children}</h2>;
 }
 
 export function BrokenLine({ label, loading = false }: { label: string; loading?: boolean }) {
   return (
     <svg viewBox="0 0 160 48" width="160" height="48" fill="none" strokeWidth="1.5" aria-hidden="true" className="shrink-0">
-      <g className="stroke-fg">
+      <g className="stroke-bone">
         <rect x="6" y="6" width="6" height="26" />
         <rect x="148" y="6" width="6" height="26" />
       </g>
       {loading ? (
-        <path d="M12 13H148M12 25H148" strokeDasharray="4 6" className="loadingDash stroke-dim" />
+        <path d="M12 13H148M12 25H148" strokeDasharray="4 6" className="loadingDash stroke-jade" />
       ) : (
         <>
-          <path d="M12 13H70M12 25H70M90 13H148M90 25H148" className="stroke-fg" />
-          <rect x="66" y="13" width="4" height="12" fill="url(#hatch)" className="stroke-fg" />
-          <rect x="90" y="13" width="4" height="12" fill="url(#hatch)" className="stroke-fg" />
-          <path d="M74 10l4 6-4 6 4 6M86 10l-4 6 4 6-4 6" strokeWidth="2" className="stroke-signal" />
+          <path d="M12 13H70M12 25H70M90 13H148M90 25H148" className="stroke-bone" />
+          <rect x="66" y="13" width="4" height="12" fill="url(#hatch)" className="stroke-bone" />
+          <rect x="90" y="13" width="4" height="12" fill="url(#hatch)" className="stroke-bone" />
+          <path d="M74 10l4 6-4 6 4 6M86 10l-4 6 4 6-4 6" strokeWidth="2" className="stroke-persimmon" />
         </>
       )}
-      <text x="80" y="45" textAnchor="middle" fontSize="11" className="fill-dim font-mono">
+      <text x="80" y="45" textAnchor="middle" fontSize="11" className="fill-jade font-mono">
         {label}
       </text>
     </svg>
@@ -120,14 +120,14 @@ export function BrokenLine({ label, loading = false }: { label: string; loading?
 
 export function ChainLink({ kind, value, label }: { kind: "tx" | "address"; value: string; label?: string }) {
   const text = label ?? shortHash(value);
-  if (!explorerUrl) return <span className="font-mono text-sm" title={value}>{text}</span>;
+  if (!explorerUrl) return <span className="text-[13px] text-jade" title={value}>{text}</span>;
   return (
     <a
       href={`${explorerUrl}/${kind}/${value}`}
       target="_blank"
       rel="noreferrer"
       title={`Open ${value} in the explorer`}
-      className="inline-flex items-center gap-1 font-mono text-sm underline decoration-hair underline-offset-4 hover:text-fg"
+      className="inline-flex items-center gap-1 text-[13px] text-jade underline decoration-plum underline-offset-4 hover:text-bone"
     >
       {text}
       <Icon name="external" />

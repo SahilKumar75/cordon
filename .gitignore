@@ -33,3 +33,4 @@ demo/logs/
 *.key
 *.keystore
 keys/
+.serena/

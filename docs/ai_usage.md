@@ -99,3 +99,9 @@ ETHGlobal asks every team to document where and how AI tools were used. We used 
 ## Control room redesign, 6 Nov 2026
 
 1. The team rejected the paper design as pale and too wordy and chose a dark control room direction from two mockups the orchestrator drew. A frontend subagent rebuilt apps/dashboard to an exact layout from the orchestrator: dark theme with hazard yellow for live and signal orange for sealed or blocked, a new components/runHero.tsx (package, a 128px elapsed time, the SEALED stamp, the 3D scene, four stage times) used on / and /demo, services as breaker tiles with details folded away, minimal sealed list, and details elements for evidence and the replay. components/stopwatch.tsx and attestationFeed.tsx were removed as unused.
+
+## Amber Vault redesign, 6 Nov 2026
+
+1. The team rejected the control room look and asked for a fresh direction from references. A research subagent collected references (Awwwards cybersecurity sites, the GitHub globe write up, a Codrops dissolve shader tutorial, the Pinterest 2026 palette, Dribbble data flow shots) and three concepts; the orchestrator drew animated sketches and the team chose Amber Vault.
+2. A 3D subagent built components/vaultScene.tsx with @react-three/fiber 9.8.2, @react-three/drei 10.7.9, @react-three/postprocessing 3.2.2 and postprocessing 6.39.5: a continuous stream of versions through a tube, copper detector satellites, the tracked version frozen in amber with selective bloom and lifted onto a vault shelf, and the gates flashing at first block. It replaced components/sealScene.tsx.
+3. A frontend subagent restyled apps/dashboard to the Amber Vault palette with Instrument Serif and JetBrains Mono, rewrote runHero.tsx around the scene, turned the sealed page into a vault shelf (resinBlock.tsx, vaultShelf.tsx) and removed sealStamp.tsx and sealedTable.tsx.

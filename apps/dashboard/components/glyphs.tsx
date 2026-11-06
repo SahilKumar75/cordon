@@ -18,22 +18,22 @@ const glyphs: Record<GlyphName, (state: GlyphState) => ReactNode> = {
     <>
       <path d="M4 2h10l4 4v16H4z" strokeLinecap="butt" />
       <path d="M9 7.5c-1.2 0-1.2 1-1.2 2s-.8 1.5-1.3 1.5c.5 0 1.3.5 1.3 1.5s0 2 1.2 2M12.5 7.5c1.2 0 1.2 1 1.2 2s.8 1.5 1.3 1.5c-.5 0-1.3.5-1.3 1.5s0 2-1.2 2" />
-      <circle cx="17" cy="17" r="3.8" fill="var(--color-raised)" />
+      <circle cx="17" cy="17" r="3.8" fill="var(--color-surface)" />
       <path d="M19.8 19.8L23 23" />
-      {active && <path d="M5 5h12" className="scanSweep stroke-signal" />}
+      {active && <path d="M5 5h12" className="scanSweep stroke-persimmon" />}
     </>
   ),
   sandboxCanary: ({ alarm }) => (
     <>
       <rect x="1.5" y="5" width="21" height="17" fill="url(#hatch)" strokeLinecap="butt" />
-      <rect x="5" y="9" width="14" height="9" fill="var(--color-raised)" stroke="none" />
-      <path d="M6.5 14.5q2.5-3 5.5 0M12 14.5q2.5-3 5.5 0M12 14.5v2.5" className={alarm ? "stroke-signal" : undefined} />
+      <rect x="5" y="9" width="14" height="9" fill="var(--color-surface)" stroke="none" />
+      <path d="M6.5 14.5q2.5-3 5.5 0M12 14.5q2.5-3 5.5 0M12 14.5v2.5" className={alarm ? "stroke-persimmon" : undefined} />
     </>
   ),
   advisoryFeed: () => (
     <>
       <rect x="2" y="6" width="12" height="16" />
-      <path d="M5 3h8.5l3 3v13H5z" fill="var(--color-raised)" strokeLinecap="butt" />
+      <path d="M5 3h8.5l3 3v13H5z" fill="var(--color-surface)" strokeLinecap="butt" />
       <path d="M13.5 3v3h3" />
       <path d="M8 10h5M8 13.5h5" />
       <path d="M19 9.5a2.5 2.5 0 0 1 0 5M21 7.5a5 5 0 0 1 0 9" />
@@ -43,7 +43,7 @@ const glyphs: Record<GlyphName, (state: GlyphState) => ReactNode> = {
     <>
       <rect x="2" y="3" width="14" height="19" strokeLinecap="butt" />
       <path d="M5 7.5h8M5 11h8M5 14.5h4" />
-      <circle cx="16.5" cy="17" r="5" fill="var(--color-raised)" />
+      <circle cx="16.5" cy="17" r="5" fill="var(--color-surface)" />
       <circle cx="16.5" cy="17" r="2.2" />
     </>
   ),
@@ -86,7 +86,7 @@ export function Glyph({ name, x, y, size, blocked, ...state }: GlyphState & { na
       strokeLinecap="round"
       strokeLinejoin="miter"
       overflow="visible"
-      className={blocked ? "text-ground" : state.active || state.alarm ? "text-fg" : "text-dim"}
+      className={blocked ? "text-ground" : state.active || state.alarm ? "text-bone" : "text-jade"}
     >
       {glyphs[name](state)}
       {blocked && <path d="M2 22L22 2" strokeWidth="2.5" className="stroke-ground" />}

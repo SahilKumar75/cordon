@@ -22,7 +22,7 @@ export function Guardian({ registry, initialKey }: { registry: Address; initialK
       </label>
       {!key && (
         <Notice icon="info" tone="muted" art={<LockDrawing />}>
-          Paste a seal key, or open a version on the Sealed page and choose Unseal or reseal.
+          Paste a seal key, or open a version in the vault and choose Unseal or reseal.
         </Notice>
       )}
       {key && !valid && (
@@ -49,7 +49,7 @@ function WalletBar() {
         <button className="button" disabled={!connector || connect.isPending} onClick={() => connector && connect.connect({ connector })}>
           {connect.isPending ? "Waiting for the wallet" : "Connect browser wallet"}
         </button>
-        {connect.error && <span className="text-sm text-signal">{connect.error.message}</span>}
+        {connect.error && <span className="text-sm text-persimmon">{connect.error.message}</span>}
       </div>
     );
   return (
@@ -104,11 +104,11 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
                 ? "Write a reason first."
                 : null;
         return (
-          <div className="space-y-6 border-t border-hair pt-6">
+          <div className="space-y-6 border-t border-plum pt-6">
             <div className="flex flex-wrap items-center gap-6">
               <SealStatus status={status} />
-              <span className="text-sm text-dim">{current.votes} detector votes</span>
-              {current.sealedAt > 0n && <span className="text-sm text-dim">Sealed {formatDateTime(Number(current.sealedAt) * 1000)}</span>}
+              <span className="text-sm text-jade">{current.votes} detector votes</span>
+              {current.sealedAt > 0n && <span className="text-sm text-jade">Sealed {formatDateTime(Number(current.sealedAt) * 1000)}</span>}
             </div>
             {action === "unseal" &&
               (disputeWindow.error ? (
@@ -127,8 +127,8 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
               ))}
             <label className="block space-y-2">
               <span className="text-sm font-medium">Reason</span>
-              <textarea className="field min-h-24 font-sans" value={reason} onChange={(event) => setReason(event.target.value)} />
-              <span className="block text-sm text-dim">Only the keccak256 hash of this text goes on chain. Keep the full text in your incident notes.</span>
+              <textarea className="field min-h-24" value={reason} onChange={(event) => setReason(event.target.value)} />
+              <span className="block text-sm text-jade">Only the keccak256 hash of this text goes on chain. Keep the full text in your incident notes.</span>
             </label>
             <div className="flex flex-wrap items-center gap-4">
               <button
@@ -140,7 +140,7 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
               >
                 {action === "unseal" ? "Unseal this version" : "Reseal this version"}
               </button>
-              {blocker && <span className="text-sm text-dim">{blocker}</span>}
+              {blocker && <span className="text-sm text-jade">{blocker}</span>}
             </div>
             {write.isPending && <Status icon="wallet" tone="muted">Confirm the transaction in your wallet.</Status>}
             {write.error && (
@@ -172,21 +172,21 @@ function LockDrawing() {
   const state = !isConnected ? "none" : chainId === chain?.id ? "seated" : "wrong";
   return (
     <svg viewBox="0 0 320 120" width="240" height="90" fill="none" strokeWidth="1.5" aria-hidden="true" className="shrink-0">
-      <rect x="110" y="34" width="100" height="60" fill="url(#hatch)" className="stroke-fg" />
-      <circle cx="160" cy="58" r="7" className="fill-raised stroke-fg" />
-      <path d="M156 63l-3 14h14l-3-14" className="fill-raised stroke-fg" />
+      <rect x="110" y="34" width="100" height="60" fill="url(#hatch)" className="stroke-bone" />
+      <circle cx="160" cy="58" r="7" className="fill-surface stroke-bone" />
+      <path d="M156 63l-3 14h14l-3-14" className="fill-surface stroke-bone" />
       {state === "seated" ? (
-        <g className="stroke-fg">
+        <g className="stroke-bone">
           <circle cx="160" cy="10" r="7" />
           <path d="M160 17v41M160 40h6M160 47h5" />
         </g>
       ) : (
-        <g className={state === "none" ? "stroke-dim" : "stroke-fg"} strokeDasharray={state === "none" ? "4 4" : undefined}>
+        <g className={state === "none" ? "stroke-jade" : "stroke-bone"} strokeDasharray={state === "none" ? "4 4" : undefined}>
           <circle cx="118" cy="16" r="8" />
           <path d="M126 16h64M178 16v7M186 16v5" />
         </g>
       )}
-      {state === "wrong" && <path d="M152 50l16 16M168 50l-16 16" strokeWidth="2.5" className="stroke-signal" />}
+      {state === "wrong" && <path d="M152 50l16 16M168 50l-16 16" strokeWidth="2.5" className="stroke-persimmon" />}
       <Dimension x1={70} x2={250} y={108} label="dispute window" />
     </svg>
   );

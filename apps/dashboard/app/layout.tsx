@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { productName } from "@cordon/shared";
 import { HatchDefs } from "@/components/drawing";
-import { BrandMark, HeaderTape, LiveStatus, Nav } from "@/components/nav";
+import { BrandMark, LiveStatus, Nav } from "@/components/nav";
 import { Providers } from "@/components/providers";
 import { demoEnabled, missingSettings } from "@/lib/env";
 import "./globals.css";
 
-const sans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plexSans" });
-const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plexMono" });
+const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", variable: "--font-instrumentSerif" });
+const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-jetbrainsMono" });
 
 export const metadata: Metadata = {
   title: productName,
@@ -19,13 +19,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body className="flex min-h-screen flex-col font-sans antialiased">
+    <html lang="en" className={`${serif.variable} ${mono.variable}`}>
+      <body className="flex min-h-screen flex-col antialiased">
         <Providers>
           <HatchDefs />
-          <HeaderTape />
-          <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-10 gap-y-3 px-4 py-5 sm:px-8">
-            <Link href="/" className="inline-flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em]">
+          <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-12 gap-y-3 px-4 py-6 sm:px-8">
+            <Link href="/" className="inline-flex items-center gap-2.5 font-serif text-[28px] leading-none">
               <BrandMark />
               {productName}
             </Link>
@@ -35,13 +34,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
           {missingSettings.length > 0 && (
-            <p className="mx-auto w-full max-w-7xl px-4 text-sm text-signal sm:px-8">
-              Missing settings: <span className="font-mono">{missingSettings.join(", ")}</span>
-            </p>
+            <p className="mx-auto w-full max-w-7xl px-4 text-[13px] text-persimmon sm:px-8">Missing settings: {missingSettings.join(", ")}</p>
           )}
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-16 pt-6 sm:px-8">{children}</main>
-          <footer className="mx-auto w-full max-w-7xl border-t border-hair px-4 py-6 text-[13px] leading-5 text-dim sm:px-8">
-            Detection tells you. {productName} stops the flow.
+          <main className="pageRise mx-auto w-full max-w-7xl flex-1 px-4 pb-20 pt-6 sm:px-8">{children}</main>
+          <footer className="mx-auto w-full max-w-7xl px-4 sm:px-8">
+            <p className="border-t border-plum py-6 text-[13px] leading-5 text-jade">Detection tells you. {productName} keeps the bad version in the vault.</p>
           </footer>
         </Providers>
       </body>

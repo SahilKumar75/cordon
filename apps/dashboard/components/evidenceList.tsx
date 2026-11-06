@@ -16,7 +16,7 @@ export function EvidenceList({ sealKey, attestations }: { sealKey: Hex32; attest
             return verdict ? (
               <EvidenceCard key={detector} verdict={verdict} />
             ) : (
-              <div key={detector} className="flex flex-wrap items-center justify-between gap-2 border-t border-hair py-4">
+              <div key={detector} className="flex flex-wrap items-center justify-between gap-2 border-t border-plum py-4">
                 <span className="font-medium">{detectorNames[detector]}</span>
                 <Status icon="pending" tone="muted">No verdict from this detector</Status>
               </div>
@@ -31,7 +31,7 @@ export function EvidenceList({ sealKey, attestations }: { sealKey: Hex32; attest
 function EvidenceCard({ verdict }: { verdict: Attestation }) {
   const evidence = usePolled("detectors", `/evidence/${verdict.evidenceHash}`, evidenceSchema, false);
   return (
-    <article className="border-t border-hair">
+    <article className="border-t border-plum">
       <header className="flex flex-wrap items-center justify-between gap-3 py-4">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-medium">{detectorNames[verdict.detector]}</span>
@@ -60,23 +60,23 @@ function EvidenceCard({ verdict }: { verdict: Attestation }) {
               {body.findings.length === 0 ? (
                 <Notice icon="info" tone="muted">No findings recorded.</Notice>
               ) : (
-                <ul className="divide-y divide-hair border-t border-hair">
+                <ul className="divide-y divide-plum border-t border-plum">
                   {body.findings.map((finding, index) => (
                     <li key={index} className="space-y-1 py-2 text-sm">
                       <div className="font-mono">{finding.rule}</div>
                       <div>{finding.detail}</div>
-                      {finding.file && <div className="font-mono text-dim">{finding.file}</div>}
+                      {finding.file && <div className="font-mono text-jade">{finding.file}</div>}
                     </li>
                   ))}
                 </ul>
               )}
-              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-dim">
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-jade">
                 <span>Observed {formatDateTime(body.observedAt)}</span>
                 <span className="inline-flex items-center gap-2">
                   Detector key <ChainLink kind="address" value={verdict.detectorAddress} />
                 </span>
                 {body.advisoryUrl && (
-                  <a href={body.advisoryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-fg">
+                  <a href={body.advisoryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-bone">
                     Advisory source
                   </a>
                 )}
