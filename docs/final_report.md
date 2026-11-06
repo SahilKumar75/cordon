@@ -12,7 +12,8 @@ What was done in the last sprint before the 09:00 IST deadline, what was skipped
 
 ## Testnet and Arkiv
 
-Filled in at the funding deadline.
+1. The team funded the deployer with 0.05 Base Sepolia ETH at about 04:10. SealRegistry 0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F was deployed at block 55415999 and verified on Sourcify; @cordondemo/colorkit 1.4.1 was sealed by two team detector keys; the guard blocked it against the public RPC and again with the RPC off. Details in docs/testnet_proof.md.
+2. Arkiv: the writer wallet 0xDe760446b5a7fFf40f17625f77d4165BaA013Fc9 still held 0 tGLM at 04:20, so no entity was written. Arkiv is marked planned in the README and removed from the prize list.
 
 ## Free hosting for the read only dashboard (team does these steps)
 

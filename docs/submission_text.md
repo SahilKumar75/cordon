@@ -1,6 +1,6 @@
 # Submission text
 
-Paste these into the ETHGlobal project form. Field names below follow the form as we expect it; if a field is named differently, use the entry with the same meaning. Lines marked "team fills" are facts only the team can give. Recheck every value marked "after deploy" against the README before submitting.
+Paste these into the ETHGlobal project form. Field names below follow the form as we expect it; if a field is named differently, use the entry with the same meaning. Lines marked "team fills" are facts only the team can give.
 
 ## Project name
 
@@ -18,14 +18,14 @@ This is a testnet prototype. In the demo all three detectors and the guardian ke
 
 ## How it is made
 
-Solidity 0.8.24 with Foundry and OpenZeppelin v5 AccessControl for SealRegistry, with frozen roles, quorum, vote lifetime, dispute window and a daily seal limit. TypeScript on Node 22 for the guard CLI, the detectors service and the watcher, using viem, zod, Fastify and node:sqlite. The three detectors are a static reader of install scripts, a Docker sandbox that installs the package with a canary value and no real files, and an OSV lookup that counts only MAL advisories. The watcher polls the registry and the chain in parallel, signs snapshots of the Sealed list, and keeps the stopwatch from publish to first block. The dashboard is Next.js with wagmi and reads SealRegistry directly; it has a read only mode with no backend. A Chainlink CRE workflow runs the OSV check across nodes that agree on the MAL ids and writes the vote through a receiver contract; it runs in the CRE simulator only. Evidence can also be stored on Arkiv as entities keyed by the same evidence hash the contract stores (see Prizes for what was shown). We built it with Claude Code; docs/ai_usage.md lists every AI generated file.
+Solidity 0.8.24 with Foundry and OpenZeppelin v5 AccessControl for SealRegistry, with frozen roles, quorum, vote lifetime, dispute window and a daily seal limit. TypeScript on Node 22 for the guard CLI, the detectors service and the watcher, using viem, zod, Fastify and node:sqlite. The three detectors are a static reader of install scripts, a Docker sandbox that installs the package with a canary value and no real files, and an OSV lookup that counts only MAL advisories. The watcher polls the registry and the chain in parallel, signs snapshots of the Sealed list, and keeps the stopwatch from publish to first block. The dashboard is Next.js with wagmi and reads SealRegistry directly; it has a read only mode with no backend. A Chainlink CRE workflow runs the OSV check across nodes that agree on the MAL ids and writes the vote through a receiver contract; it runs in the CRE simulator only. Code to store evidence on Arkiv, keyed by the same evidence hash the contract stores, is built but has not written any entity yet. We built it with Claude Code; docs/ai_usage.md lists every AI generated file.
 
 ## Links
 
 1. GitHub: https://github.com/SahilKumar75/cordon (public at Gate A)
 2. Demo video: uploaded to ETHGlobal.com (team fills)
 3. Live demo: the read only dashboard URL, if it was hosted (team fills; see docs/final_report.md)
-4. Contract: SealRegistry on Base Sepolia, address and explorer link from the README Deployment section (after deploy)
+4. Contract: SealRegistry on Base Sepolia, https://sepolia.basescan.org/address/0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F
 
 ## Category
 
@@ -39,7 +39,7 @@ Solidity, Foundry, OpenZeppelin, TypeScript, Node.js, viem, wagmi, Next.js, Dock
 
 1. Ethereum Foundation, Best CROPS App. The demo shows censorship resistance: with the RPC off and then our watcher off, the guard still blocks the sealed version from a signed snapshot. Open source under MIT; private keys never leave local ignored files. Limits: one operator, a single guardian key, a centralized RPC on the first read.
 2. Chainlink CRE, as simulation only. The cordonAdvisory workflow runs in `cre workflow simulate`; it is not deployed, deployment access is pending, and Chainlink chooses its operators.
-3. Arkiv: select only if docs/final_report.md records a real entity written and read back. Otherwise leave it out.
+Arkiv is not selected: the writer wallet was never funded, so no evidence entity exists on Arkiv.
 
 ## Honest limits
 

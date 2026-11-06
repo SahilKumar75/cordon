@@ -16,7 +16,7 @@ Four attack cases and eleven edge cases, each mapped to the code that addresses 
 
 Two facts shape several rows. sandboxCanary runs only on demo registry tarballs, so a real public version can collect at most two votes (staticScripts and advisoryFeed), and the demo quorum of 2 needs both. The suggested MAX_SEALS_PER_DAY is 10 ([docs/open_decisions.md](open_decisions.md)).
 
-Three more facts. A version with live votes below quorum is Suspect (status None with a live vote, contracts/src/SealRegistry.sol `isSuspect`), and `cordon check` and `cordon install` block it by default; `--allow-suspect name@version` lets one version through and the sidecar only warns (packages/guard/src/cli.ts, check.ts, sidecar.ts). Votes expire after VOTE_LIFETIME_SECONDS, an immutable set at deploy (86400 in ops/e2eLocal.sh). Nothing is deployed to a public testnet: SealRegistry waits on funding, the Arkiv writer is unfunded so no evidence entity exists yet, and the Chainlink CRE workflow (cre/cordonAdvisory) runs only as a local dry run simulation.
+Three more facts. A version with live votes below quorum is Suspect (status None with a live vote, contracts/src/SealRegistry.sol `isSuspect`), and `cordon check` and `cordon install` block it by default; `--allow-suspect name@version` lets one version through and the sidecar only warns (packages/guard/src/cli.ts, check.ts, sidecar.ts). Votes expire after VOTE_LIFETIME_SECONDS, an immutable set at deploy (86400 in ops/e2eLocal.sh). SealRegistry is on Base Sepolia since 7 Nov 2026 with one hand sealed demo version (docs/testnet_proof.md); the Arkiv writer is unfunded so no evidence entity exists yet, and the Chainlink CRE workflow (cre/cordonAdvisory) runs only as a local dry run simulation.
 
 ## Matrix
 

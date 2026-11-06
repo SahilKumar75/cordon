@@ -78,7 +78,9 @@ Without `--hold` the same script runs the whole flow on its own, including the R
 
 To run the parts by hand against a deployed chain, load the root .env (`set -a; . ./.env; set +a`) and start each one: `sh demo/setup.sh`, `sh demo/start.sh`, `pnpm --filter @cordon/detectors start`, `pnpm --filter @cordon/watcher start`, `pnpm --filter @cordon/dashboard dev`. docs/demo.md lists the order for a recorded take.
 
-## Evidence on Arkiv
+## Evidence on Arkiv, planned
+
+Status on 7 Nov 2026: the code below is built and tested against a fake Arkiv transport, but no entity has been written, because the writer wallet holds no tGLM. We do not claim an Arkiv integration that runs, and Arkiv is not in our prize list.
 
 Each detector's evidence is also stored on the Arkiv testnet Rabdi (chain id 7794095) as an entity of schema cordon.evidence, written by the wallet 0xDe760446b5a7fFf40f17625f77d4165BaA013Fc9. The detectors service and the dashboard read it back by evidenceHash, the same hash each SealRegistry vote carries, so a verdict can be checked without our server. Details in [arkiv/](arkiv/schema.md).
 
