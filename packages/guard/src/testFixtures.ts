@@ -158,6 +158,7 @@ export function settingsFor(lockfile: string, overrides: Partial<GuardSettings> 
     reporterPrivateKey: null,
     assumeInstalled: false,
     fetchFn: stubFetch({}, fetchCalls),
+    httpTimeoutMs: 5_000,
     now: () => now,
     warn: (message) => warnings.push(message),
     warnings,

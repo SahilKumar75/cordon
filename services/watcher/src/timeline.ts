@@ -10,6 +10,8 @@ const schemaSql = readFileSync(new URL("./schema.sql", import.meta.url), "utf8")
 
 export function openDatabase(path: string): DatabaseSync {
   const db = new DatabaseSync(path);
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA synchronous = NORMAL");
   db.exec(schemaSql);
   return db;
 }

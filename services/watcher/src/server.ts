@@ -12,7 +12,7 @@ import {
   type SignedSnapshot,
 } from "@cordon/shared";
 import { pollChain, type ChainPollSettings } from "./chainPoller.ts";
-import { publishSnapshot, type SnapshotSettings } from "./publisher.ts";
+import { loadSavedSnapshot, publishSnapshot, type SnapshotSettings } from "./publisher.ts";
 import { pollRegistry } from "./registryPoller.ts";
 import { acceptReport, ReportRefused, serviceStatuses } from "./reports.ts";
 import { attestations, rescanSuspects, runScheduler } from "./scheduler.ts";
@@ -88,11 +88,13 @@ function originOf(url: string | undefined): string | null {
 
 type Step = [string, () => Promise<unknown>];
 
-function scheduleTicks(steps: Step[], intervalMs: number): void {
+const rpcTimeoutMs = 8_000;
+
+function scheduleTicks(stages: Step[][], intervalMs: number): void {
+  const run = ([name, step]: Step) =>
+    step().catch((error: unknown) => console.error(`${name} failed: ${error instanceof Error ? error.message : String(error)}`));
   const tick = async () => {
-    for (const [name, step] of steps) {
-      await step().catch((error: unknown) => console.error(`${name} failed: ${error instanceof Error ? error.message : String(error)}`));
-    }
+    for (const stage of stages) await Promise.all(stage.map(run));
     setTimeout(tick, intervalMs);
   };
   void tick();
@@ -107,22 +109,24 @@ async function main() {
   const snapshotPath = required("SNAPSHOT_PATH");
   const account: LocalAccount = privateKeyToAccount(required("SNAPSHOT_SIGNER_PRIVATE_KEY") as Hex);
   const chain = defineAppChain({ id: chainId, rpcUrl, explorerUrl: required("EXPLORER_URL"), nativeSymbol: required("NATIVE_SYMBOL") });
-  const client = createPublicClient({ chain, transport: http(rpcUrl) });
+  const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: rpcTimeoutMs, retryCount: 0 }) });
   const db = openDatabase(required("DATABASE_PATH"));
   const startBlock = BigInt(process.env.REGISTRY_START_BLOCK || 0);
   const chainSettings: ChainPollSettings = { registry, startBlock, maxBlockRange: 2000n };
   const voteLifetimeSeconds = Number(await client.readContract({ address: registry, abi: sealRegistryAbi, functionName: "voteLifetime" }));
   const snapshotSettings: SnapshotSettings = { chainId, registry, startBlock, voteLifetimeSeconds };
   const reportScanFailure = (failure: string) => console.error(`scan failure: ${failure}`);
-  let latest: SignedSnapshot | null = null;
+  let latest: SignedSnapshot | null = await loadSavedSnapshot(snapshotPath, snapshotSettings, account.address);
 
   scheduleTicks(
     [
-      ["registry poller", () => pollRegistry(db, registryUrl, fetch)],
-      ["scheduler", () => runScheduler(db, detectorsUrl, fetch, reportScanFailure)],
-      ["rescan", () => rescanSuspects(db, detectorsUrl, fetch, { voteLifetimeSeconds, now: new Date() }, reportScanFailure)],
-      ["chain poller", () => pollChain(db, client, chainSettings, new Date())],
-      ["publisher", async () => (latest = await publishSnapshot(db, snapshotSettings, account, snapshotPath))],
+      [
+        ["registry poller", () => pollRegistry(db, registryUrl, fetch)],
+        ["chain poller", () => pollChain(db, client, chainSettings, new Date())],
+      ],
+      [["scheduler", () => runScheduler(db, detectorsUrl, fetch, reportScanFailure)]],
+      [["rescan", () => rescanSuspects(db, detectorsUrl, fetch, { voteLifetimeSeconds, now: new Date() }, reportScanFailure)]],
+      [["publisher", async () => (latest = await publishSnapshot(db, snapshotSettings, account, snapshotPath))]],
     ],
     Number(required("POLL_INTERVAL_SECONDS")) * 1000,
   );

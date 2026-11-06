@@ -155,7 +155,7 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
   const list = await loadSealedList(settings);
   const fallback = list.source === "none" ? fallbackOf(settings) : null;
   const ageLimit = Math.max(fallback?.minAgeDays ?? 0, settings.minAgeDays);
-  const readPackument = packumentReader(settings.registryUrl, settings.fetchFn, settings.warn);
+  const readPackument = packumentReader(settings.registryUrl, settings.fetchFn, settings.warn, settings.httpTimeoutMs);
   const blocked = blocksOf(read.entries, list, path, settings.assumeInstalled);
   const suspect = suspectsOf(read.entries, list, path, settings);
   const heldSuspects = suspect.filter((entry) => !entry.allowed);
@@ -193,7 +193,7 @@ export async function sendReport(report: GuardReport, settings: GuardSettings): 
   const signature = await account.signMessage({ message: { raw: guardReportDigestOf(report) } });
   const body = JSON.stringify({ report, signer: account.address, signature });
   const response = await settings
-    .fetchFn(settings.reportUrl, { method: "POST", headers: { "content-type": "application/json" }, body })
+    .fetchFn(settings.reportUrl, { method: "POST", headers: { "content-type": "application/json" }, body, signal: AbortSignal.timeout(settings.httpTimeoutMs) })
     .catch((error: Error) => ({ ok: false, status: error.message }));
   if (!response.ok) settings.warn(`report not delivered: ${response.status}`);
   return response.ok;

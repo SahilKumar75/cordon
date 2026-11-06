@@ -136,3 +136,20 @@ test("detectors and health", async () => {
   assert.ok(detectors.every((detector: { simulated: boolean }) => detector.simulated));
   assert.deepEqual((await app.inject({ method: "GET", url: "/health" })).json(), { ok: true });
 });
+
+test("at most two sandbox scans run at once when many scans arrive together", async () => {
+  let running = 0;
+  let peak = 0;
+  const slowSandbox: DockerRunner = async (args) => {
+    if (args[0] !== "start") return sinkReceivesEverything(args, 0);
+    running += 1;
+    peak = Math.max(peak, running);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    running -= 1;
+    return sinkReceivesEverything(args, 0);
+  };
+  const { app } = await setup(networkEdge, slowSandbox);
+  const responses = await Promise.all(Array.from({ length: 5 }, () => app.inject({ method: "POST", url: "/scan", payload: scanBody })));
+  assert.deepEqual(responses.map((response) => response.statusCode), [200, 200, 200, 200, 200]);
+  assert.equal(peak, 2);
+});

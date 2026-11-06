@@ -135,6 +135,19 @@ What Cordon does not do is in [docs/limits.md](docs/limits.md). In short:
 8. Votes expire after VOTE_LIFETIME_SECONDS (fixed at deploy, 86400 in our config), so a stale vote no longer counts toward quorum. A detector key that is compromised can still vote again inside each lifetime until the registry is replaced, because roles are frozen.
 9. Provenance and npm signatures are never an allow signal: the May 2026 TanStack releases carried valid provenance ([docs/research/incidents.md](docs/research/incidents.md#tanstack-npm-compromise-11-may-2026)).
 
+## Scale roadmap
+
+Built for the demo: every outbound request in the watcher and guard has a timeout (the guard's is GUARD_HTTP_TIMEOUT_MS, default 5 seconds), the registry and chain pollers run in parallel, SQLite runs in write ahead mode, the watcher serves its last saved snapshot right after a restart, and the detectors run at most two sandbox scans at once. Not built yet:
+
+1. Scans run one publish at a time in the watcher scheduler.
+2. Verdicts are submitted one after another and each waits for its receipt; this ordering is deliberate, because simultaneous votes failed gas estimation in rehearsal.
+3. The guard pages through sealed keys sequentially.
+4. SQLite calls are synchronous on the watcher's event loop.
+5. Timeline heads are recomputed from every event on each snapshot.
+6. GET /attestations returns every row without a limit.
+7. Logs are plain text, not structured.
+8. Failed polls retry on the fixed interval with no backoff.
+
 ## Roadmap
 
 Replay quorum settings against a public malware benchmark to measure precision and recall trade offs.

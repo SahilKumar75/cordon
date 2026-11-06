@@ -4,6 +4,8 @@ import { appendEvent, cursorOf, inTransaction, setCursor } from "./timeline.ts";
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
+export const registryTimeoutMs = 5_000;
+
 const registryChangesSchema = registryChangeSchema.array();
 
 function recordChange(db: DatabaseSync, change: RegistryChange): boolean {
@@ -15,9 +17,9 @@ function recordChange(db: DatabaseSync, change: RegistryChange): boolean {
   return appendEvent(db, { key, kind: "published", at: change.publishedAt, actor: "registry", ref: `${change.seq} ${change.tarballUrl}` });
 }
 
-export async function pollRegistry(db: DatabaseSync, registryUrl: string, fetchImpl: FetchLike): Promise<number> {
+export async function pollRegistry(db: DatabaseSync, registryUrl: string, fetchImpl: FetchLike, timeoutMs = registryTimeoutMs): Promise<number> {
   const since = Number(cursorOf(db, "registrySeq") ?? 0);
-  const response = await fetchImpl(`${registryUrl}/_changes?since=${since}`);
+  const response = await fetchImpl(`${registryUrl}/_changes?since=${since}`, { signal: AbortSignal.timeout(timeoutMs) });
   if (!response.ok) throw new Error(`registry changes feed answered ${response.status}`);
   const changes = registryChangesSchema.parse(await response.json()).filter((change) => change.seq > since).sort((a, b) => a.seq - b.seq);
   return inTransaction(db, () => {

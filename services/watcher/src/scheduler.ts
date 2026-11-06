@@ -5,6 +5,8 @@ import { snapshotEntries } from "./publisher.ts";
 import type { FetchLike } from "./registryPoller.ts";
 import { cursorOf, inTransaction, setCursor, timelineOf } from "./timeline.ts";
 
+export const scanTimeoutMs = 120_000;
+
 type PendingPublish = { seq: number; name: string; version: string; published_at: string; tarball_url: string; integrity: string };
 
 function storeVerdicts(db: DatabaseSync, scan: ScanResponse): void {
@@ -18,7 +20,7 @@ function storeVerdicts(db: DatabaseSync, scan: ScanResponse): void {
   }
 }
 
-async function scanPublish(publish: PendingPublish, detectorsUrl: string, fetchImpl: FetchLike): Promise<ScanResponse> {
+async function scanPublish(publish: PendingPublish, detectorsUrl: string, fetchImpl: FetchLike, timeoutMs: number): Promise<ScanResponse> {
   const request: ScanRequest = {
     name: publish.name,
     version: publish.version,
@@ -30,15 +32,22 @@ async function scanPublish(publish: PendingPublish, detectorsUrl: string, fetchI
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(request),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok) throw new Error(`scan of ${publish.name}@${publish.version} answered ${response.status}`);
   return scanResponseSchema.parse(await response.json());
 }
 
-export async function runScheduler(db: DatabaseSync, detectorsUrl: string, fetchImpl: FetchLike, reportFailure: (message: string) => void): Promise<number> {
+export async function runScheduler(
+  db: DatabaseSync,
+  detectorsUrl: string,
+  fetchImpl: FetchLike,
+  reportFailure: (message: string) => void,
+  timeoutMs = scanTimeoutMs,
+): Promise<number> {
   const pending = db.prepare("SELECT * FROM publishes WHERE seq > ? ORDER BY seq").all(Number(cursorOf(db, "scannedSeq") ?? 0)) as PendingPublish[];
   for (const publish of pending) {
-    const scan = await scanPublish(publish, detectorsUrl, fetchImpl);
+    const scan = await scanPublish(publish, detectorsUrl, fetchImpl, timeoutMs);
     inTransaction(db, () => {
       storeVerdicts(db, scan);
       setCursor(db, "scannedSeq", String(publish.seq));
@@ -56,14 +65,21 @@ function lastScanAt(db: DatabaseSync, key: Hex32): number {
   return Math.max(rescan ? Date.parse(rescan.scanned_at) : 0, ...verdictTimes);
 }
 
-export async function rescanSuspects(db: DatabaseSync, detectorsUrl: string, fetchImpl: FetchLike, settings: RescanSettings, reportFailure: (message: string) => void): Promise<number> {
+export async function rescanSuspects(
+  db: DatabaseSync,
+  detectorsUrl: string,
+  fetchImpl: FetchLike,
+  settings: RescanSettings,
+  reportFailure: (message: string) => void,
+  timeoutMs = scanTimeoutMs,
+): Promise<number> {
   const intervalMs = (settings.voteLifetimeSeconds * 1000) / 4;
   const due = snapshotEntries(db, settings.now, settings.voteLifetimeSeconds).filter(
     (entry) => entry.status === "Suspect" && settings.now.getTime() - lastScanAt(db, entry.key as Hex32) >= intervalMs,
   );
   for (const entry of due) {
     const publish = db.prepare("SELECT * FROM publishes WHERE seal_key = ? ORDER BY seq DESC LIMIT 1").get(entry.key) as PendingPublish;
-    const scan = await scanPublish(publish, detectorsUrl, fetchImpl);
+    const scan = await scanPublish(publish, detectorsUrl, fetchImpl, timeoutMs);
     inTransaction(db, () => {
       storeVerdicts(db, scan);
       db.prepare("INSERT INTO rescans (seal_key, scanned_at) VALUES (?, ?) ON CONFLICT (seal_key) DO UPDATE SET scanned_at = excluded.scanned_at").run(entry.key, settings.now.toISOString());

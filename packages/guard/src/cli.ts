@@ -11,6 +11,8 @@ type Env = Record<string, string | undefined>;
 
 const usage = "usage: cordon <check|install|audit|rollback|sidecar> [--lockfile path] [--service name] [--path dir]... [--cache dir]... [--docker image.tar]... [--port n] [--allow-suspect name@version]...";
 
+const defaultHttpTimeoutMs = 5_000;
+
 function numberFrom(env: Env, name: string, minimum: number): number | null {
   const raw = env[name];
   if (raw === undefined || raw === "") return null;
@@ -51,6 +53,7 @@ export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: 
     reporterPrivateKey: textFrom(env, "GUARD_REPORTER_PRIVATE_KEY") as Hex32 | null,
     assumeInstalled: false,
     fetchFn: fetch,
+    httpTimeoutMs: numberFrom(env, "GUARD_HTTP_TIMEOUT_MS", 1) ?? defaultHttpTimeoutMs,
     now: () => new Date(),
     warn: (message) => process.stderr.write(`${message}\n`),
   };

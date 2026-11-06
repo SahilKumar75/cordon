@@ -47,9 +47,10 @@ Solidity 0.8.24, Foundry, OpenZeppelin v5. TypeScript on Node 22 (.nvmrc), Fasti
 
 ## AI slop to avoid
 Code: comments restating code, over commented functions, premature abstraction, factories and managers with one caller, verbose names, cookie cutter error handling, try catch around everything, tests that test nothing, heavy mocking, vibe platform packages.
-Design: gradients, glassmorphism and backdrop blur, glowing cards, emoji as icons, stock photo feel, fake trusted by logos or testimonials, lorem ipsum, the centered hero with two buttons, the three column icon feature grid, generic purple and blue palette.
+Design: decorative rainbow gradients, glassmorphism and backdrop blur, glowing cards, emoji as icons, stock photo feel, fake trusted by logos or testimonials, lorem ipsum, the centered hero with two buttons, the three column icon feature grid, generic purple and blue palette.
 Writing: em dashes, "it is not X, it is Y", "here is why", words like delve, seamless, robust, leverage, unlock, revolutionize, cutting edge, emoji in the README, bold on every bullet, giant feature tables, vague claims without numbers, headings that repeat the paragraph below them.
 Process: do not copy an earlier pattern into new code without checking it against this list.
+Team decision, 6 Nov 2026: the dashboard uses soft shadows and gradients built from its own palette for depth, a custom cursor and scroll driven motion. These are allowed; the items above still are not.
 
 ## Process
 1. Each agent edits only the paths it owns (docs/architecture.md, Ownership). Agents report new files to the orchestrator, who records them in docs/ai_usage.md.

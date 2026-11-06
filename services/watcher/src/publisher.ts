@@ -1,7 +1,8 @@
-import { writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import type { DatabaseSync } from "node:sqlite";
-import type { Address, LocalAccount } from "viem";
-import { productName, snapshotDigestOf, type EntryStatusName, type Hex32, type SealEntry, type SealedSnapshot, type SignedSnapshot, type TimelineEvent, type TimelineKind } from "@cordon/shared";
+import { verifyMessage, type Address, type LocalAccount } from "viem";
+import { productName, signedSnapshotSchema, snapshotDigestOf, type EntryStatusName, type Hex32, type SealEntry, type SealedSnapshot, type SignedSnapshot, type TimelineEvent, type TimelineKind } from "@cordon/shared";
 import { cursorOf, timelineHeads, timelineOf } from "./timeline.ts";
 
 export type SnapshotSettings = { chainId: number; registry: Address; startBlock: bigint; voteLifetimeSeconds: number };
@@ -66,4 +67,18 @@ export async function publishSnapshot(db: DatabaseSync, settings: SnapshotSettin
   const signed = { snapshot, signer: account.address, signature: await account.signMessage({ message: { raw: snapshotDigestOf(snapshot) } }) };
   await writeFile(path, JSON.stringify(signed, null, 2));
   return signed;
+}
+
+export async function loadSavedSnapshot(path: string, settings: SnapshotSettings, signer: Address): Promise<SignedSnapshot | null> {
+  if (!existsSync(path)) return null;
+  const parsed = signedSnapshotSchema.safeParse(JSON.parse(await readFile(path, "utf8")));
+  if (!parsed.success) return null;
+  const { snapshot, signature } = parsed.data;
+  const matches =
+    parsed.data.signer.toLowerCase() === signer.toLowerCase() &&
+    snapshot.chainId === settings.chainId &&
+    snapshot.registry.toLowerCase() === settings.registry.toLowerCase();
+  if (!matches) return null;
+  const valid = await verifyMessage({ address: signer, message: { raw: snapshotDigestOf(snapshot) }, signature: signature as `0x${string}` });
+  return valid ? parsed.data : null;
 }

@@ -2,13 +2,13 @@ export type Packument = { versions?: Record<string, unknown>; time?: Record<stri
 
 export type PackumentReader = (name: string) => Promise<Packument | null>;
 
-export function packumentReader(registryUrl: string | null, fetchFn: typeof fetch, warn: (message: string) => void): PackumentReader {
+export function packumentReader(registryUrl: string | null, fetchFn: typeof fetch, warn: (message: string) => void, timeoutMs: number): PackumentReader {
   const cache = new Map<string, Promise<Packument | null>>();
   let warned = false;
   const load = async (name: string): Promise<Packument | null> => {
     if (!registryUrl) return null;
     const url = `${registryUrl.replace(/\/$/, "")}/${name.replace("/", "%2f")}`;
-    return fetchFn(url)
+    return fetchFn(url, { signal: AbortSignal.timeout(timeoutMs) })
       .then((response) => {
         if (!response.ok) throw new Error(`${url} answered ${response.status}`);
         return response.json() as Promise<Packument>;

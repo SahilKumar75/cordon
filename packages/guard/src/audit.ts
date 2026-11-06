@@ -233,7 +233,7 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     return info && !list.keys.has(key) ? [{ name, version, key, lockfilePath: source, ...info, allowed: true }] : [];
   });
   const limits = { sealedKeys: list.keys, minAgeDays: settings.minAgeDays, now: settings.now() };
-  const rollback = await proposeRollbacks(blocked, limits, packumentReader(settings.registryUrl, settings.fetchFn, settings.warn));
+  const rollback = await proposeRollbacks(blocked, limits, packumentReader(settings.registryUrl, settings.fetchFn, settings.warn, settings.httpTimeoutMs));
   return {
     product: productName,
     service: settings.service,

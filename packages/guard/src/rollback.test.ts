@@ -16,7 +16,7 @@ const colorkitTimes = {
 };
 const registryWarnings: string[] = [];
 const readPackument = packumentReader(registryUrl, stubFetch(registryRoutes(registryUrl, { [sealedName]: { time: colorkitTimes } })), (message) =>
-  registryWarnings.push(message),
+  registryWarnings.push(message), 5_000,
 );
 
 test("rollback proposes the highest earlier release that is neither Sealed nor too young", async () => {

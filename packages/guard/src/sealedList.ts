@@ -15,6 +15,7 @@ export type ListSettings = {
   cacheDir: string | null;
   transport?: Transport;
   fetchFn: typeof fetch;
+  httpTimeoutMs: number;
   now: () => Date;
   warn: (message: string) => void;
 };
@@ -52,7 +53,7 @@ async function readSuspects(client: PublicClient, registry: Address): Promise<Ma
 }
 
 async function readChain(settings: ListSettings, registry: Address, chainId: number): Promise<ChainRead> {
-  const transport = settings.transport ?? http(settings.rpcUrl ?? undefined, { retryCount: 0, timeout: 10_000 });
+  const transport = settings.transport ?? http(settings.rpcUrl ?? undefined, { retryCount: 0, timeout: settings.httpTimeoutMs });
   const client = createPublicClient({ transport });
   const remoteChainId = await client.getChainId();
   if (remoteChainId !== chainId) throw new Error(`RPC reports chain ${remoteChainId}, expected ${chainId}`);
@@ -136,7 +137,7 @@ async function loadSnapshot(settings: ListSettings): Promise<SignedSnapshot | nu
   const cache = settings.cacheDir ? join(settings.cacheDir, cacheFileName) : null;
   if (settings.snapshotUrl) {
     const fetched = await settings
-      .fetchFn(settings.snapshotUrl)
+      .fetchFn(settings.snapshotUrl, { signal: AbortSignal.timeout(settings.httpTimeoutMs) })
       .then((response) => {
         if (!response.ok) throw new Error(`snapshot request answered ${response.status}`);
         return response.json() as Promise<unknown>;

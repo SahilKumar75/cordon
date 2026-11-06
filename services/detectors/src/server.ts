@@ -36,8 +36,22 @@ export type DetectorsDeps = {
 const evidenceParamsSchema = z.object({ evidenceHash: hex32Schema });
 const retryIntervalMs = 60_000;
 
+export const maxSandboxScans = 2;
+
 export function buildServer(deps: DetectorsDeps) {
   const app = Fastify({ logger: false });
+  let sandboxesRunning = 0;
+  const sandboxQueue: (() => void)[] = [];
+  const inSandboxSlot = async <T>(run: () => Promise<T>): Promise<T> => {
+    if (sandboxesRunning >= maxSandboxScans) await new Promise<void>((resolve) => sandboxQueue.push(resolve));
+    sandboxesRunning += 1;
+    try {
+      return await run();
+    } finally {
+      sandboxesRunning -= 1;
+      sandboxQueue.shift()?.();
+    }
+  };
 
   app.setErrorHandler((error: FastifyError | ZodError, _request, reply) => {
     if (error instanceof ZodError) {
@@ -52,7 +66,7 @@ export function buildServer(deps: DetectorsDeps) {
     const sandbox = isSandboxEligible(scan.tarballUrl, deps.mockRegistryUrl);
     const runs: [DetectorId, Promise<Evidence>][] = [
       ["staticScripts", tarball.then((bytes) => scanStatic(scan, bytes))],
-      ...(sandbox ? [["sandboxCanary", tarball.then((bytes) => scanSandbox(scan, bytes, deps.sandboxImage, deps.docker))] as [DetectorId, Promise<Evidence>]] : []),
+      ...(sandbox ? [["sandboxCanary", tarball.then((bytes) => inSandboxSlot(() => scanSandbox(scan, bytes, deps.sandboxImage, deps.docker)))] as [DetectorId, Promise<Evidence>]] : []),
       ["advisoryFeed", scanAdvisories(scan, deps.osvApiUrl, deps.fetchImpl)],
     ];
     const settled = await Promise.allSettled(runs.map(([, run]) => run));
