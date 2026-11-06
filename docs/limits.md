@@ -37,15 +37,15 @@ In the TanStack compromise the attacker read a short lived OIDC token from the m
 
 A runtime stop cannot undo install time theft. If a Sealed version was installed before the seal, its install script may already have sent credentials out and left persistence behind. Registry removal does not clean that up either ([edge cases, section 8](research/edge_cases.md#8-what-a-registry-takedown-or-deprecation-does-and-does-not-remove)).
 
-When cordon audit or the guard finds an installed Sealed version, it advises, in this order: remove persistence daemons and editor or coding agent hooks such as .claude/settings.json and .vscode/tasks.json, then rotate credentials. The order matters because the TanStack wave left hooks in the project tree that survive deleting node_modules ([edge cases, section 3](research/edge_cases.md#3-ide-and-coding-agent-hooks-used-for-persistence)). Cordon does not remove anything itself.
+When cordon audit or the guard finds an installed Sealed version, it advises, in this order: remove persistence daemons and editor or coding agent hooks such as .claude/settings.json and .vscode/tasks.json, then rotate credentials. The order matters because the TanStack wave left hooks in the project tree that survive deleting node_modules ([edge cases, section 3](research/edge_cases.md#3-ide-and-coding-agent-hooks-used-for-persistence)). Cordon does not remove anything itself. These runtime stop limits and the order of the advice are design choices, not research backed; the order follows the team's instruction recorded in [incidents](research/incidents.md#tanstack-npm-compromise-11-may-2026).
 
 Audit scans lockfiles, npm caches and saved Docker images. It does not reach built browser bundles or internal registry mirrors, which can keep a bad version after the public registry drops it.
 
 ## False seals
 
-A seal stays in force until the guardian multisig unseals it, and unseal is only possible after the dispute window ends. Until then every install, CI run and service that depends on that version is blocked. A false seal is an outage we caused.
+A seal stays in force until the guardian unseals it, and unseal is only possible after the dispute window ends. Until then every install, CI run and service that depends on that version is blocked. A false seal is an outage we caused.
 
-These reduce the chance of a false seal and limit how many can happen; none of them removes it:
+These reduce the chance of a false seal and limit how many can happen; none of them removes it. The abuse protection (quorum, evidence hash, seal rate limit, dispute window and guardian) and the dispute window length are design choices, not research backed. The suggested values are in docs/open_decisions.md.
 
 1. A quorum of distinct detector keys must vote before a version is Sealed.
 2. Every verdict carries an evidence hash.
@@ -53,6 +53,10 @@ These reduce the chance of a false seal and limit how many can happen; none of t
 4. Prebuilt binaries, wasm and shell files that no install script runs are recorded as findings only, because many legitimate packages ship them.
 
 Published precision figures for detection methods come from curated benchmarks, so they do not justify a quorum of one ([papers](research/papers.md#what-this-means-for-cordon)).
+
+## Single guardian key
+
+The demo deployment uses one guardian key, not a Safe multisig. There is no multisig flow in the dashboard or the deploy script. One key is a single point of failure for unseal and reseal: if it is lost, a false seal cannot be lifted, and if it is stolen, an attacker can unseal a malicious version once its dispute window has passed. A real deployment should hand the guardian role to a multisig.
 
 ## Age fallback when the Sealed list is unavailable
 

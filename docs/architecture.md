@@ -13,7 +13,7 @@ The product name lives in productName. The only other places it appears are pack
 5. The watcher reads registry events, extends the timeline, and publishes a signed snapshot of the Sealed list and the timeline heads.
 6. The guard reads the full Sealed list (chain first, signed snapshot second) and checks every lockfile version locally. Installs and CI stop before anything is downloaded. Running services stop serving through the sidecar. The guard proposes a rollback, advises credential rotation when the version was already installed, and sends a signed report of the block to the watcher when configured.
 7. The dashboard shows attestations, the Sealed list, service status, and a stopwatch from publish to first verdict to quorum to first block.
-8. A guardian multisig can unseal after the dispute window and can reseal.
+8. A guardian key (a multisig in a real deployment; one key in the demo, see docs/limits.md) can unseal after the dispute window and can reseal.
 
 ## Cut order
 
@@ -92,7 +92,7 @@ interface ISealRegistry {
 }
 ```
 
-1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint16 maxSealsPerDay). The guardian (a multisig) gets GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. Nobody gets DEFAULT_ADMIN_ROLE, so the detector set and quorum are frozen for the life of the deployment; rotating a detector key means a new deployment. renounceRole always reverts with RolesFrozen, so no detector or guardian can drop out and make the quorum unreachable. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, the guardian is zero, or maxSealsPerDay is 0.
+1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint16 maxSealsPerDay). The guardian (a multisig in a real deployment, one key in the demo) gets GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. Nobody gets DEFAULT_ADMIN_ROLE, so the detector set and quorum are frozen for the life of the deployment; rotating a detector key means a new deployment. renounceRole always reverts with RolesFrozen, so no detector or guardian can drop out and make the quorum unreachable. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, the guardian is zero, or maxSealsPerDay is 0.
 2. submitVerdict, DETECTOR_ROLE only, in this order: ecosystem other than "npm" reverts InvalidEcosystem; evidenceHash zero reverts EmptyEvidence; status Sealed reverts AlreadySealed; status Unsealed reverts KeyUnsealed (only the guardian can reseal); a repeat vote reverts DuplicateVote. Then the vote is recorded, firstVoteAt is set on the first vote, votes goes up by one, and VerdictSubmitted is emitted.
 3. When votes reach quorum: if seals already made in the current UTC day (block.timestamp / 1 days) equal maxSealsPerDay, the whole call reverts SealRateLimited and the signer retries later (see Detectors). Otherwise status becomes Sealed, sealedAt is set, the key is appended to the sealed key list once, and Sealed is emitted.
 4. unseal, GUARDIAN_ROLE only: status must be Sealed (else NotSealed) and block.timestamp at least sealedAt + disputeWindow (else DisputeWindowOpen with the opening time). Sets Unsealed and unsealedAt, emits Unsealed.
