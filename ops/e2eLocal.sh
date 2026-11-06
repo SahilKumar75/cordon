@@ -225,7 +225,7 @@ if [ "$hold" = true ]; then
   launch dashboard env NEXT_PUBLIC_CHAIN_ID=31337 NEXT_PUBLIC_RPC_URL="$rpcUrl" NEXT_PUBLIC_EXPLORER_URL="$rpcUrl" NEXT_PUBLIC_NATIVE_SYMBOL=ETH \
     NEXT_PUBLIC_REGISTRY_ADDRESS="$registryAddress" NEXT_PUBLIC_WATCHER_URL="$watcherUrl" NEXT_PUBLIC_DETECTORS_URL="$detectorsUrl" \
     NEXT_PUBLIC_DEMO=true NEXT_PUBLIC_MOCK_REGISTRY_URL="$MOCK_REGISTRY_URL" NEXT_PUBLIC_SNAPSHOT_SIGNER="$SNAPSHOT_SIGNER_ADDRESS" \
-    pnpm --filter @cordon/dashboard dev
+    sh -c 'cd "$1" && exec node node_modules/next/dist/bin/next dev -H 127.0.0.1' sh "$repoDir/apps/dashboard"
   waitUntil "dashboard answers" 180 curl -fs "$dashboardUrl"
   pass "dashboard $dashboardUrl"
   echo
