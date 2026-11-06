@@ -26,7 +26,10 @@ function Rows({ title, items }: { title: string; items: ReactNode[] }) {
   );
 }
 
-type Breaker = "serving" | "stopped" | "unavailable";
+export type Breaker = "serving" | "stopped" | "unavailable";
+
+export const breakerState = (status: ServiceStatus): Breaker =>
+  status.healthy ? "serving" : status.report.outcome === "unavailable" ? "unavailable" : "stopped";
 
 const breakerView: Record<Breaker, { angle: number; color: string; plate: string; label: string }> = {
   serving: { angle: 0, color: "text-jade", plate: "CLOSED", label: "Breaker closed, flowing" },
@@ -66,7 +69,7 @@ function BreakerSwitch({ state }: { state: Breaker }) {
   );
 }
 
-export function ServiceCard({ status }: { status: ServiceStatus }) {
+export function ServiceCard({ status, slot }: { status: ServiceStatus; slot?: (node: HTMLElement | null) => void }) {
   const { report } = status;
   const outcome = outcomeView[report.outcome];
   const source =
@@ -75,12 +78,18 @@ export function ServiceCard({ status }: { status: ServiceStatus }) {
       : report.listSource === "snapshot"
         ? `signed snapshot${report.snapshotAgeSeconds === null ? "" : `, ${formatGap(report.snapshotAgeSeconds * 1000)} old`}`
         : "none, age fallback in use";
-  const breaker: Breaker = status.healthy ? "serving" : report.outcome === "unavailable" ? "unavailable" : "stopped";
+  const breaker = breakerState(status);
   return (
     <article className="min-w-0">
       <h2 className="text-[15px]">{status.service}</h2>
-      <BreakerSwitch state={breaker} />
-      <p className={`font-serif text-[40px] leading-none ${status.healthy ? "text-jade" : "text-persimmon"}`}>{status.healthy ? "Flowing" : "Blocked"}</p>
+      {slot ? (
+        <div ref={slot} role="img" aria-label={breakerView[breaker].label} className={`relative my-5 aspect-[2/1] w-full max-w-52 ${breakerView[breaker].color}`}>
+          <span className="absolute right-0 top-0 font-mono text-[10px] tracking-[0.1em]">{breakerView[breaker].plate}</span>
+        </div>
+      ) : (
+        <BreakerSwitch state={breaker} />
+      )}
+      <p className={`font-display text-[40px] leading-none ${status.healthy ? "text-jade" : "text-persimmon"}`}>{status.healthy ? "Flowing" : "Blocked"}</p>
       <details className="fold mt-5">
         <summary>Details</summary>
         <div className="mt-4 space-y-6">

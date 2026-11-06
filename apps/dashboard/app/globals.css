@@ -1,22 +1,56 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-serif: var(--font-instrumentSerif), ui-serif, Georgia, serif;
-  --font-mono: var(--font-jetbrainsMono), ui-monospace, monospace;
+  --font-display: var(--font-doto), ui-monospace, monospace;
+  --font-mono: var(--font-azeretMono), ui-monospace, monospace;
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-plum: var(--plum);
+  --color-persimmon: var(--persimmon);
+  --color-jade: var(--jade);
+  --color-bone: var(--bone);
+  --color-copper: var(--copper);
 }
 
-@theme {
-  --color-ground: #1a0f14;
-  --color-surface: #241820;
-  --color-plum: #351e28;
-  --color-persimmon: #ff5c34;
-  --color-jade: #aeb8a0;
-  --color-bone: #f2ede4;
-  --color-copper: #c8794a;
-}
-
-html {
+:root,
+:root[data-theme="dark"] {
   color-scheme: dark;
+  --ground: #1a0f14;
+  --surface: #241820;
+  --plum: #351e28;
+  --persimmon: #ff5c34;
+  --jade: #aeb8a0;
+  --bone: #f2ede4;
+  --copper: #c8794a;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --ground: #f2ede4;
+    --surface: #e8e1d5;
+    --plum: #d6cbbe;
+    --persimmon: #e2441a;
+    --jade: #5e6b52;
+    --bone: #1a0f14;
+    --copper: #a85f33;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground: #f2ede4;
+  --surface: #e8e1d5;
+  --plum: #d6cbbe;
+  --persimmon: #e2441a;
+  --jade: #5e6b52;
+  --bone: #1a0f14;
+  --copper: #a85f33;
+}
+
+.font-display {
+  font-weight: 800;
+  font-variation-settings: "ROND" 100;
 }
 
 body {

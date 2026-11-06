@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { keccak256, toBytes, type Address } from "viem";
 import { useAccount, useConnect, useDisconnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
-import { hex32Schema, sealRegistryAbi, sealStatusNames, type Hex32 } from "@cordon/shared";
+import { hex32Schema, sealRegistryAbi, sealStatusNames, signedSnapshotSchema, type Hex32 } from "@cordon/shared";
+import { usePolled } from "@/lib/api";
 import { chain } from "@/lib/env";
 import { Dimension } from "./drawing";
 import { formatDateTime, formatGap } from "@/lib/format";
@@ -16,13 +18,14 @@ export function Guardian({ registry, initialKey }: { registry: Address; initialK
   return (
     <div className="space-y-6">
       <WalletBar />
+      <SuspectQueue onPick={setKey} />
       <label className="block space-y-2">
         <span className="text-sm font-medium">Seal key</span>
         <input className="field" value={key} onChange={(event) => setKey(event.target.value.trim())} placeholder="0x…" spellCheck={false} />
       </label>
       {!key && (
         <Notice icon="info" tone="muted" art={<LockDrawing />}>
-          Paste a seal key, or open a version in the vault and choose Unseal or reseal.
+          Pick a Suspect version above, paste a seal key, or open a version in the vault.
         </Notice>
       )}
       {key && !valid && (
@@ -73,8 +76,25 @@ function WalletBar() {
   );
 }
 
+type GuardianAction = "promote" | "clear" | "unseal" | "reseal";
+
+const actionLabel: Record<GuardianAction, string> = {
+  promote: "Seal this version now",
+  clear: "Clear this version",
+  unseal: "Unseal this version",
+  reseal: "Reseal this version",
+};
+
+function actionsFor(status: string, live: number): GuardianAction[] {
+  if (status === "None") return live > 0 ? ["promote", "clear"] : [];
+  if (status === "Sealed") return ["unseal"];
+  return ["reseal"];
+}
+
 function SealControl({ registry: address, sealKey }: { registry: Address; sealKey: Hex32 }) {
   const seal = useReadContract({ address, abi: sealRegistryAbi, functionName: "getSeal", args: [sealKey], query: { refetchInterval: 4000 } });
+  const liveVotes = useReadContract({ address, abi: sealRegistryAbi, functionName: "liveVotes", args: [sealKey], query: { refetchInterval: 4000 } });
+  const quorum = useReadContract({ address, abi: sealRegistryAbi, functionName: "quorum" });
   const disputeWindow = useReadContract({ address, abi: sealRegistryAbi, functionName: "disputeWindow" });
   const { isConnected, chainId } = useAccount();
   const write = useWriteContract();
@@ -85,15 +105,17 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
     <QueryState query={seal} loading="Reading this seal from SealRegistry.">
       {(current) => {
         const status = sealStatusNames[current.status] ?? "None";
-        if (status === "None")
+        const live = liveVotes.data ?? 0;
+        const suspect = status === "None" && live > 0;
+        const actions = actionsFor(status, live);
+        if (!actions.length)
           return (
             <Notice icon="info" tone="muted">
-              This version has never been sealed, so there is nothing to unseal or reseal.
+              No detector has a live vote on this version and it has never been sealed, so there is nothing to decide.
             </Notice>
           );
-        const action = status === "Sealed" ? "unseal" : "reseal";
         const opensAt = disputeWindow.data === undefined ? null : (Number(current.sealedAt) + Number(disputeWindow.data)) * 1000;
-        const waiting = action === "unseal" && (opensAt === null || opensAt > now);
+        const waiting = status === "Sealed" && (opensAt === null || opensAt > now);
         const blocker = !isConnected
           ? "Connect the guardian wallet first."
           : chainId !== chain?.id
@@ -106,11 +128,22 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
         return (
           <div className="space-y-6 border-t border-plum pt-6">
             <div className="flex flex-wrap items-center gap-6">
-              <SealStatus status={status} />
-              <span className="text-sm text-jade">{current.votes} detector votes</span>
+              <SealStatus status={suspect ? "Suspect" : status} />
+              <span className="text-sm text-jade">
+                {live} live detector vote{live === 1 ? "" : "s"}
+                {quorum.data !== undefined && `, quorum is ${quorum.data}`}
+              </span>
               {current.sealedAt > 0n && <span className="text-sm text-jade">Sealed {formatDateTime(Number(current.sealedAt) * 1000)}</span>}
+              {current.clearedAt > 0n && <span className="text-sm text-jade">Cleared {formatDateTime(Number(current.clearedAt) * 1000)}</span>}
             </div>
-            {action === "unseal" &&
+            {suspect && (
+              <Notice icon="warning" tone="accent">
+                Guards block this version by default and projects can override it one version at a time. Read the evidence first. Sealing it
+                now starts the usual dispute window. Clearing it stops every detector from voting on it until a guardian reseals it. Doing
+                nothing leaves it Suspect until its votes expire.
+              </Notice>
+            )}
+            {status === "Sealed" &&
               (disputeWindow.error ? (
                 <Notice icon="warning" tone="accent">
                   Could not read the dispute window, so unseal stays disabled:{" "}
@@ -131,15 +164,18 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
               <span className="block text-sm text-jade">Only the keccak256 hash of this text goes on chain. Keep the full text in your incident notes.</span>
             </label>
             <div className="flex flex-wrap items-center gap-4">
-              <button
-                className="button"
-                disabled={blocker !== null || write.isPending}
-                onClick={() =>
-                  write.writeContract({ address, abi: sealRegistryAbi, functionName: action, args: [sealKey, keccak256(toBytes(reason.trim()))] })
-                }
-              >
-                {action === "unseal" ? "Unseal this version" : "Reseal this version"}
-              </button>
+              {actions.map((action) => (
+                <button
+                  key={action}
+                  className={action === "clear" ? "button buttonQuiet" : "button"}
+                  disabled={blocker !== null || write.isPending}
+                  onClick={() =>
+                    write.writeContract({ address, abi: sealRegistryAbi, functionName: action, args: [sealKey, keccak256(toBytes(reason.trim()))] })
+                  }
+                >
+                  {actionLabel[action]}
+                </button>
+              ))}
               {blocker && <span className="text-sm text-jade">{blocker}</span>}
             </div>
             {write.isPending && <Status icon="wallet" tone="muted">Confirm the transaction in your wallet.</Status>}
@@ -164,6 +200,39 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
         );
       }}
     </QueryState>
+  );
+}
+
+function SuspectQueue({ onPick }: { onPick: (key: string) => void }) {
+  const snapshot = usePolled("watcher", "/snapshot", signedSnapshotSchema, 4000);
+  const suspects = snapshot.data?.snapshot.entries.filter((entry) => entry.status === "Suspect") ?? [];
+  if (snapshot.isError)
+    return (
+      <Notice icon="warning" tone="accent" art={<BrokenLine label="watcher" />}>
+        The Suspect queue did not load: {snapshot.error.message}
+      </Notice>
+    );
+  if (!suspects.length) return <Status icon="check" tone="muted">No Suspect versions waiting for a decision.</Status>;
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-medium">Suspect versions waiting for a decision</h2>
+      <ul className="divide-y divide-plum border-y border-plum">
+        {suspects.map((entry) => (
+          <li key={entry.key} className="flex flex-wrap items-center gap-x-6 gap-y-1 py-3 text-[13px]">
+            <button className="text-bone underline decoration-plum underline-offset-4 hover:text-copper" onClick={() => onPick(entry.key)}>
+              {entry.name}@{entry.version}
+            </button>
+            <span className="text-jade">
+              {entry.votes} live vote{entry.votes === 1 ? "" : "s"}
+            </span>
+            {entry.suspectUntil && <span className="text-jade">expires {formatDateTime(entry.suspectUntil)} unless rescanned</span>}
+            <Link href={`/seal/${entry.key}`} className="text-jade underline decoration-plum underline-offset-4 hover:text-bone">
+              Evidence
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -1,4 +1,4 @@
-import type { SealStatusName } from "@cordon/shared";
+import type { EntryStatusName, SealStatusName } from "@cordon/shared";
 
 const faces = {
   top: "M8 18L32 6l24 12-24 12z",
@@ -6,16 +6,16 @@ const faces = {
   right: "M56 18L32 30v36l24-12z",
 };
 
-export function ResinBlock({ status, size }: { status: SealStatusName; size: number }) {
+export function ResinBlock({ status, size }: { status: SealStatusName | EntryStatusName; size: number }) {
   const sealed = status === "Sealed";
-  const outline = sealed ? undefined : status === "Unsealed" ? "stroke-jade" : "stroke-plum";
+  const outline = sealed ? undefined : status === "Suspect" ? "stroke-persimmon" : status === "Unsealed" ? "stroke-jade" : "stroke-plum";
   return (
     <svg
       viewBox="0 0 64 72"
       width={size}
       height={(size * 72) / 64}
       role="img"
-      aria-label={sealed ? "Sealed in resin" : status === "Unsealed" ? "Unsealed by guardian" : "Not sealed"}
+      aria-label={sealed ? "Sealed in resin" : status === "Suspect" ? "Suspect, below quorum" : status === "Unsealed" ? "Unsealed by guardian" : "Not sealed"}
       className="shrink-0"
     >
       {sealed ? (

@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import type { Address } from "viem";
-import type { SealStatusName } from "@cordon/shared";
+import type { EntryStatusName, SealStatusName } from "@cordon/shared";
 import { chain, explorerUrl, registryAddress } from "@/lib/env";
 import { shortHash } from "@/lib/format";
 import { Icon, type IconName } from "./icon";
+import { WordReveal } from "./wordReveal";
 
 type Tone = "ink" | "accent" | "muted" | "clean" | "sealed" | "blocked" | "pending";
 
@@ -37,13 +38,15 @@ export function Tag({ icon, children }: { icon: IconName; children: ReactNode })
 
 export const SimulatedTag = () => <Tag icon="flask">Simulated</Tag>;
 
-const sealStatusView: Record<SealStatusName, { icon: IconName; tone: Tone; label: string }> = {
+const sealStatusView: Record<SealStatusName | EntryStatusName, { icon: IconName; tone: Tone; label: string }> = {
   Sealed: { icon: "sealed", tone: "sealed", label: "Sealed" },
   Unsealed: { icon: "unsealed", tone: "ink", label: "Unsealed by guardian" },
   None: { icon: "pending", tone: "pending", label: "Not sealed" },
+  Suspect: { icon: "warning", tone: "accent", label: "Suspect, below quorum" },
+  Cleared: { icon: "check", tone: "clean", label: "Cleared by guardian" },
 };
 
-export function SealStatus({ status }: { status: SealStatusName }) {
+export function SealStatus({ status }: { status: SealStatusName | EntryStatusName }) {
   const view = sealStatusView[status];
   return (
     <Status icon={view.icon} tone={view.tone}>
@@ -84,14 +87,18 @@ export function Notice({
 export function PageHeader({ title, children }: { title: ReactNode; children?: ReactNode }) {
   return (
     <header className="mb-12">
-      <h1 className="font-serif text-[44px] leading-[48px] tracking-[-0.01em]">{title}</h1>
+      {typeof title === "string" ? (
+        <WordReveal text={title} className="font-display text-[44px] leading-[48px] tracking-[-0.01em]" />
+      ) : (
+        <h1 className="font-display text-[44px] leading-[48px] tracking-[-0.01em]">{title}</h1>
+      )}
       {children && <p className="mt-3 max-w-3xl text-[13px] text-jade">{children}</p>}
     </header>
   );
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="mb-4 mt-14 font-serif text-[28px] leading-8">{children}</h2>;
+  return <h2 className="mb-4 mt-14 font-display text-[28px] leading-8">{children}</h2>;
 }
 
 export function BrokenLine({ label, loading = false }: { label: string; loading?: boolean }) {

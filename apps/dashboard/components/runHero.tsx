@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { motion, useReducedMotion, useSpring, useTransform } from "motion/react";
 import { useReadContract } from "wagmi";
 import {
   attestationSchema,
@@ -20,8 +21,10 @@ import { registryAddress } from "@/lib/env";
 import { detectorNames, formatGap } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { useQuorum } from "@/lib/useQuorum";
+import { useWebgl } from "@/lib/useWebgl";
 import { FlowDiagram } from "./flowDiagram";
 import { ChainLink, QueryState, SimulatedTag } from "./ui";
+import { WordReveal } from "./wordReveal";
 
 const VaultScene = dynamic(() => import("./vaultScene"), { ssr: false });
 
@@ -143,16 +146,11 @@ function Layout({
   cells: Cell[];
 }) {
   const quorum = useQuorum();
-  const [webgl, setWebgl] = useState<boolean | null>(null);
-  useEffect(() => {
-    const canvas = document.createElement("canvas");
-    setWebgl(Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl")));
-  }, []);
+  const webgl = useWebgl();
+  const [ascii, setAscii] = useState(false);
   const copy = (
     <div className="max-w-2xl" aria-live="polite">
-      <h1 key={headline} className="fadeIn font-serif text-[72px] leading-[0.95] tracking-[-0.015em] lg:text-[96px]">
-        {headline}
-      </h1>
+      <WordReveal text={headline} className="font-display text-[56px] leading-[0.95] lg:text-[80px]" />
       {head && <div className="mt-7 flex flex-wrap items-center gap-3 text-[15px]">{head}</div>}
       <p className={`${head ? "mt-2" : "mt-7"} text-[14px] text-jade`}>{line}</p>
     </div>
@@ -174,20 +172,38 @@ function Layout({
                 quorum={quorum ?? null}
                 sealed={sealed}
                 versionLabel={version}
+                ascii={ascii}
               />
             )}
           </div>
           <div className="pointer-events-none relative mx-auto max-w-7xl px-4 pt-14 sm:px-8">{copy}</div>
+          {webgl && (
+            <button
+              type="button"
+              aria-pressed={ascii}
+              onClick={() => setAscii((value) => !value)}
+              className="absolute bottom-4 right-4 border border-plum bg-ground px-3 py-1.5 text-[12px] text-jade hover:text-bone sm:right-8"
+            >
+              {ascii ? "3D view" : "ASCII view"}
+            </button>
+          )}
         </div>
       )}
       <ol className="grid grid-cols-2 gap-y-3 border-y border-plum py-4 sm:grid-cols-4">
-        {cells.map((cell) => (
-          <li key={cell.label} className="flex items-baseline gap-3">
+        {cells.map((cell, index) => (
+          <motion.li
+            key={cell.label}
+            className="flex items-baseline gap-3"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.45, delay: 0.2 + index * 0.08, ease: [0.2, 0.8, 0.3, 1] }}
+          >
             <span className="text-[12px] text-jade">{cell.label}</span>
             <span className={`text-[16px] tabular-nums ${cell.tone}`}>
               {cell.ms === null ? "not yet" : <StripTime ms={cell.ms} live={cell.live} />}
             </span>
-          </li>
+          </motion.li>
         ))}
       </ol>
     </section>
@@ -195,48 +211,47 @@ function Layout({
 }
 
 function StripTime({ ms, live }: { ms: number; live: boolean }) {
-  const [shown, setShown] = useState(live ? ms : 0);
-  const shownRef = useRef(shown);
-  shownRef.current = shown;
+  const calm = useReducedMotion();
+  const spring = useSpring(live ? ms : 0, { stiffness: 60, damping: 18, restDelta: 1 });
+  const text = useTransform(spring, formatGap);
   useEffect(() => {
-    if (live || matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setShown(ms);
-      return;
-    }
-    const from = shownRef.current;
-    const begin = performance.now();
-    let frame = requestAnimationFrame(function step(at) {
-      const progress = Math.min(1, (at - begin) / 700);
-      setShown(from + (ms - from) * (1 - (1 - progress) ** 3));
-      if (progress < 1) frame = requestAnimationFrame(step);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [ms, live]);
-  return <span className="fadeIn">{formatGap(live ? ms : shown)}</span>;
+    if (live || calm) spring.jump(ms);
+    else spring.set(ms);
+  }, [ms, live, calm, spring]);
+  return <motion.span>{text}</motion.span>;
 }
 
 function VoteRows({ verdicts }: { verdicts: Attestation[] }) {
   return (
-    <section className="mt-16">
-      <h2 className="mb-4 font-serif text-[28px] leading-8">Detector votes</h2>
+    <motion.section
+      className="mt-16"
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.55, ease: [0.2, 0.8, 0.3, 1] }}
+    >
+      <h2 className="mb-4 font-display text-[28px] leading-8">Detector votes</h2>
       {verdicts.length === 0 ? (
         <p className="border-t border-plum py-4 text-[13px] text-jade">No votes yet</p>
       ) : (
         <ul className="divide-y divide-plum border-y border-plum">
           {verdicts.slice(0, 3).map((item, index) => (
-            <li
+            <motion.li
               key={item.detector}
-              className="slideIn flex flex-wrap items-center gap-x-10 gap-y-1 py-4 text-[14px]"
-              style={{ animationDelay: `${index * 90}ms` }}
+              className="flex flex-wrap items-center gap-x-10 gap-y-1 py-4 text-[14px]"
+              initial={{ opacity: 0, x: -14 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.45, delay: index * 0.09, ease: [0.2, 0.8, 0.3, 1] }}
             >
               <span className="w-40">{detectorNames[item.detector]}</span>
               <span className={`w-24 ${item.malicious ? "text-persimmon" : "text-jade"}`}>{item.malicious ? "Malicious" : "Clean"}</span>
               {item.simulated && <SimulatedTag />}
               <span className="ml-auto">{item.txHash ? <ChainLink kind="tx" value={item.txHash} /> : <span className="text-[13px] text-jade">off chain</span>}</span>
-            </li>
+            </motion.li>
           ))}
         </ul>
       )}
-    </section>
+    </motion.section>
   );
 }

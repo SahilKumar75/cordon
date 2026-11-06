@@ -5,8 +5,8 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
   const { key } = await searchParams;
   return (
     <>
-      <PageHeader title="Undo a false seal">
-        Only the guardian wallet can unseal, after the dispute window, or reseal.
+      <PageHeader title="Guardian decisions">
+        Only the guardian wallet can seal or clear a Suspect version, unseal after the dispute window, or reseal.
       </PageHeader>
       <ChainGate>
         {(registry) => <Guardian registry={registry} initialKey={typeof key === "string" ? key : ""} />}

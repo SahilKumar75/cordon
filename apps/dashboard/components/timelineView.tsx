@@ -25,6 +25,8 @@ const kindView: Record<TimelineKind, { label: string; icon: IconName }> = {
   guardBlocked: { label: "Blocked by a guard", icon: "blocked" },
   unsealed: { label: "Unsealed by guardian", icon: "unsealed" },
   resealed: { label: "Resealed by guardian", icon: "sealed" },
+  promoted: { label: "Sealed by guardian below quorum", icon: "sealed" },
+  cleared: { label: "Cleared by guardian", icon: "check" },
 };
 
 export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: UseQueryResult<SignedSnapshot> }) {
