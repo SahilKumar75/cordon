@@ -66,7 +66,7 @@ test("the deployed contract key equals the shared seal key", async () => {
     maxSealsPerDay: 10,
   });
   const client = createPublicClient({ chain: foundry, transport: http(chain.rpcUrl) });
-  for (const [name, version] of [["@bulkheaddemo/colorkit", "1.4.1"], ["@tanstack/react-router", "1.169.5"], ["a", "bc"]]) {
+  for (const [name, version] of [["@bulkheaddemo/colorkit", "1.4.1"], ["@tanstack/react-router", "1.169.5"], ["a", "bc"]] as const) {
     const onChain = await client.readContract({ address: registry, abi: sealRegistryAbi, functionName: "keyOf", args: ["npm", name, version] });
     assert.equal(onChain, sealKeyOf(name, version));
   }
