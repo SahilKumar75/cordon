@@ -1,0 +1,19 @@
+{
+  "name": "@bulkhead/tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --experimental-strip-types fitness/*.test.ts chaos/*.test.ts"
+  },
+  "dependencies": {
+    "@bulkhead/guard": "workspace:*",
+    "@bulkhead/shared": "workspace:*",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
