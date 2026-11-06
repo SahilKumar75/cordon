@@ -31,7 +31,7 @@ Suggested: unset, so git, GitHub, commit and tarball sources block by default.
 Trade off: blocking is safe against the TanStack style git dependency vector; projects that rely on git dependencies must opt out per environment.
 
 ## Target prizes
-Suggested: see docs/sponsor_fit.md and the Gate 1 answer.
+Suggested: Ethereum Foundation Best CROPS App and Chainlink Best workflow with CRE, both on Base Sepolia (details in docs/sponsor_fit.md). Arkiv only if the team reverses its earlier drop.
 Trade off: each extra prize adds required files, demo time and sometimes a second chain; the deadline is Sat 7 Nov, 09:00 IST.
 
 ## Guardian key
