@@ -121,7 +121,7 @@ void main() {
 
 function CameraRig({ calm, sealKick }: { calm: boolean; sealKick: Kick }) {
   const pointer = useRef({ x: 0, y: 0 });
-  const view = useRef({ yaw: 0, pitch: 0 });
+  const view = useRef({ yaw: 0, pitch: 0, depth: 0 });
   const scratch = useMemo(() => ({ base: new THREE.Spherical().setFromVector3(cameraBase.clone().sub(cameraTarget)), orbit: new THREE.Spherical(), shake: new THREE.Vector3() }), []);
   useEffect(() => {
     if (calm) return;
@@ -131,14 +131,18 @@ function CameraRig({ calm, sealKick }: { calm: boolean; sealKick: Kick }) {
     window.addEventListener("pointermove", move);
     return () => window.removeEventListener("pointermove", move);
   }, [calm]);
-  useStep((dt, t, { camera }) => {
+  useStep((dt, t, { camera, gl }) => {
     const aim = view.current;
+    const box = gl.domElement.getBoundingClientRect();
+    const passed = calm || box.height === 0 ? 0 : THREE.MathUtils.clamp(-box.top / box.height, 0, 1);
+    aim.depth = THREE.MathUtils.damp(aim.depth, passed, 6, dt);
     const swing = calm ? 0 : Math.sin(t * 0.05) * 0.14;
     aim.yaw = THREE.MathUtils.damp(aim.yaw, swing + (calm ? 0 : pointer.current.x * 0.06), 2.5, dt);
     aim.pitch = THREE.MathUtils.damp(aim.pitch, calm ? 0 : pointer.current.y * 0.04, 2.5, dt);
     scratch.orbit.copy(scratch.base);
     scratch.orbit.theta += aim.yaw;
-    scratch.orbit.phi += aim.pitch;
+    scratch.orbit.phi += aim.pitch - aim.depth * 0.18;
+    scratch.orbit.radius *= 1 + aim.depth * 0.55;
     camera.position.setFromSpherical(scratch.orbit).add(cameraTarget);
     const since = seconds() - sealKick.current;
     if (!calm && since < 0.8) {

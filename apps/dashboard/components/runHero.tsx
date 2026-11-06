@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { motion, useReducedMotion, useSpring, useTransform } from "motion/react";
+import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "motion/react";
 import { useReadContract } from "wagmi";
 import {
   attestationSchema,
@@ -23,6 +23,7 @@ import { useNow } from "@/lib/useNow";
 import { useQuorum } from "@/lib/useQuorum";
 import { useWebgl } from "@/lib/useWebgl";
 import { FlowDiagram } from "./flowDiagram";
+import { GlyphBadge } from "./glyphs";
 import { ChainLink, QueryState, SimulatedTag } from "./ui";
 import { WordReveal } from "./wordReveal";
 
@@ -41,14 +42,17 @@ type Stage = 0 | 1 | 2 | 3 | 4;
 type Votes = Partial<Record<DetectorId, boolean>>;
 type Cell = { label: string; ms: number | null; tone: string; live: boolean };
 
+export const latestRun = (watches: Stopwatch[]) =>
+  watches
+    .filter((watch) => watch.firstVerdictAt || Date.now() - Date.parse(watch.publishedAt) < recentWindowMs)
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))[0];
+
 export function RunHero({ showVotes = false }: { showVotes?: boolean }) {
   const query = usePolled("watcher", "/stopwatch", stopwatchSchema.array());
   return (
     <QueryState query={query} loading="Loading the stopwatch from the watcher.">
       {(watches) => {
-        const latest = watches
-          .filter((watch) => watch.firstVerdictAt || Date.now() - Date.parse(watch.publishedAt) < recentWindowMs)
-          .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))[0];
+        const latest = latestRun(watches);
         return latest ? (
           <Run watch={latest} showVotes={showVotes} />
         ) : (
@@ -147,23 +151,35 @@ function Layout({
 }) {
   const quorum = useQuorum();
   const webgl = useWebgl();
+  const calm = useReducedMotion();
   const [ascii, setAscii] = useState(false);
+  const hero = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: hero, offset: ["start start", "end start"] });
+  const copyY = useTransform(scrollYProgress, [0, 1], [0, 160]);
+  const copyFade = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
+  const done = cells.filter((cell) => cell.ms !== null && !cell.live).length;
+  const reached = Math.min(1, (done + (cells.some((cell) => cell.live) ? 0.5 : 0)) / cells.length);
   const copy = (
-    <div className="max-w-2xl" aria-live="polite">
-      <WordReveal text={headline} className="font-display text-[56px] leading-[0.95] lg:text-[80px]" />
+    <motion.div className="max-w-2xl" aria-live="polite" style={calm ? undefined : { y: copyY, opacity: copyFade }}>
+      <WordReveal text={headline} className="font-display text-[48px] leading-[0.95] sm:text-[56px] lg:text-[80px]" />
       {head && <div className="mt-7 flex flex-wrap items-center gap-3 text-[15px]">{head}</div>}
       <p className={`${head ? "mt-2" : "mt-7"} text-[14px] text-jade`}>{line}</p>
-    </div>
+    </motion.div>
   );
   return (
     <section>
       {webgl === false ? (
-        <>
-          {copy}
-          <FlowDiagram stage={stage} version={version} votes={votes} />
-        </>
+        <div ref={hero} className="relative">
+          <div aria-hidden="true" className="glowCopper pointer-events-none absolute -left-20 -top-24 h-[420px] w-[620px]" />
+          <div className="relative">
+            {copy}
+            <FlowDiagram stage={stage} version={version} votes={votes} />
+          </div>
+        </div>
       ) : (
-        <div className="fullBleed relative h-[560px]">
+        <div ref={hero} className="fullBleed relative h-[480px] sm:h-[560px]">
+          <div aria-hidden="true" className="glowCopper pointer-events-none absolute left-[8%] top-0 h-[420px] w-[min(720px,90vw)]" />
+          <div aria-hidden="true" className="glowPersimmon pointer-events-none absolute bottom-0 right-[6%] h-[360px] w-[min(560px,80vw)]" />
           <div className="absolute inset-0">
             {webgl && (
               <VaultScene
@@ -176,36 +192,50 @@ function Layout({
               />
             )}
           </div>
-          <div className="pointer-events-none relative mx-auto max-w-7xl px-4 pt-14 sm:px-8">{copy}</div>
+          <div className="pointer-events-none relative mx-auto max-w-7xl px-4 pt-10 sm:px-8 sm:pt-14">{copy}</div>
           {webgl && (
             <button
               type="button"
               aria-pressed={ascii}
+              data-cursor={ascii ? "3d" : "ascii"}
               onClick={() => setAscii((value) => !value)}
-              className="absolute bottom-4 right-4 border border-plum bg-ground px-3 py-1.5 text-[12px] text-jade hover:text-bone sm:right-8"
+              className="absolute bottom-10 right-4 rounded-md border border-plum bg-ground px-3 py-1.5 text-[12px] text-jade shadow-[var(--shadowSoft)] hover:text-bone sm:right-8"
             >
               {ascii ? "3D view" : "ASCII view"}
             </button>
           )}
         </div>
       )}
-      <ol className="grid grid-cols-2 gap-y-3 border-y border-plum py-4 sm:grid-cols-4">
-        {cells.map((cell, index) => (
-          <motion.li
-            key={cell.label}
-            className="flex items-baseline gap-3"
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.45, delay: 0.2 + index * 0.08, ease: [0.2, 0.8, 0.3, 1] }}
-          >
-            <span className="text-[12px] text-jade">{cell.label}</span>
-            <span className={`text-[16px] tabular-nums ${cell.tone}`}>
-              {cell.ms === null ? "not yet" : <StripTime ms={cell.ms} live={cell.live} />}
-            </span>
-          </motion.li>
-        ))}
-      </ol>
+      <div className="panel relative z-10 -mt-6 px-5 pb-5 pt-4 sm:px-6">
+        <ol className="grid grid-cols-2 gap-y-4 sm:grid-cols-4">
+          {cells.map((cell, index) => (
+            <motion.li
+              key={cell.label}
+              className="flex flex-col gap-1"
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.45, delay: 0.2 + index * 0.08, ease: [0.2, 0.8, 0.3, 1] }}
+            >
+              <span className="flex items-center gap-2 text-[12px] text-jade">
+                <span className={`h-2 w-2 rounded-full ${cell.ms === null ? "bg-plum" : cell.live ? "bg-copper" : "accentTrack"}`} />
+                {cell.label}
+              </span>
+              <span className={`text-[18px] tabular-nums ${cell.tone}`}>
+                {cell.ms === null ? "not yet" : <StripTime ms={cell.ms} live={cell.live} />}
+              </span>
+            </motion.li>
+          ))}
+        </ol>
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-plum">
+          <motion.div
+            className="accentTrack h-full origin-left rounded-full"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: reached }}
+            transition={{ duration: 0.9, ease: [0.2, 0.8, 0.3, 1] }}
+          />
+        </div>
+      </div>
     </section>
   );
 }
@@ -223,35 +253,35 @@ function StripTime({ ms, live }: { ms: number; live: boolean }) {
 
 function VoteRows({ verdicts }: { verdicts: Attestation[] }) {
   return (
-    <motion.section
-      className="mt-16"
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.55, ease: [0.2, 0.8, 0.3, 1] }}
-    >
-      <h2 className="mb-4 font-display text-[28px] leading-8">Detector votes</h2>
-      {verdicts.length === 0 ? (
-        <p className="border-t border-plum py-4 text-[13px] text-jade">No votes yet</p>
-      ) : (
-        <ul className="divide-y divide-plum border-y border-plum">
-          {verdicts.slice(0, 3).map((item, index) => (
+    <section className="mt-16">
+      <h2 className="mb-5 font-display text-[28px] leading-8">Detector votes</h2>
+      <ul className="grid gap-4 sm:grid-cols-3">
+        {detectorIds.map((detector, index) => {
+          const item = verdicts.find((verdict) => verdict.detector === detector);
+          return (
             <motion.li
-              key={item.detector}
-              className="flex flex-wrap items-center gap-x-10 gap-y-1 py-4 text-[14px]"
-              initial={{ opacity: 0, x: -14 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              key={detector}
+              className={`panel lift flex flex-col gap-3 px-5 py-4 ${item?.malicious ? "text-persimmon" : "text-bone"}`}
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.45, delay: index * 0.09, ease: [0.2, 0.8, 0.3, 1] }}
             >
-              <span className="w-40">{detectorNames[item.detector]}</span>
-              <span className={`w-24 ${item.malicious ? "text-persimmon" : "text-jade"}`}>{item.malicious ? "Malicious" : "Clean"}</span>
-              {item.simulated && <SimulatedTag />}
-              <span className="ml-auto">{item.txHash ? <ChainLink kind="tx" value={item.txHash} /> : <span className="text-[13px] text-jade">off chain</span>}</span>
+              <div className="flex items-center gap-3">
+                <GlyphBadge name={detector} size={30} alarm={item?.malicious ?? false} active={item !== undefined} />
+                <span className="text-[14px] text-bone">{detectorNames[detector]}</span>
+                {item?.simulated && <span className="ml-auto"><SimulatedTag /></span>}
+              </div>
+              <div className="flex items-end justify-between gap-3">
+                <span className={`font-display text-[26px] leading-none ${item ? (item.malicious ? "text-persimmon" : "text-jade") : "text-jade/60"}`}>
+                  {item ? (item.malicious ? "Malicious" : "Clean") : "Waiting"}
+                </span>
+                {item && (item.txHash ? <ChainLink kind="tx" value={item.txHash} /> : <span className="text-[12px] text-jade">off chain</span>)}
+              </div>
             </motion.li>
-          ))}
-        </ul>
-      )}
-    </motion.section>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

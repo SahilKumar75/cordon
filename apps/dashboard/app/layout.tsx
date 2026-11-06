@@ -6,6 +6,8 @@ import { productName } from "@cordon/shared";
 import { HatchDefs } from "@/components/drawing";
 import { AsciiArt, ConsoleBanner, asciiBanner } from "@/components/asciiArt";
 import { BrandMark, LiveStatus, Nav, ThemeToggle } from "@/components/nav";
+import { Cursor } from "@/components/cursor";
+import { SmoothScroll } from "@/components/smoothScroll";
 import { Providers } from "@/components/providers";
 import { demoEnabled, missingSettings } from "@/lib/env";
 import "./globals.css";
@@ -28,6 +30,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="flex min-h-screen flex-col antialiased">
         <Providers>
           <HatchDefs />
+          <SmoothScroll />
+          <Cursor />
           <ConsoleBanner />
           <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-12 gap-y-3 px-4 py-6 sm:px-8">
             <Link href="/" className="inline-flex items-center gap-2.5 font-display text-[28px] leading-none">
@@ -45,7 +49,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           )}
           <main className="pageRise mx-auto w-full max-w-7xl flex-1 px-4 pb-20 pt-6 sm:px-8">{children}</main>
           <footer className="mx-auto w-full max-w-7xl px-4 sm:px-8">
-            <div className="flex flex-wrap items-end justify-between gap-6 border-t border-plum py-6">
+            <div className="hairline" />
+            <div className="flex flex-wrap items-end justify-between gap-6 py-6">
               <AsciiArt art={asciiBanner} className="opacity-70" />
               <p className="text-[13px] leading-5 text-jade">Detection tells you. {productName} keeps the bad version in the vault.</p>
             </div>

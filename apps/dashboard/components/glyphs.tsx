@@ -93,3 +93,11 @@ export function Glyph({ name, x, y, size, blocked, ...state }: GlyphState & { na
     </svg>
   );
 }
+
+export function GlyphBadge({ name, size = 28, alarm = false, active = false }: { name: GlyphName; size?: number; alarm?: boolean; active?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" overflow="visible" className="shrink-0">
+      <Glyph name={name} x={0} y={0} size={24} active={active} alarm={alarm} blocked={false} />
+    </svg>
+  );
+}

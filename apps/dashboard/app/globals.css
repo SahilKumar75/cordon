@@ -22,6 +22,12 @@
   --jade: #aeb8a0;
   --bone: #f2ede4;
   --copper: #c8794a;
+  --ink: 8 4 6;
+  --shadowAlpha: 0.42;
+  --glowCopper: rgb(200 121 74 / 0.22);
+  --glowPersimmon: rgb(255 92 52 / 0.2);
+  --onAccent: #1a0f14;
+  --raised: #2b1d26;
 }
 
 @media (prefers-color-scheme: light) {
@@ -34,6 +40,12 @@
     --jade: #5e6b52;
     --bone: #1a0f14;
     --copper: #a85f33;
+    --ink: 58 36 28;
+    --shadowAlpha: 0.14;
+    --glowCopper: rgb(168 95 51 / 0.2);
+    --glowPersimmon: rgb(226 68 26 / 0.16);
+    --onAccent: #fffaf3;
+    --raised: #faf6ef;
   }
 }
 
@@ -46,6 +58,41 @@
   --jade: #5e6b52;
   --bone: #1a0f14;
   --copper: #a85f33;
+  --ink: 58 36 28;
+  --shadowAlpha: 0.14;
+  --glowCopper: rgb(168 95 51 / 0.2);
+  --glowPersimmon: rgb(226 68 26 / 0.16);
+  --onAccent: #fffaf3;
+  --raised: #faf6ef;
+}
+
+:root {
+  --shadowSoft: 0 1px 2px rgb(var(--ink) / calc(var(--shadowAlpha) * 0.9)), 0 12px 32px rgb(var(--ink) / calc(var(--shadowAlpha) * 0.8));
+  --shadowLift: 0 2px 4px rgb(var(--ink) / var(--shadowAlpha)), 0 22px 48px rgb(var(--ink) / calc(var(--shadowAlpha) * 1.25));
+  --accentFill: linear-gradient(120deg, var(--copper), var(--persimmon));
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+
+html.cursorCustom,
+html.cursorCustom * {
+  cursor: none !important;
+}
+
+html.cursorCustom input,
+html.cursorCustom textarea {
+  cursor: text !important;
 }
 
 .font-display {
@@ -67,24 +114,31 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: var(--color-bone);
-    color: var(--color-ground);
+    background: var(--accentFill);
+    color: var(--onAccent);
     padding: 0.625rem 1.125rem;
     font-size: 0.875rem;
     font-weight: 500;
-    border-radius: 2px;
+    border-radius: 6px;
     cursor: pointer;
+    box-shadow: var(--shadowSoft);
+    transition:
+      box-shadow 200ms,
+      filter 200ms;
   }
   .button:hover:not(:disabled) {
-    background: var(--color-jade);
+    box-shadow: var(--shadowLift);
+    filter: saturate(1.15) brightness(1.04);
   }
   .button:disabled {
     cursor: not-allowed;
     background: var(--color-plum);
     color: var(--color-jade);
+    box-shadow: none;
   }
   .buttonQuiet {
     background: transparent;
+    box-shadow: none;
     color: var(--color-jade);
     padding-left: 0;
     padding-right: 0;
@@ -103,10 +157,76 @@ body {
   .field {
     width: 100%;
     border: 1px solid var(--color-plum);
-    background: var(--color-surface);
+    background: var(--raised);
     padding: 0.5rem 0.75rem;
     font-family: var(--font-mono);
     font-size: 0.875rem;
+    border-radius: 6px;
+    box-shadow: inset 0 1px 2px rgb(var(--ink) / calc(var(--shadowAlpha) * 0.6));
+  }
+  .panel {
+    position: relative;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background:
+      linear-gradient(180deg, var(--raised), var(--color-surface)) padding-box,
+      linear-gradient(150deg, color-mix(in oklab, var(--color-copper) 55%, transparent), var(--color-plum) 40%, var(--color-plum)) border-box;
+    box-shadow: var(--shadowSoft);
+  }
+  .lift {
+    transition:
+      transform 260ms cubic-bezier(0.2, 0.8, 0.3, 1),
+      box-shadow 260ms;
+  }
+  .lift:hover,
+  .lift:focus-within {
+    transform: translateY(-3px);
+    box-shadow: var(--shadowLift);
+  }
+  .hairline {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-copper) 20%, var(--color-persimmon) 60%, transparent);
+    opacity: 0.7;
+  }
+  .glowCopper {
+    background: radial-gradient(closest-side, var(--glowCopper), transparent);
+  }
+  .glowPersimmon {
+    background: radial-gradient(closest-side, var(--glowPersimmon), transparent);
+  }
+  .accentTrack {
+    background: var(--accentFill);
+  }
+  .headerBand {
+    background:
+      radial-gradient(120% 140% at 0% 0%, var(--glowCopper), transparent 60%),
+      radial-gradient(80% 120% at 100% 100%, var(--glowPersimmon), transparent 60%),
+      linear-gradient(180deg, var(--raised), var(--color-surface));
+  }
+  .joined {
+    display: flex;
+    align-items: stretch;
+    border-radius: 8px;
+    background: var(--raised);
+    border: 1px solid var(--color-plum);
+    box-shadow: var(--shadowSoft);
+    overflow: hidden;
+  }
+  .joined:focus-within {
+    border-color: var(--color-copper);
+  }
+  .joined > input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    padding: 0.625rem 0.875rem;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    outline: none;
+  }
+  .joined > .button {
+    border-radius: 0;
+    box-shadow: none;
   }
   .field:focus-visible,
   .button:focus-visible,
@@ -172,7 +292,28 @@ body {
   transform: translateY(-4px);
 }
 
+.hoverCard {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition:
+    opacity 180ms,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.group:hover .hoverCard,
+.group:focus-within .hoverCard {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .lift,
+  .lift:hover,
+  .hoverCard {
+    transform: none;
+  }
   .relayCut,
   .resinBlock {
     transition: none;

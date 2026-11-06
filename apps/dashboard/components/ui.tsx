@@ -84,21 +84,40 @@ export function Notice({
   );
 }
 
-export function PageHeader({ title, children }: { title: ReactNode; children?: ReactNode }) {
+export function PageHeader({ title, aside, children }: { title: ReactNode; aside?: ReactNode; children?: ReactNode }) {
   return (
-    <header className="mb-12">
-      {typeof title === "string" ? (
-        <WordReveal text={title} className="font-display text-[44px] leading-[48px] tracking-[-0.01em]" />
-      ) : (
-        <h1 className="font-display text-[44px] leading-[48px] tracking-[-0.01em]">{title}</h1>
-      )}
-      {children && <p className="mt-3 max-w-3xl text-[13px] text-jade">{children}</p>}
+    <header className="headerBand panel mb-10 flex flex-wrap items-end justify-between gap-6 overflow-hidden px-5 py-8 sm:px-8 sm:py-10">
+      <div className="min-w-0 max-w-3xl">
+        {typeof title === "string" ? (
+          <WordReveal text={title} className="break-words font-display text-[34px] leading-[38px] tracking-[-0.01em] sm:text-[44px] sm:leading-[48px]" />
+        ) : (
+          <h1 className="break-words font-display text-[34px] leading-[38px] tracking-[-0.01em] sm:text-[44px] sm:leading-[48px]">{title}</h1>
+        )}
+        {children && <p className="mt-3 text-[13px] text-jade">{children}</p>}
+      </div>
+      {aside}
     </header>
   );
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="mb-4 mt-14 font-display text-[28px] leading-8">{children}</h2>;
+  return (
+    <div className="sticky top-0 z-20 -mx-4 mb-5 mt-16 bg-ground/90 px-4 pt-4 sm:-mx-8 sm:px-8">
+      <h2 className="pb-3 font-display text-[28px] leading-8">{children}</h2>
+      <div className="hairline" />
+    </div>
+  );
+}
+
+export function Stat({ label, value, tone = "text-bone", children }: { label: string; value: ReactNode; tone?: string; children?: ReactNode }) {
+  return (
+    <div className="panel lift relative overflow-hidden px-5 py-5">
+      <div aria-hidden="true" className="glowCopper pointer-events-none absolute -right-10 -top-12 h-36 w-36" />
+      <div className="relative text-[12px] text-jade">{label}</div>
+      <div className={`relative mt-2 font-display text-[40px] leading-none tabular-nums ${tone}`}>{value}</div>
+      {children && <div className="relative mt-3">{children}</div>}
+    </div>
+  );
 }
 
 export function BrokenLine({ label, loading = false }: { label: string; loading?: boolean }) {

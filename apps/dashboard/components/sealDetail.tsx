@@ -17,9 +17,9 @@ export function SealDetail({ sealKey }: { sealKey: Hex32 }) {
   return (
     <>
       <PageHeader title={named ? `${named.name}@${named.version}` : "Version not named yet"}>
-        <span className="break-all">{sealKey}</span>
+        <span className="break-all font-mono">{sealKey}</span>
       </PageHeader>
-      <div className="flex flex-wrap items-center gap-x-10 gap-y-4">
+      <div className="panel lift flex flex-wrap items-center gap-x-10 gap-y-4 px-5 py-5 sm:px-7">
         {snapshot.isPending ? (
           <Status icon="clock" tone="muted">Loading the signed snapshot</Status>
         ) : snapshot.isError ? (
@@ -37,16 +37,12 @@ export function SealDetail({ sealKey }: { sealKey: Hex32 }) {
         ) : (
           <Status icon="pending" tone="muted">Not in the latest signed snapshot</Status>
         )}
-        <Link href={`/guardian?key=${sealKey}`} className="text-[13px] text-jade underline decoration-plum underline-offset-4 hover:text-bone">
+        <Link href={`/guardian?key=${sealKey}`} className="button sm:ml-auto">
           {entry?.status === "Suspect" ? "Promote or clear as guardian" : "Unseal or reseal as guardian"}
         </Link>
       </div>
-      <details className="fold mt-12">
-        <summary>Evidence by detector</summary>
-        <div className="mt-4">
-          <EvidenceList sealKey={sealKey} attestations={attestations} />
-        </div>
-      </details>
+      <SectionTitle>Evidence by detector</SectionTitle>
+      <EvidenceList sealKey={sealKey} attestations={attestations} />
       <SectionTitle>Timeline</SectionTitle>
       <TimelineView sealKey={sealKey} snapshot={snapshot} />
     </>

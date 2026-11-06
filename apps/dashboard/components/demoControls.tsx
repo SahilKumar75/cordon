@@ -62,6 +62,7 @@ function PublishButton({ disabled, onPress, children }: { disabled: boolean; onP
   return (
     <motion.button
       className="button relative overflow-hidden px-6 py-3 text-[15px]"
+      data-magnetic="own"
       style={{ x, y }}
       whileTap={{ scale: 0.96 }}
       disabled={disabled}

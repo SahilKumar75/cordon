@@ -12,6 +12,7 @@ import {
   type SignedSnapshot,
   type TimelineKind,
 } from "@cordon/shared";
+import { motion } from "motion/react";
 import { usePolled } from "@/lib/api";
 import { chain, registryAddress, snapshotSigner } from "@/lib/env";
 import { formatDateTime, shortHash } from "@/lib/format";
@@ -88,7 +89,7 @@ export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: 
               </Notice>
             )}
             {signed && (
-              <div>
+              <div className="panel px-5 py-4">
                 <p className="mb-3 text-sm text-jade">
                   Signed snapshot at block {signed.snapshot.blockNumber}, generated {formatDateTime(signed.snapshot.generatedAt)}.
                 </p>
@@ -106,30 +107,54 @@ export function TimelineView({ sealKey, snapshot }: { sealKey: Hex32; snapshot: 
                 </ul>
               </div>
             )}
-            <ol className="divide-y divide-plum border-t border-plum">
+            <ol className="relative mt-6 space-y-4 pl-10">
+              <span aria-hidden="true" className="absolute bottom-3 left-[13px] top-3 w-[3px] rounded-full bg-plum">
+                <motion.span
+                  className="accentTrack block h-full w-full origin-top rounded-full"
+                  initial={{ scaleY: 0 }}
+                  whileInView={{ scaleY: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 1, ease: [0.65, 0, 0.35, 1] }}
+                />
+              </span>
               {events.map((event, index) => (
-                <li key={event.hash} className="grid gap-2 py-4 sm:grid-cols-[2rem_1fr_auto] sm:items-start">
-                  <span className="font-mono text-sm text-jade">{index + 1}</span>
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Status icon={kindView[event.kind].icon}>{kindView[event.kind].label}</Status>
-                      <span className="text-sm text-jade">by {event.actor}</span>
-                      {index === headIndex && <Status icon="sealed" tone="accent">Signed head</Status>}
+                <motion.li
+                  key={event.hash}
+                  className="relative"
+                  initial={{ opacity: 0, x: 18 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: "-40px" }}
+                  transition={{ duration: 0.5, delay: Math.min(index, 8) * 0.07, ease: [0.2, 0.8, 0.3, 1] }}
+                >
+                  <span
+                    className={`absolute -left-10 top-4 flex h-7 w-7 items-center justify-center rounded-full border-2 bg-ground text-[11px] tabular-nums shadow-[var(--shadowSoft)] ${
+                      linked[index] ? (index === headIndex ? "border-persimmon" : "border-copper") : "border-persimmon text-persimmon"
+                    }`}
+                  >
+                    {index + 1}
+                  </span>
+                  <div className="panel lift grid gap-2 px-5 py-4 sm:grid-cols-[1fr_auto] sm:items-start">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Status icon={kindView[event.kind].icon}>{kindView[event.kind].label}</Status>
+                        <span className="text-sm text-jade">by {event.actor}</span>
+                        {index === headIndex && <Status icon="sealed" tone="accent">Signed head</Status>}
+                      </div>
+                      <div className="text-sm text-jade">{formatDateTime(event.at)}</div>
+                      <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-jade">
+                        <span title={event.hash}>hash {shortHash(event.hash)}</span>
+                        {linked[index] ? <Status icon="link" tone="muted">Linked</Status> : <Status icon="warning" tone="accent">Broken link</Status>}
+                      </div>
                     </div>
-                    <div className="text-sm text-jade">{formatDateTime(event.at)}</div>
-                    <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-jade">
-                      <span title={event.hash}>hash {shortHash(event.hash)}</span>
-                      {linked[index] ? <Status icon="link" tone="muted">Linked</Status> : <Status icon="warning" tone="accent">Broken link</Status>}
+                    <div>
+                      {event.ref && hex32Schema.safeParse(event.ref).success ? (
+                        <ChainLink kind="tx" value={event.ref} />
+                      ) : (
+                        event.ref && <span className="break-all font-mono text-sm text-jade">{event.ref}</span>
+                      )}
                     </div>
                   </div>
-                  <div>
-                    {event.ref && hex32Schema.safeParse(event.ref).success ? (
-                      <ChainLink kind="tx" value={event.ref} />
-                    ) : (
-                      event.ref && <span className="font-mono text-sm text-jade">{event.ref}</span>
-                    )}
-                  </div>
-                </li>
+                </motion.li>
               ))}
             </ol>
           </div>

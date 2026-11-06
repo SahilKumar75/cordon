@@ -6,7 +6,8 @@ import dynamic from "next/dynamic";
 import { motion } from "motion/react";
 import { serviceStatusSchema } from "@cordon/shared";
 import { ServiceCard, breakerState } from "@/components/serviceCard";
-import { PageHeader, QueryState } from "@/components/ui";
+import { CountUp } from "@/components/countUp";
+import { PageHeader, QueryState, Stat } from "@/components/ui";
 import { usePolled } from "@/lib/api";
 import { useWebgl } from "@/lib/useWebgl";
 
@@ -18,9 +19,7 @@ export default function ServicesPage() {
   const slots = useRef(new Map<string, HTMLElement>());
   return (
     <>
-      <PageHeader title="Services behind the breaker">
-        Each sidecar stops its service while a Sealed version sits in its lockfile.
-      </PageHeader>
+      <PageHeader title="Services behind the breaker">Each sidecar stops its service while a Sealed version sits in its lockfile.</PageHeader>
       <QueryState
         query={services}
         loading="Loading service status from the watcher."
@@ -29,8 +28,16 @@ export default function ServicesPage() {
         isEmpty={(items) => items.length === 0}
       >
         {(items) => (
+          <>
+          <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <Stat label="flowing" value={<CountUp value={items.filter((item) => item.healthy).length} />} tone="text-jade" />
+            <Stat label="blocked" value={<CountUp value={items.filter((item) => !item.healthy).length} />} tone="text-persimmon" />
+            <div className="col-span-2 sm:col-span-1">
+              <Stat label="packages checked" value={<CountUp value={items.reduce((sum, item) => sum + item.report.packagesChecked, 0)} />} />
+            </div>
+          </div>
           <div className="relative">
-            <div className="grid items-start gap-x-12 gap-y-14 sm:grid-cols-3">
+            <div className="grid items-start gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((item, index) => (
                 <motion.div
                   key={item.service}
@@ -55,6 +62,7 @@ export default function ServicesPage() {
             </div>
             {webgl && <BreakerScene items={items.map((item) => ({ id: item.service, state: breakerState(item) }))} slots={slots} />}
           </div>
+          </>
         )}
       </QueryState>
     </>

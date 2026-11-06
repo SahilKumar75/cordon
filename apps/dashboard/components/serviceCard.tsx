@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { GuardOutcome, ServiceStatus } from "@cordon/shared";
 import { formatDateTime, formatGap } from "@/lib/format";
+import { GlyphBadge } from "./glyphs";
 import type { IconName } from "./icon";
 import { Notice, Status } from "./ui";
 
@@ -80,8 +81,20 @@ export function ServiceCard({ status, slot }: { status: ServiceStatus; slot?: (n
         : "none, age fallback in use";
   const breaker = breakerState(status);
   return (
-    <article className="min-w-0">
-      <h2 className="text-[15px]">{status.service}</h2>
+    <article className="panel lift relative min-w-0 overflow-hidden px-5 pb-5 pt-5">
+      <span
+        aria-hidden="true"
+        className={`absolute inset-y-0 left-0 w-1 ${status.healthy ? "bg-gradient-to-b from-jade to-jade/10" : "bg-gradient-to-b from-persimmon to-copper/20"}`}
+      />
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute -right-16 -top-16 h-48 w-48 ${status.healthy ? "glowCopper" : "glowPersimmon"}`}
+      />
+      <div className="relative flex items-center gap-3">
+        <GlyphBadge name="services" size={22} active />
+        <h2 className="text-[15px]">{status.service}</h2>
+        <span className="ml-auto text-[12px] tabular-nums text-jade">{report.packagesChecked} pkg</span>
+      </div>
       {slot ? (
         <div ref={slot} role="img" aria-label={breakerView[breaker].label} className={`relative my-5 aspect-[2/1] w-full max-w-52 ${breakerView[breaker].color}`}>
           <span className="absolute right-0 top-0 font-mono text-[10px] tracking-[0.1em]">{breakerView[breaker].plate}</span>
@@ -89,8 +102,8 @@ export function ServiceCard({ status, slot }: { status: ServiceStatus; slot?: (n
       ) : (
         <BreakerSwitch state={breaker} />
       )}
-      <p className={`font-display text-[40px] leading-none ${status.healthy ? "text-jade" : "text-persimmon"}`}>{status.healthy ? "Flowing" : "Blocked"}</p>
-      <details className="fold mt-5">
+      <p className={`relative font-display text-[40px] leading-none ${status.healthy ? "text-jade" : "text-persimmon"}`}>{status.healthy ? "Flowing" : "Blocked"}</p>
+      <details className="fold relative mt-5">
         <summary>Details</summary>
         <div className="mt-4 space-y-6">
           <Status icon={outcome.icon} tone={outcome.tone}>{outcome.label}</Status>

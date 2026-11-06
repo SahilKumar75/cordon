@@ -8,6 +8,7 @@ import { hex32Schema, sealRegistryAbi, sealStatusNames, signedSnapshotSchema, ty
 import { usePolled } from "@/lib/api";
 import { chain } from "@/lib/env";
 import { Dimension } from "./drawing";
+import { Icon } from "./icon";
 import { formatDateTime, formatGap } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { BrokenLine, ChainLink, errorText, Notice, QueryState, SealStatus, Status } from "./ui";
@@ -19,7 +20,7 @@ export function Guardian({ registry, initialKey }: { registry: Address; initialK
     <div className="space-y-6">
       <WalletBar />
       <SuspectQueue onPick={setKey} />
-      <label className="block space-y-2">
+      <label className="panel block space-y-2 px-5 py-4">
         <span className="text-sm font-medium">Seal key</span>
         <input className="field" value={key} onChange={(event) => setKey(event.target.value.trim())} placeholder="0x…" spellCheck={false} />
       </label>
@@ -47,7 +48,7 @@ function WalletBar() {
   const connector = connect.connectors[0];
   if (!isConnected || !address)
     return (
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="panel flex flex-wrap items-center gap-4 px-5 py-4">
         <Status icon="wallet" tone="muted">No wallet connected</Status>
         <button className="button" disabled={!connector || connect.isPending} onClick={() => connector && connect.connect({ connector })}>
           {connect.isPending ? "Waiting for the wallet" : "Connect browser wallet"}
@@ -56,7 +57,7 @@ function WalletBar() {
       </div>
     );
   return (
-    <div className="flex flex-wrap items-center gap-4">
+    <div className="panel flex flex-wrap items-center gap-4 px-5 py-4">
       <Status icon="wallet">Connected</Status>
       <ChainLink kind="address" value={address} />
       {chainId === targetId ? (
@@ -126,7 +127,7 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
                 ? "Write a reason first."
                 : null;
         return (
-          <div className="space-y-6 border-t border-plum pt-6">
+          <div className="panel space-y-6 px-5 py-6 sm:px-7">
             <div className="flex flex-wrap items-center gap-6">
               <SealStatus status={suspect ? "Suspect" : status} />
               <span className="text-sm text-jade">
@@ -212,13 +213,21 @@ function SuspectQueue({ onPick }: { onPick: (key: string) => void }) {
         The Suspect queue did not load: {snapshot.error.message}
       </Notice>
     );
-  if (!suspects.length) return <Status icon="check" tone="muted">No Suspect versions waiting for a decision.</Status>;
+  if (!suspects.length)
+    return (
+      <div className="panel px-5 py-4">
+        <Status icon="check" tone="muted">No Suspect versions waiting for a decision.</Status>
+      </div>
+    );
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-medium">Suspect versions waiting for a decision</h2>
-      <ul className="divide-y divide-plum border-y border-plum">
+      <ul className="grid gap-3 sm:grid-cols-2">
         {suspects.map((entry) => (
-          <li key={entry.key} className="flex flex-wrap items-center gap-x-6 gap-y-1 py-3 text-[13px]">
+          <li key={entry.key} className="panel lift flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-4 text-[13px]">
+            <span className="text-persimmon">
+              <Icon name="warning" />
+            </span>
             <button className="text-bone underline decoration-plum underline-offset-4 hover:text-copper" onClick={() => onPick(entry.key)}>
               {entry.name}@{entry.version}
             </button>

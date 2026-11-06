@@ -4,22 +4,31 @@ import { detectorIds, evidenceHashOf, evidenceSchema, type Attestation, type Hex
 import type { UseQueryResult } from "@tanstack/react-query";
 import { usePolled } from "@/lib/api";
 import { detectorNames, formatDateTime, shortHash } from "@/lib/format";
+import { GlyphBadge } from "./glyphs";
+import { Reveal } from "./reveal";
 import { ChainLink, Notice, QueryState, SimulatedTag, Status } from "./ui";
 
 export function EvidenceList({ sealKey, attestations }: { sealKey: Hex32; attestations: UseQueryResult<Attestation[]> }) {
   return (
     <QueryState query={attestations} loading="Loading verdicts from the watcher.">
       {(items) => (
-        <div>
-          {detectorIds.map((detector) => {
+        <div className="space-y-4">
+          {detectorIds.map((detector, index) => {
             const verdict = items.find((item) => item.key === sealKey && item.detector === detector);
-            return verdict ? (
-              <EvidenceCard key={detector} verdict={verdict} />
-            ) : (
-              <div key={detector} className="flex flex-wrap items-center justify-between gap-2 border-t border-plum py-4">
-                <span className="font-medium">{detectorNames[detector]}</span>
-                <Status icon="pending" tone="muted">No verdict from this detector</Status>
-              </div>
+            return (
+              <Reveal key={detector} index={index}>
+                {verdict ? (
+                  <EvidenceCard verdict={verdict} />
+                ) : (
+                  <div className="panel flex flex-wrap items-center justify-between gap-2 px-5 py-4">
+                    <span className="flex items-center gap-3">
+                      <GlyphBadge name={detector} />
+                      {detectorNames[detector]}
+                    </span>
+                    <Status icon="pending" tone="muted">No verdict from this detector</Status>
+                  </div>
+                )}
+              </Reveal>
             );
           })}
         </div>
@@ -31,9 +40,10 @@ export function EvidenceList({ sealKey, attestations }: { sealKey: Hex32; attest
 function EvidenceCard({ verdict }: { verdict: Attestation }) {
   const evidence = usePolled("detectors", `/evidence/${verdict.evidenceHash}`, evidenceSchema, false);
   return (
-    <article className="border-t border-plum">
+    <article className="panel lift overflow-hidden px-5">
       <header className="flex flex-wrap items-center justify-between gap-3 py-4">
         <div className="flex flex-wrap items-center gap-3">
+          <GlyphBadge name={verdict.detector} alarm={verdict.malicious} active />
           <span className="font-medium">{detectorNames[verdict.detector]}</span>
           {(verdict.simulated || evidence.data?.simulated) && <SimulatedTag />}
           <Status icon={verdict.malicious ? "blocked" : "check"} tone={verdict.malicious ? "accent" : "clean"}>
@@ -48,7 +58,8 @@ function EvidenceCard({ verdict }: { verdict: Attestation }) {
           <Status icon="info" tone="muted">Clean, kept off chain</Status>
         )}
       </header>
-      <div className="space-y-4 pb-6">
+      <div className="hairline" />
+      <div className="space-y-4 pb-5 pt-4">
         <QueryState query={evidence} loading="Loading evidence from the detectors service.">
           {(body) => (
             <>
