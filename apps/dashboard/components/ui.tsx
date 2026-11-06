@@ -101,7 +101,14 @@ export function ChainGate({ children }: { children: (registry: Address) => React
   return children(registryAddress);
 }
 
-type QueryLike<T> = { status: "pending" | "error" | "success"; error: { message: string; shortMessage?: string } | null; data: T | undefined };
+type LoadError = { message: string; shortMessage?: string };
+
+type QueryLike<T> = { status: "pending" | "error" | "success"; error: LoadError | null; data: T | undefined };
+
+export function errorText(error: LoadError | null | undefined): string {
+  const text = error?.shortMessage ?? error?.message ?? "Something went wrong while loading.";
+  return text === "HTTP request failed." ? `The chain RPC at ${chain?.rpcUrls.default.http[0] ?? "NEXT_PUBLIC_RPC_URL"} did not answer.` : text;
+}
 
 export function QueryState<T>({
   query,
@@ -125,7 +132,7 @@ export function QueryState<T>({
   if (query.status === "error")
     return (
       <Notice icon="warning" tone="accent">
-        {query.error?.shortMessage ?? query.error?.message ?? "Something went wrong while loading."}
+        {errorText(query.error)}
       </Notice>
     );
   const data = query.data as T;

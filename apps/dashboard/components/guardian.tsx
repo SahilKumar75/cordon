@@ -7,7 +7,7 @@ import { hex32Schema, sealRegistryAbi, sealStatusNames, type Hex32 } from "@cord
 import { chain } from "@/lib/env";
 import { formatDateTime, formatGap } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
-import { ChainLink, Notice, QueryState, SealStatus, Status } from "./ui";
+import { ChainLink, errorText, Notice, QueryState, SealStatus, Status } from "./ui";
 
 export function Guardian({ registry, initialKey }: { registry: Address; initialKey: string }) {
   const [key, setKey] = useState(initialKey);
@@ -113,7 +113,7 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
               (disputeWindow.error ? (
                 <Notice icon="warning" tone="accent">
                   Could not read the dispute window, so unseal stays disabled:{" "}
-                  {(disputeWindow.error as { shortMessage?: string }).shortMessage ?? disputeWindow.error.message}
+                  {errorText(disputeWindow.error)}
                 </Notice>
               ) : opensAt === null ? (
                 <Status icon="clock" tone="muted">Reading the dispute window</Status>
@@ -144,7 +144,7 @@ function SealControl({ registry: address, sealKey }: { registry: Address; sealKe
             {write.isPending && <Status icon="wallet" tone="muted">Confirm the transaction in your wallet.</Status>}
             {write.error && (
               <Notice icon="warning" tone="accent">
-                {(write.error as { shortMessage?: string }).shortMessage ?? write.error.message}
+                {errorText(write.error)}
               </Notice>
             )}
             {write.data && (
