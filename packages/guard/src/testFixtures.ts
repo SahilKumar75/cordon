@@ -64,8 +64,9 @@ function unsealLog(key: Hex32) {
 
 export function chainTransport(
   seals: { key: Hex32; status: number }[],
-  options: { remoteChainId?: number; calls?: string[]; unsealEvents?: Hex32[] } = {},
+  options: { remoteChainId?: number; calls?: string[]; unsealEvents?: Hex32[]; flagged?: { key: Hex32; status: number; votes: number }[] } = {},
 ) {
+  const flagged = options.flagged ?? [];
   return custom(
     {
       request: async ({ method, params }: { method: string; params?: unknown }) => {
@@ -80,6 +81,18 @@ export function chainTransport(
         const decoded = decodeFunctionData({ abi: sealRegistryAbi, data: call.data });
         if (decoded.functionName === "sealedKeyCount") {
           return encodeFunctionResult({ abi: sealRegistryAbi, functionName: "sealedKeyCount", result: BigInt(seals.length) });
+        }
+        if (decoded.functionName === "flaggedKeyCount") {
+          return encodeFunctionResult({ abi: sealRegistryAbi, functionName: "flaggedKeyCount", result: BigInt(flagged.length) });
+        }
+        if (decoded.functionName === "flaggedKeys") {
+          const [offset, limit] = decoded.args as readonly [bigint, bigint];
+          const page = flagged.slice(Number(offset), Number(offset + limit));
+          return encodeFunctionResult({
+            abi: sealRegistryAbi,
+            functionName: "flaggedKeys",
+            result: [page.map((item) => item.key), page.map((item) => item.status), page.map((item) => item.votes)],
+          });
         }
         if (decoded.functionName !== "sealedKeys") throw new Error(`unexpected ${decoded.functionName}`);
         const [offset, limit] = decoded.args as readonly [bigint, bigint];
@@ -111,7 +124,7 @@ export function snapshotOf(overrides: Partial<SealedSnapshot> = {}): SealedSnaps
     registry: registryAddress,
     blockNumber: 42,
     generatedAt: new Date(now.getTime() - 60_000).toISOString(),
-    entries: [{ name: sealedName, version: sealedVersion, key: sealedKey, status: "Sealed", sealedAt: now.toISOString() }],
+    entries: [{ name: sealedName, version: sealedVersion, key: sealedKey, status: "Sealed", sealedAt: now.toISOString(), votes: 2, suspectUntil: null }],
     timelineHeads: [],
     ...overrides,
   };
@@ -132,6 +145,8 @@ export function settingsFor(lockfile: string, overrides: Partial<GuardSettings> 
     minAgeDays: 0,
     registryUrl: null,
     allowNonRegistrySources: false,
+    allowSuspect: [],
+    suspectBlocks: true,
     chainId,
     rpcUrl: null,
     registryAddress,

@@ -30,6 +30,8 @@ contract SealRegistryTest is Test {
     event Sealed(bytes32 indexed key, string ecosystem, string name, string version, uint16 votes, uint64 at);
     event Unsealed(bytes32 indexed key, address indexed guardian, bytes32 reasonHash, uint64 at);
     event Resealed(bytes32 indexed key, address indexed guardian, bytes32 reasonHash, uint64 at);
+    event Promoted(bytes32 indexed key, address indexed guardian, bytes32 reasonHash, uint64 at);
+    event Cleared(bytes32 indexed key, address indexed guardian, bytes32 reasonHash, uint64 at);
 
     function setUp() public {
         vm.warp(startTime);
@@ -148,9 +150,9 @@ contract SealRegistryTest is Test {
         vote(detectorA, badVersion);
     }
 
-    function test_duplicateVoteRevertsUntilLifetimeEnds() public {
+    function test_duplicateVoteRevertsUntilRefreshPoint() public {
         bytes32 key = vote(detectorA, badVersion);
-        vm.warp(startTime + lifetime - 1);
+        vm.warp(startTime + lifetime / 2 - 1);
         vm.expectRevert(abi.encodeWithSelector(ISealRegistry.DuplicateVote.selector, key, detectorA));
         vote(detectorA, badVersion);
     }
@@ -422,5 +424,137 @@ contract SealRegistryTest is Test {
 
         (keys,) = registry.sealedKeys(0, 0);
         assertEq(keys.length, 0);
+    }
+
+    function test_refreshKeepsVoteLiveWithoutCountingTwice() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.warp(startTime + lifetime / 2);
+        assertTrue(registry.canVote(key, detectorA));
+        vote(detectorA, badVersion);
+        assertEq(registry.liveVotes(key), 1);
+        vm.warp(startTime + lifetime + 1);
+        assertTrue(registry.isSuspect(key));
+    }
+
+    function test_singleVoteMakesSuspectUntilExpiry() public {
+        bytes32 key = registry.keyOf(npm, packageName, badVersion);
+        assertFalse(registry.isSuspect(key));
+        vote(detectorA, badVersion);
+        assertTrue(registry.isSuspect(key));
+        assertFalse(registry.isSealed(key));
+        vm.warp(startTime + lifetime);
+        assertFalse(registry.isSuspect(key));
+        assertEq(registry.liveVotes(key), 0);
+    }
+
+    function test_flaggedKeysListEveryVotedVersionOnce() public {
+        bytes32 bad = vote(detectorA, badVersion);
+        vote(detectorB, badVersion);
+        bytes32 other = vote(detectorC, goodVersion);
+        assertEq(registry.flaggedKeyCount(), 2);
+        (bytes32[] memory keys, ISealRegistry.Status[] memory statuses, uint16[] memory votes) = registry.flaggedKeys(0, 10);
+        assertEq(keys[0], bad);
+        assertEq(uint8(statuses[0]), uint8(ISealRegistry.Status.Sealed));
+        assertEq(votes[0], 2);
+        assertEq(keys[1], other);
+        assertEq(uint8(statuses[1]), uint8(ISealRegistry.Status.None));
+        assertEq(votes[1], 1);
+        (keys,,) = registry.flaggedKeys(1, 10);
+        assertEq(keys.length, 1);
+        (keys,,) = registry.flaggedKeys(5, 10);
+        assertEq(keys.length, 0);
+    }
+
+    function test_guardianPromotesSuspectToSealed() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.warp(startTime + 50);
+        vm.expectEmit(true, true, false, true, address(registry));
+        emit Promoted(key, guardian, reason, startTime + 50);
+        vm.prank(guardian);
+        registry.promote(key, reason);
+        ISealRegistry.Seal memory seal = registry.getSeal(key);
+        assertEq(uint8(seal.status), uint8(ISealRegistry.Status.Sealed));
+        assertEq(seal.sealedAt, startTime + 50);
+        assertEq(registry.sealedKeyCount(), 1);
+        assertFalse(registry.isSuspect(key));
+    }
+
+    function test_promotedSealKeepsDisputeWindow() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.prank(guardian);
+        registry.promote(key, reason);
+        vm.prank(guardian);
+        vm.expectRevert(abi.encodeWithSelector(ISealRegistry.DisputeWindowOpen.selector, startTime + window));
+        registry.unseal(key, reason);
+    }
+
+    function test_promoteNeedsALiveVote() public {
+        bytes32 key = registry.keyOf(npm, packageName, badVersion);
+        vm.prank(guardian);
+        vm.expectRevert(abi.encodeWithSelector(ISealRegistry.NotSuspect.selector, key));
+        registry.promote(key, reason);
+
+        vote(detectorA, badVersion);
+        vm.warp(startTime + lifetime);
+        vm.prank(guardian);
+        vm.expectRevert(abi.encodeWithSelector(ISealRegistry.NotSuspect.selector, key));
+        registry.promote(key, reason);
+    }
+
+    function test_promoteRejectsSealedKey() public {
+        bytes32 key = sealVersion(badVersion);
+        vm.prank(guardian);
+        vm.expectRevert(abi.encodeWithSelector(ISealRegistry.NotSuspect.selector, key));
+        registry.promote(key, reason);
+    }
+
+    function test_guardianClearsSuspect() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.warp(startTime + 70);
+        vm.expectEmit(true, true, false, true, address(registry));
+        emit Cleared(key, guardian, reason, startTime + 70);
+        vm.prank(guardian);
+        registry.clear(key, reason);
+        ISealRegistry.Seal memory seal = registry.getSeal(key);
+        assertEq(uint8(seal.status), uint8(ISealRegistry.Status.Cleared));
+        assertEq(seal.clearedAt, startTime + 70);
+        assertFalse(registry.isSuspect(key));
+        assertFalse(registry.canVote(key, detectorB));
+        assertEq(registry.sealedKeyCount(), 0);
+    }
+
+    function test_voteOnClearedKeyReverts() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.prank(guardian);
+        registry.clear(key, reason);
+        vm.expectRevert(abi.encodeWithSelector(ISealRegistry.KeyCleared.selector, key));
+        vote(detectorB, badVersion);
+    }
+
+    function test_clearNeedsALiveVote() public {
+        bytes32 key = registry.keyOf(npm, packageName, badVersion);
+        vm.prank(guardian);
+        vm.expectRevert(abi.encodeWithSelector(ISealRegistry.NotSuspect.selector, key));
+        registry.clear(key, reason);
+    }
+
+    function test_resealFromClearedAddsToSealedList() public {
+        bytes32 key = vote(detectorA, badVersion);
+        vm.prank(guardian);
+        registry.clear(key, reason);
+        vm.prank(guardian);
+        registry.reseal(key, reason);
+        assertTrue(registry.isSealed(key));
+        assertEq(registry.sealedKeyCount(), 1);
+    }
+
+    function test_onlyGuardianCanPromoteOrClear() public {
+        bytes32 key = vote(detectorA, badVersion);
+        expectUnauthorized(detectorB, registry.GUARDIAN_ROLE());
+        vm.prank(detectorB);
+        registry.promote(key, reason);
+        expectUnauthorized(detectorB, registry.GUARDIAN_ROLE());
+        vm.prank(detectorB);
+        registry.clear(key, reason);
     }
 }

@@ -68,7 +68,11 @@ The guard asks one RPC provider for the Sealed list and checks only that it repo
 
 ## Vote lifetime
 
-A vote counts toward quorum for VOTE_LIFETIME_SECONDS after it is cast, fixed at deploy (86400 seconds in our config). A stale vote from an old scan no longer combines with a new one to seal. A detector can vote again on the same version once its earlier vote expired. Expiry does not limit a compromised detector key, which can keep voting until the registry is replaced, because roles freeze at deploy.
+A vote counts toward quorum for VOTE_LIFETIME_SECONDS after it is cast, fixed at deploy (86400 seconds in our config). A stale vote from an old scan no longer combines with a new one to seal. A detector can vote again on the same version once half of its earlier vote's lifetime has passed, which refreshes the vote without counting it twice. Expiry does not limit a compromised detector key, which can keep voting until the registry is replaced, because roles freeze at deploy.
+
+## Suspect versions
+
+A version with live votes below quorum is Suspect, and guards block it by default. One compromised or broken detector key can therefore hold any version for up to VOTE_LIFETIME_SECONDS after its last vote. Each project can override one version at a time with --allow-suspect, and the guardian can clear it. A Suspect version returns to allowed when every vote expires, which also happens if the only detector that could see the attack is down when the watcher rescans. The sidecar only warns on Suspect, so a running service keeps serving a Suspect version until it is Sealed. The watcher snapshot can only name a Suspect version it saw published; the chain read in the guard has no such gap.
 
 ## Age fallback when the Sealed list is unavailable
 

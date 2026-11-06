@@ -74,7 +74,7 @@ async function servedSnapshot(changes: Partial<SealedSnapshot>): Promise<Running
     registry,
     blockNumber: 1,
     generatedAt: new Date().toISOString(),
-    entries: [{ key: poisoned, name, version: "1.4.1", status: "Sealed", sealedAt: new Date().toISOString() }],
+    entries: [{ key: poisoned, name, version: "1.4.1", status: "Sealed", sealedAt: new Date().toISOString(), votes: 2, suspectUntil: null }],
     timelineHeads: [],
     ...changes,
   };

@@ -20,6 +20,7 @@ contract SealRegistry is ISealRegistry, AccessControl {
     mapping(bytes32 => address[]) private voters;
     mapping(uint64 => uint16) private sealsOnDay;
     bytes32[] private sealedKeyList;
+    bytes32[] private flaggedKeyList;
 
     constructor(
         address guardian,
@@ -65,26 +66,60 @@ contract SealRegistry is ISealRegistry, AccessControl {
         Seal storage seal = seals[key];
         if (seal.status == Status.Sealed) revert AlreadySealed(key);
         if (seal.status == Status.Unsealed) revert KeyUnsealed(key);
+        if (seal.status == Status.Cleared) revert KeyCleared(key);
         uint64 previousVote = votedAt[key][msg.sender];
-        if (isLive(previousVote)) revert DuplicateVote(key, msg.sender);
+        if (!isRefreshable(previousVote)) revert DuplicateVote(key, msg.sender);
         if (previousVote == 0) voters[key].push(msg.sender);
         votedAt[key][msg.sender] = uint64(block.timestamp);
-        if (seal.firstVoteAt == 0) seal.firstVoteAt = uint64(block.timestamp);
-        address[] storage list = voters[key];
-        uint16 live = 0;
-        for (uint256 i = 0; i < list.length; i++) {
-            if (isLive(votedAt[key][list[i]])) live++;
+        if (seal.firstVoteAt == 0) {
+            seal.firstVoteAt = uint64(block.timestamp);
+            flaggedKeyList.push(key);
         }
-        seal.votes = live;
+        seal.votes = countLive(key);
         emit VerdictSubmitted(key, msg.sender, evidenceHash, seal.votes, uint64(block.timestamp));
         if (seal.votes < quorum) return key;
         uint64 day = uint64(block.timestamp / 1 days);
         if (sealsOnDay[day] == maxSealsPerDay) revert SealRateLimited(day);
         sealsOnDay[day] += 1;
+        markSealed(seal, key);
+        emit Sealed(key, ecosystem, name, version, quorum, uint64(block.timestamp));
+    }
+
+    function markSealed(Seal storage seal, bytes32 key) private {
+        if (seal.sealedAt == 0) sealedKeyList.push(key);
         seal.status = Status.Sealed;
         seal.sealedAt = uint64(block.timestamp);
-        sealedKeyList.push(key);
-        emit Sealed(key, ecosystem, name, version, quorum, uint64(block.timestamp));
+    }
+
+    function countLive(bytes32 key) private view returns (uint16 live) {
+        address[] storage list = voters[key];
+        for (uint256 i = 0; i < list.length; i++) {
+            if (isLive(votedAt[key][list[i]])) live++;
+        }
+    }
+
+    function isRefreshable(uint64 at) private view returns (bool) {
+        return at == 0 || block.timestamp >= uint256(at) + voteLifetime / 2;
+    }
+
+    function requireSuspect(Seal storage seal, bytes32 key) private view {
+        if (seal.status != Status.None || countLive(key) == 0) revert NotSuspect(key);
+    }
+
+    function promote(bytes32 key, bytes32 reasonHash) external onlyRole(GUARDIAN_ROLE) {
+        Seal storage seal = seals[key];
+        requireSuspect(seal, key);
+        seal.votes = countLive(key);
+        markSealed(seal, key);
+        emit Promoted(key, msg.sender, reasonHash, seal.sealedAt);
+    }
+
+    function clear(bytes32 key, bytes32 reasonHash) external onlyRole(GUARDIAN_ROLE) {
+        Seal storage seal = seals[key];
+        requireSuspect(seal, key);
+        seal.status = Status.Cleared;
+        seal.clearedAt = uint64(block.timestamp);
+        emit Cleared(key, msg.sender, reasonHash, seal.clearedAt);
     }
 
     function isLive(uint64 at) private view returns (bool) {
@@ -107,9 +142,8 @@ contract SealRegistry is ISealRegistry, AccessControl {
 
     function reseal(bytes32 key, bytes32 reasonHash) external onlyRole(GUARDIAN_ROLE) {
         Seal storage seal = seals[key];
-        if (seal.status != Status.Unsealed) revert NotUnsealed(key);
-        seal.status = Status.Sealed;
-        seal.sealedAt = uint64(block.timestamp);
+        if (seal.status != Status.Unsealed && seal.status != Status.Cleared) revert NotUnsealed(key);
+        markSealed(seal, key);
         emit Resealed(key, msg.sender, reasonHash, seal.sealedAt);
     }
 
@@ -125,6 +159,45 @@ contract SealRegistry is ISealRegistry, AccessControl {
         return isLive(votedAt[key][detector]);
     }
 
+    function canVote(bytes32 key, address detector) external view returns (bool) {
+        return seals[key].status == Status.None && isRefreshable(votedAt[key][detector]);
+    }
+
+    function liveVotes(bytes32 key) external view returns (uint16) {
+        return countLive(key);
+    }
+
+    function isSuspect(bytes32 key) external view returns (bool) {
+        return seals[key].status == Status.None && countLive(key) > 0;
+    }
+
+    function flaggedKeyCount() external view returns (uint256) {
+        return flaggedKeyList.length;
+    }
+
+    function flaggedKeys(uint256 offset, uint256 limit)
+        external
+        view
+        returns (bytes32[] memory keys, Status[] memory statuses, uint16[] memory votes)
+    {
+        keys = page(flaggedKeyList, offset, limit);
+        statuses = new Status[](keys.length);
+        votes = new uint16[](keys.length);
+        for (uint256 i = 0; i < keys.length; i++) {
+            statuses[i] = seals[keys[i]].status;
+            votes[i] = countLive(keys[i]);
+        }
+    }
+
+    function page(bytes32[] storage list, uint256 offset, uint256 limit) private view returns (bytes32[] memory keys) {
+        uint256 total = list.length;
+        uint256 count = offset >= total ? 0 : total - offset < limit ? total - offset : limit;
+        keys = new bytes32[](count);
+        for (uint256 i = 0; i < count; i++) {
+            keys[i] = list[offset + i];
+        }
+    }
+
     function sealedKeyCount() external view returns (uint256) {
         return sealedKeyList.length;
     }
@@ -134,12 +207,9 @@ contract SealRegistry is ISealRegistry, AccessControl {
         view
         returns (bytes32[] memory keys, Status[] memory statuses)
     {
-        uint256 total = sealedKeyList.length;
-        uint256 count = offset >= total ? 0 : total - offset < limit ? total - offset : limit;
-        keys = new bytes32[](count);
-        statuses = new Status[](count);
-        for (uint256 i = 0; i < count; i++) {
-            keys[i] = sealedKeyList[offset + i];
+        keys = page(sealedKeyList, offset, limit);
+        statuses = new Status[](keys.length);
+        for (uint256 i = 0; i < keys.length; i++) {
             statuses[i] = seals[keys[i]].status;
         }
     }

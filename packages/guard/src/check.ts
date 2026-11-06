@@ -7,6 +7,7 @@ import {
   type GuardBlock,
   type GuardOutcome,
   type GuardReport,
+  type GuardSuspect,
   type Hex32,
   type PackageVersion,
 } from "@cordon/shared";
@@ -38,6 +39,8 @@ export type GuardSettings = ListSettings &
     minAgeDays: number;
     registryUrl: string | null;
     allowNonRegistrySources: boolean;
+    allowSuspect: string[];
+    suspectBlocks: boolean;
     assumeInstalled: boolean;
   };
 
@@ -72,6 +75,26 @@ function blocksOf(entries: LockEntry[], list: SealedList, lockfilePath: string, 
     const installed = readJson(join(directoryOf(lockfilePath), entry.path, "package.json")) as Partial<PackageVersion> | null;
     const alreadyInstalled = assumeInstalled || (installed?.name === entry.name && installed.version === entry.version);
     return [{ name: entry.name, version: entry.version, key, lockfilePath, alreadyInstalled }];
+  });
+}
+
+function suspectsOf(entries: LockEntry[], list: SealedList, lockfilePath: string, settings: GuardSettings): GuardSuspect[] {
+  return entries.flatMap((entry) => {
+    const key = sealKeyOf(entry.name, entry.version);
+    const info = list.suspects.get(key);
+    if (!info || list.keys.has(key)) return [];
+    const allowed = !settings.suspectBlocks || settings.allowSuspect.includes(`${entry.name}@${entry.version}`);
+    return [{ name: entry.name, version: entry.version, key, lockfilePath, votes: info.votes, suspectUntil: info.suspectUntil, allowed }];
+  });
+}
+
+export function suspectAdvice(suspects: GuardSuspect[]): string[] {
+  const unique = [...new Map(suspects.map((suspect) => [suspect.key, suspect])).values()];
+  return unique.map(({ name, version, votes, allowed }) => {
+    const flagged = `${name}@${version} is Suspect: ${votes} detector${votes === 1 ? "" : "s"} flagged it and quorum is not reached yet.`;
+    return allowed
+      ? `Warning: ${flagged} It does not block this run.`
+      : `${flagged} Review the evidence on the dashboard, wait for the guardian, or allow this one version with --allow-suspect ${name}@${version}.`;
   });
 }
 
@@ -120,6 +143,7 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
     fallback: null,
     packagesChecked: 0,
     blocked: [],
+    suspect: [],
     nonRegistrySources: [],
     hookFiles: [],
     tooYoung: [],
@@ -133,9 +157,11 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
   const ageLimit = Math.max(fallback?.minAgeDays ?? 0, settings.minAgeDays);
   const readPackument = packumentReader(settings.registryUrl, settings.fetchFn, settings.warn);
   const blocked = blocksOf(read.entries, list, path, settings.assumeInstalled);
+  const suspect = suspectsOf(read.entries, list, path, settings);
+  const heldSuspects = suspect.filter((entry) => !entry.allowed);
   const { tooYoung, unreadable } = ageLimit > 0 ? await findTooYoung(read.entries, ageLimit, readPackument, now) : { tooYoung: [], unreadable: [] };
-  const limits = { sealedKeys: list.keys, minAgeDays: ageLimit, now };
-  const rollback = await proposeRollbacks([...blocked, ...tooYoung], limits, readPackument);
+  const limits = { sealedKeys: new Set([...list.keys, ...list.suspects.keys()]), minAgeDays: ageLimit, now };
+  const rollback = await proposeRollbacks([...blocked, ...heldSuspects, ...tooYoung], limits, readPackument);
   const sources = nonRegistrySourcesOf(read.entries, path, settings.registryUrl ?? defaultRegistryUrl);
   const git = nonRegistryVerdict(sources, settings.allowNonRegistrySources);
   const unreadableAdvice = unreadable.length ? [`Publish time could not be read for ${unreadable.join(", ")}, so these count as too young.`] : [];
@@ -152,11 +178,12 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
     fallback,
     packagesChecked: read.entries.length,
     blocked,
+    suspect,
     nonRegistrySources: sources,
     tooYoung,
     rollback,
-    advice: [...fallbackAdvice, ...git.advice, ...unreadableAdvice, ...adviceFor(blocked)],
-    outcome: blocked.length || tooYoung.length || git.blocks ? "blocked" : "allowed",
+    advice: [...fallbackAdvice, ...git.advice, ...unreadableAdvice, ...suspectAdvice(suspect), ...adviceFor(blocked)],
+    outcome: blocked.length || heldSuspects.length || tooYoung.length || git.blocks ? "blocked" : "allowed",
   };
 }
 

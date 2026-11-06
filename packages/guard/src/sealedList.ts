@@ -19,8 +19,11 @@ export type ListSettings = {
   warn: (message: string) => void;
 };
 
-export type SealedList = { source: ListSource; keys: Set<Hex32>; snapshotAgeSeconds: number | null };
+export type SuspectInfo = { votes: number; suspectUntil: string | null };
 
+export type SealedList = { source: ListSource; keys: Set<Hex32>; suspects: Map<Hex32, SuspectInfo>; snapshotAgeSeconds: number | null };
+
+const noneStatus = 0;
 const sealedStatus = 1;
 const unsealedStatus = 2;
 const pageSize = 500n;
@@ -28,7 +31,25 @@ const cacheFileName = "sealedSnapshot.json";
 const knownFileName = "knownSealed.json";
 const clockSkewSeconds = 60;
 
-type ChainRead = { client: PublicClient; sealed: Set<Hex32>; unsealed: Set<Hex32> };
+type ChainRead = { client: PublicClient; sealed: Set<Hex32>; unsealed: Set<Hex32>; suspects: Map<Hex32, SuspectInfo> };
+
+async function readSuspects(client: PublicClient, registry: Address): Promise<Map<Hex32, SuspectInfo>> {
+  const total = await client.readContract({ address: registry, abi: sealRegistryAbi, functionName: "flaggedKeyCount" });
+  const suspects = new Map<Hex32, SuspectInfo>();
+  for (let offset = 0n; offset < total; offset += pageSize) {
+    const [page, statuses, votes] = await client.readContract({
+      address: registry,
+      abi: sealRegistryAbi,
+      functionName: "flaggedKeys",
+      args: [offset, pageSize],
+    });
+    page.forEach((key, index) => {
+      const live = votes[index] ?? 0;
+      if (statuses[index] === noneStatus && live > 0) suspects.set(key.toLowerCase() as Hex32, { votes: live, suspectUntil: null });
+    });
+  }
+  return suspects;
+}
 
 async function readChain(settings: ListSettings, registry: Address, chainId: number): Promise<ChainRead> {
   const transport = settings.transport ?? http(settings.rpcUrl ?? undefined, { retryCount: 0, timeout: 10_000 });
@@ -50,7 +71,7 @@ async function readChain(settings: ListSettings, registry: Address, chainId: num
       if (statuses[index] === unsealedStatus) unsealed.add(key.toLowerCase() as Hex32);
     });
   }
-  return { client, sealed, unsealed };
+  return { client, sealed, unsealed, suspects: await readSuspects(client, registry) };
 }
 
 async function hasUnsealEvent(read: ChainRead, registry: Address, key: Hex32, fromBlock: number): Promise<boolean> {
@@ -78,7 +99,7 @@ async function chainList(settings: ListSettings, known: Set<Hex32>): Promise<Sea
     );
     return null;
   }
-  return { source: "chain", keys: read.sealed, snapshotAgeSeconds: null };
+  return { source: "chain", keys: read.sealed, suspects: read.suspects, snapshotAgeSeconds: null };
 }
 
 async function snapshotProblem(signed: SignedSnapshot, settings: ListSettings): Promise<string | null> {
@@ -158,11 +179,14 @@ async function snapshotList(settings: ListSettings, known: Set<Hex32>): Promise<
   const entries = signed?.snapshot.entries ?? [];
   const keys = new Set(entries.filter((entry) => entry.status === "Sealed").map((entry) => entry.key as Hex32));
   const unsealed = new Set(entries.filter((entry) => entry.status === "Unsealed").map((entry) => entry.key as Hex32));
+  const suspects = new Map(
+    entries.filter((entry) => entry.status === "Suspect").map((entry) => [entry.key as Hex32, { votes: entry.votes, suspectUntil: entry.suspectUntil }]),
+  );
   const kept = [...known].filter((key) => !keys.has(key) && !unsealed.has(key));
   if (kept.length) settings.warn(`${kept.length} previously sealed version(s) missing from the available list stay blocked: ${kept.join(", ")}`);
   kept.forEach((key) => keys.add(key));
-  if (!signed) return { source: "none", keys, snapshotAgeSeconds: null };
-  return { source: "snapshot", keys, snapshotAgeSeconds: snapshotAgeOf(signed, settings) };
+  if (!signed) return { source: "none", keys, suspects, snapshotAgeSeconds: null };
+  return { source: "snapshot", keys, suspects, snapshotAgeSeconds: snapshotAgeOf(signed, settings) };
 }
 
 export async function loadSealedList(settings: ListSettings): Promise<SealedList> {

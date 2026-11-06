@@ -9,11 +9,22 @@ The product name lives in productName. The only other places it appears are pack
 1. A version is published to an npm registry (the demo uses demo/mockRegistry).
 2. The watcher sees it on the registry changes feed, records a published timeline event, and asks the detectors service to scan it.
 3. Each detector writes evidence. Each detector that finds the version malicious submits a verdict to SealRegistry from its own key, with the evidence hash.
-4. When distinct detector votes reach the quorum, SealRegistry marks that exact version Sealed and emits Sealed.
+4. When distinct detector votes reach the quorum, SealRegistry marks that exact version Sealed and emits Sealed. A version with at least one live vote below quorum is Suspect: the detectors look for different things, so silence from the others is not a clean result.
 5. The watcher reads registry events, extends the timeline, and publishes a signed snapshot of the Sealed list and the timeline heads.
 6. The guard reads the full Sealed list (chain first, signed snapshot second) and checks every lockfile version locally. Installs and CI stop before anything is downloaded. Running services stop serving through the sidecar. The guard proposes a rollback, advises credential rotation when the version was already installed, and sends a signed report of the block to the watcher when configured.
 7. The dashboard shows attestations, the Sealed list, service status, and a stopwatch from publish to first verdict to quorum to first block.
-8. A guardian key (a multisig in a real deployment; one key in the demo, see docs/limits.md) can unseal after the dispute window and can reseal.
+8. A guardian key (a multisig in a real deployment; one key in the demo, see docs/limits.md) can seal a Suspect version without waiting for quorum (promote), clear it as a false alarm, unseal after the dispute window and reseal.
+
+Suspect lifecycle:
+```
+None ──1st live vote──▶ Suspect ──quorum reached───▶ Sealed
+                          │      ──guardian promote─▶ Sealed
+                          │      ──guardian clear───▶ Cleared
+                          └──every vote expires─────▶ None
+Sealed ──guardian unseal after dispute window──▶ Unsealed
+Cleared or Unsealed ──guardian reseal──▶ Sealed
+```
+Suspect is derived, never stored: status None with at least one live vote. Guards block it by default with a per version override, the sidecar only warns, and the watcher rescans it so the flagging detector can refresh its vote while it still finds the problem.
 
 ## Cut order
 
@@ -47,7 +58,7 @@ docs/decisions.md belongs to the team and no agent edits it.
 
 ```solidity
 interface ISealRegistry {
-    enum Status { None, Sealed, Unsealed }
+    enum Status { None, Sealed, Unsealed, Cleared }
 
     struct Seal {
         Status status;
@@ -55,12 +66,15 @@ interface ISealRegistry {
         uint64 firstVoteAt;
         uint64 sealedAt;
         uint64 unsealedAt;
+        uint64 clearedAt;
     }
 
     event VerdictSubmitted(bytes32 indexed key, address indexed detector, bytes32 evidenceHash, uint16 votes, uint64 at);
     event Sealed(bytes32 indexed key, string ecosystem, string name, string version, uint16 votes, uint64 at);
     event Unsealed(bytes32 indexed key, address indexed guardian, bytes32 reasonHash, uint64 at);
     event Resealed(bytes32 indexed key, address indexed guardian, bytes32 reasonHash, uint64 at);
+    event Promoted(bytes32 indexed key, address indexed guardian, bytes32 reasonHash, uint64 at);
+    event Cleared(bytes32 indexed key, address indexed guardian, bytes32 reasonHash, uint64 at);
 
     error InvalidConfig();
     error EmptyEvidence();
@@ -70,6 +84,8 @@ interface ISealRegistry {
     error KeyUnsealed(bytes32 key);
     error NotSealed(bytes32 key);
     error NotUnsealed(bytes32 key);
+    error KeyCleared(bytes32 key);
+    error NotSuspect(bytes32 key);
     error DisputeWindowOpen(uint64 opensAt);
     error SealRateLimited(uint64 day);
     error RolesFrozen();
@@ -83,24 +99,34 @@ interface ISealRegistry {
     function maxSealsPerDay() external view returns (uint16);
     function keyOf(string calldata ecosystem, string calldata name, string calldata version) external pure returns (bytes32);
     function submitVerdict(string calldata ecosystem, string calldata name, string calldata version, bytes32 evidenceHash) external returns (bytes32 key);
+    function promote(bytes32 key, bytes32 reasonHash) external;
+    function clear(bytes32 key, bytes32 reasonHash) external;
     function unseal(bytes32 key, bytes32 reasonHash) external;
     function reseal(bytes32 key, bytes32 reasonHash) external;
     function getSeal(bytes32 key) external view returns (Seal memory);
     function isSealed(bytes32 key) external view returns (bool);
     function hasVoted(bytes32 key, address detector) external view returns (bool);
+    function canVote(bytes32 key, address detector) external view returns (bool);
+    function liveVotes(bytes32 key) external view returns (uint16);
+    function isSuspect(bytes32 key) external view returns (bool);
+    function flaggedKeyCount() external view returns (uint256);
+    function flaggedKeys(uint256 offset, uint256 limit) external view returns (bytes32[] memory keys, Status[] memory statuses, uint16[] memory votes);
     function sealedKeyCount() external view returns (uint256);
     function sealedKeys(uint256 offset, uint256 limit) external view returns (bytes32[] memory keys, Status[] memory statuses);
 }
 ```
 
 1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint64 voteLifetime, uint16 maxSealsPerDay). The guardian (a multisig in a real deployment, one key in the demo) gets GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. Nobody gets DEFAULT_ADMIN_ROLE, so the detector set and quorum are frozen for the life of the deployment; rotating a detector key means a new deployment. renounceRole always reverts with RolesFrozen, so no detector or guardian can drop out and make the quorum unreachable. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, the guardian is zero, voteLifetime is 0, or maxSealsPerDay is 0.
-2. submitVerdict, DETECTOR_ROLE only, in this order: ecosystem other than "npm" reverts InvalidEcosystem; evidenceHash zero reverts EmptyEvidence; status Sealed reverts AlreadySealed; status Unsealed reverts KeyUnsealed (only the guardian can reseal); a repeat vote while the sender's earlier vote on the key is still live reverts DuplicateVote. A vote is live while block.timestamp < votedAt + voteLifetime; a detector whose vote expired may vote again, which refreshes its time. Then the vote is recorded, firstVoteAt is set on the first vote ever on the key, votes is set to the number of live votes (bounded by the detector count), and VerdictSubmitted is emitted with that number. hasVoted is true only while the detector's vote is live.
+2. submitVerdict, DETECTOR_ROLE only, in this order: ecosystem other than "npm" reverts InvalidEcosystem; evidenceHash zero reverts EmptyEvidence; status Sealed reverts AlreadySealed; status Unsealed reverts KeyUnsealed and status Cleared reverts KeyCleared (only the guardian can reseal); a repeat vote before half of voteLifetime has passed since the sender's earlier vote on the key reverts DuplicateVote. A vote is live while block.timestamp < votedAt + voteLifetime; from half its lifetime on, the same detector may vote again, which refreshes its time without counting twice. Then the vote is recorded, firstVoteAt is set and the key is appended to the flagged key list on the first vote ever on the key, votes is set to the number of live votes (bounded by the detector count), and VerdictSubmitted is emitted with that number. hasVoted is true only while the detector's vote is live. canVote is true when the status is None and a vote now would not revert DuplicateVote.
 3. When live votes reach quorum: if seals already made in the current UTC day (block.timestamp / 1 days) equal maxSealsPerDay, the whole call reverts SealRateLimited and the signer retries later (see Detectors). Otherwise status becomes Sealed, sealedAt is set, the key is appended to the sealed key list once, and Sealed is emitted.
 4. unseal, GUARDIAN_ROLE only: status must be Sealed (else NotSealed) and block.timestamp at least sealedAt + disputeWindow (else DisputeWindowOpen with the opening time). Sets Unsealed and unsealedAt, emits Unsealed.
-5. reseal, GUARDIAN_ROLE only: status must be Unsealed (else NotUnsealed). Sets Sealed and a new sealedAt, emits Resealed. Not rate limited.
-6. Versions are independent: sealing one version of a package never changes another version's key.
-7. sealedKeys pages through every key that was ever sealed, with its current status, so the guard can download the whole list without revealing what it looks for.
-8. Deploy script reads GUARDIAN_ADDRESS, DETECTOR_ADDRESSES (comma separated), QUORUM, DISPUTE_WINDOW_SECONDS, VOTE_LIFETIME_SECONDS, MAX_SEALS_PER_DAY and DEPLOYER_PRIVATE_KEY, and writes contracts/deployments/{chainId}.json.
+5. reseal, GUARDIAN_ROLE only: status must be Unsealed or Cleared (else NotUnsealed). Sets Sealed and a new sealedAt, appends the key to the sealed key list if it was never sealed, emits Resealed. Not rate limited.
+6. promote, GUARDIAN_ROLE only: the key must be Suspect, status None with at least one live vote (else NotSuspect), so the guardian can never seal a version no detector flagged. Sets Sealed and sealedAt, appends to the sealed key list, emits Promoted. The dispute window applies as for any seal. Not rate limited.
+7. clear, GUARDIAN_ROLE only: the key must be Suspect (else NotSuspect). Sets Cleared and clearedAt, emits Cleared. Detector votes on a Cleared key revert KeyCleared; only reseal leaves Cleared.
+8. isSuspect is true while the status is None and liveVotes is above 0. flaggedKeys pages through every key that ever got a vote, with its status and live vote count, so the guard downloads the Suspect list whole, the same way as the Sealed list.
+9. Versions are independent: sealing one version of a package never changes another version's key.
+10. sealedKeys pages through every key that was ever sealed, with its current status, so the guard can download the whole list without revealing what it looks for.
+11. Deploy script reads GUARDIAN_ADDRESS, DETECTOR_ADDRESSES (comma separated), QUORUM, DISPUTE_WINDOW_SECONDS, VOTE_LIFETIME_SECONDS, MAX_SEALS_PER_DAY and DEPLOYER_PRIVATE_KEY, and writes contracts/deployments/{chainId}.json.
 
 ## Detectors service (services/detectors, Fastify on DETECTORS_PORT)
 
@@ -123,16 +149,17 @@ sandboxCanary:
 
 advisoryFeed: queries OSV (OSV_API_URL is the base URL, the service appends the v1 paths) for malicious package advisories (MAL ids) matching the exact npm name and version. Evidence keeps the advisory URL. Sources are verified by the research agent before use.
 
-signer: one viem wallet per detector key (STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY), so the quorum means distinct signers. Skips when hasVoted or isSealed is already true. Every malicious verdict first goes to a pending file under EVIDENCE_DIR/pending and is retried every 60 seconds until it lands, with DuplicateVote, AlreadySealed and KeyUnsealed counted as done. SealRateLimited and network failures stay pending.
+signer: one viem wallet per detector key (STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY), so the quorum means distinct signers. Skips when canVote is false. Every malicious verdict first goes to a pending file under EVIDENCE_DIR/pending and is retried every 60 seconds until it lands, with DuplicateVote, AlreadySealed, KeyUnsealed and KeyCleared counted as done. SealRateLimited and network failures stay pending.
 
 ## Watcher (services/watcher, Fastify on WATCHER_PORT, SQLite at DATABASE_PATH)
 
 1. registry poller: every POLL_INTERVAL_SECONDS reads GET {NPM_REGISTRY_URL}/_changes?since={seq} (RegistryChange[]), stores publishes, and appends a published timeline event.
 2. scheduler: sends each new publish to POST {DETECTORS_URL}/scan, one at a time, and retries a failed request on the next tick.
-3. chain poller: reads VerdictSubmitted, Sealed, Unsealed and Resealed logs from REGISTRY_ADDRESS and appends verdict, sealed, unsealed and resealed events with the tx hash as ref and the block time as at.
-4. publisher: every POLL_INTERVAL_SECONDS builds a SealedSnapshot (CHAIN_ID, REGISTRY_ADDRESS, latest block, entries, timeline heads), signs it with SNAPSHOT_SIGNER_PRIVATE_KEY, writes SNAPSHOT_PATH and serves it. Fresh signatures keep generatedAt meaningful for the guard's age limit.
-5. Guard reports: POST /reports accepts only a SignedGuardReport whose signer is in GUARD_REPORTER_ADDRESSES, whose digest it has not seen before, and whose checkedAt is no more than 10 minutes old. A replayed or unsigned report is refused with 401 and records nothing. Each blocked entry appends a guardBlocked event with the service name (or "ci") as actor.
-6. simulated on Verdict, Attestation and Stopwatch is true when the detector reports simulated or the registry is the demo registry.
+3. chain poller: reads VerdictSubmitted, Sealed, Unsealed, Resealed, Promoted and Cleared logs from REGISTRY_ADDRESS and appends verdict, sealed, unsealed, resealed, promoted and cleared events with the tx hash as ref and the block time as at. Promoted and Resealed take the package name from publishes when Sealed never named it.
+4. rescan: every POLL_INTERVAL_SECONDS, each Suspect version whose last scan or vote is older than a quarter of voteLifetime is sent to POST {DETECTORS_URL}/scan again. The other detectors get another look, and the flagging detector refreshes its vote once canVote allows it, so a version stays Suspect only while some detector still finds the problem. voteLifetime is read from the registry at startup.
+5. publisher: every POLL_INTERVAL_SECONDS builds a SealedSnapshot (CHAIN_ID, REGISTRY_ADDRESS, latest block, entries, timeline heads). Entries cover Sealed, Unsealed, Cleared and Suspect versions, each with its live vote count; a Suspect entry carries suspectUntil, the time its last live vote expires, signs it with SNAPSHOT_SIGNER_PRIVATE_KEY, writes SNAPSHOT_PATH and serves it. Fresh signatures keep generatedAt meaningful for the guard's age limit.
+6. Guard reports: POST /reports accepts only a SignedGuardReport whose signer is in GUARD_REPORTER_ADDRESSES, whose digest it has not seen before, and whose checkedAt is no more than 10 minutes old. A replayed or unsigned report is refused with 401 and records nothing. Each blocked entry appends a guardBlocked event with the service name (or "ci") as actor.
+7. simulated on Verdict, Attestation and Stopwatch is true when the detector reports simulated or the registry is the demo registry.
 
 HTTP API:
 1. GET /snapshot, response SignedSnapshot. Answers 503 until the first snapshot is signed. generatedAt is the time of the last successful chain poll, so a snapshot never looks fresher than its chain data.
@@ -196,14 +223,16 @@ Configuration from env, overridable by flags:
 6. NPM_REGISTRY_URL: only for the age fallback, the minimum age check and rollback.
 
 Loading the Sealed list, in order:
-1. Chain: page through sealedKeys and keep status Sealed. listSource chain. The guard records every key it accepts as Sealed in GUARD_CACHE_DIR/knownSealed.json, scoped to CHAIN_ID and REGISTRY_ADDRESS. A chain list that drops a recorded key is rejected unless the chain reports that key Unsealed and an Unsealed event for it exists from REGISTRY_START_BLOCK on; the guard warns and goes to step 2. Any recorded key missing from the list finally used, and not marked Unsealed there, stays blocked.
-2. Signed snapshot from GUARD_SNAPSHOT_URL, then the last good copy in GUARD_CACHE_DIR. Accepted only when verifyMessage passes for GUARD_SNAPSHOT_SIGNER, chainId equals CHAIN_ID, registry equals REGISTRY_ADDRESS, and generatedAt is within GUARD_SNAPSHOT_MAX_AGE_SECONDS. Every accepted snapshot fetched from the URL replaces the cached copy. listSource snapshot; the report sets snapshotAgeSeconds (null for other sources).
+1. Chain: page through sealedKeys and keep status Sealed. listSource chain. The guard records every key it accepts as Sealed in GUARD_CACHE_DIR/knownSealed.json, scoped to CHAIN_ID and REGISTRY_ADDRESS. A chain list that drops a recorded key is rejected unless the chain reports that key Unsealed and an Unsealed event for it exists from REGISTRY_START_BLOCK on; the guard warns and goes to step 2. Any recorded key missing from the list finally used, and not marked Unsealed there, stays blocked. The chain read also pages through flaggedKeys and keeps keys with status None and live votes as Suspect.
+2. Signed snapshot from GUARD_SNAPSHOT_URL, then the last good copy in GUARD_CACHE_DIR. Accepted only when verifyMessage passes for GUARD_SNAPSHOT_SIGNER, chainId equals CHAIN_ID, registry equals REGISTRY_ADDRESS, and generatedAt is within GUARD_SNAPSHOT_MAX_AGE_SECONDS. Every accepted snapshot fetched from the URL replaces the cached copy. Entries with status Suspect form the Suspect list. listSource snapshot; the report sets snapshotAgeSeconds (null for other sources).
 3. Neither (chain unreachable, and no snapshot that passes every check, including one older than GUARD_SNAPSHOT_MAX_AGE_SECONDS): listSource none, and the age fallback runs. The guard reads publish times from NPM_REGISTRY_URL and blocks every version younger than N days, listing them under tooYoung. Versions older than N days are allowed. A version whose publish time cannot be read is treated as younger than N and blocked, listed in tooYoung with publishedAt null. The report carries fallback { minAgeDays, placeholder } and a warning in advice that the Sealed list was not checked. When the list loads, fallback is null.
 
 Reading lockfiles:
 1. The guard supports only formats it knows: npm-shrinkwrap.json and package-lock.json with lockfileVersion 2 or 3. npm-shrinkwrap.json is read first, then package-lock.json. Any other format or version (1, 4 or later, a missing file, unreadable or malformed JSON, a file larger than the guard's size limit) gives outcome unavailable, never allowed. The guard makes no claim about npm 12.
 2. Every entry under packages is checked, transitive ones included. For an npm alias the entry's name field is the real package and is used for the key.
 3. Non registry sources: any entry whose source is not the npm registry is high risk and blocks by default: git URLs, GitHub shorthand, commit specifiers on those, http or https tarballs outside the registry origin (NPM_REGISTRY_URL, otherwise https://registry.npmjs.org), file tarballs, and any form the guard does not recognise. Each is listed under nonRegistrySources with its kind (git, github, commit, tarball, file, other). Workspace links stay allowed. GUARD_ALLOW_NON_REGISTRY_SOURCES=true turns the block into a warning. Install passes --allow-git=none on npm 11.10.0 and later (the stricter of the two versions in docs/research/edge_cases.md section 9). The mechanisms behind this rule are in docs/research/edge_cases.md and docs/limits.md.
+
+Suspect versions: every lockfile version that is Suspect and not Sealed is listed under suspect with its live votes and suspectUntil. check and install block it unless that exact version is named with --allow-suspect name@version, which may repeat. An allowed Suspect version stays in the report with allowed true and a warning in advice. A blocked one gets a rollback proposal that skips Sealed and Suspect versions. The sidecar never blocks on Suspect, it warns, because stopping a running service on one vote costs too much. Audit lists installed Suspect versions as warnings.
 
 Commands (exit codes: allowed 0, blocked 1, unavailable 2):
 1. cordon check [--lockfile path] [--service name]: reads the lockfile, computes each seal key and matches locally. With a minimum age, reads publish times from NPM_REGISTRY_URL and lists versions younger than the limit under tooYoung, which blocks. Prints the GuardReport and sends it signed when reporting is configured.
@@ -225,7 +254,7 @@ Whenever a blocked version has alreadyInstalled true (audit, sidecar, or a lockf
 2. /sealed: every sealed key with status. Data: SealRegistry sealedKeys, watcher /snapshot for names.
 3. /seal/[key]: evidence per detector, timeline with hash chain check in the browser against the signed head, tx links. Data: watcher /timeline and /snapshot, detectors /evidence.
 4. /services: guard sidecar status per service. Data: watcher /services.
-5. /guardian: unseal and reseal through the connected wallet, with the dispute window countdown. Data: SealRegistry.
+5. /guardian: the Suspect queue (name, live votes, expiry, evidence link), then promote, clear, unseal and reseal through the connected wallet, with the dispute window countdown. Data: SealRegistry, watcher /snapshot.
 6. /demo, only when NEXT_PUBLIC_DEMO is true: publish the poisoned demo version, reset, and show a historical replay timeline labelled as a replay, kept visually apart from the live stopwatch. Data: mockRegistry /_demo routes, detectors /replay.
 
 Every simulated detector, verdict, stopwatch and exfiltration is labelled simulated wherever it appears. Every status shows text plus an icon. Every chain action links to NEXT_PUBLIC_EXPLORER_URL. Chain from defineAppChain with the NEXT_PUBLIC_ chain variables.

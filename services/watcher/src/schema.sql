@@ -54,3 +54,8 @@ CREATE TABLE IF NOT EXISTS seen_reports (
   digest TEXT PRIMARY KEY,
   received_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS rescans (
+  seal_key TEXT PRIMARY KEY,
+  scanned_at TEXT NOT NULL
+);

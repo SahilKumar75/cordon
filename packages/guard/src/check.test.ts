@@ -338,3 +338,41 @@ test("a tarball outside the registry blocks check and is reported", async () => 
   assert.equal(report.outcome, "blocked");
   assert.deepEqual(report.nonRegistrySources, [{ name: "viaTarball", version: "1.0.0", resolved: "https://cdn.example.com/viaTarball-1.0.0.tgz", kind: "tarball", lockfilePath: join(dir, "package-lock.json") }]);
 });
+
+const suspectChain = chainTransport([], { flagged: [{ key: sealedKey, status: 0, votes: 1 }] });
+
+test("a Suspect version blocks by default, names the override and proposes a rollback", async () => {
+  const dir = tempDir();
+  writeLockfile(dir, { [`node_modules/${sealedName}`]: { version: sealedVersion } });
+  const fetchFn = stubFetch(registryRoutes(registryUrl, { [sealedName]: { versions: { "1.4.0": {}, [sealedVersion]: {} } } }));
+  const report = await checkLockfile(settingsFor(dir, { transport: suspectChain, registryUrl, fetchFn }));
+  guardReportSchema.parse(report);
+  assert.equal(report.outcome, "blocked");
+  assert.deepEqual(report.blocked, []);
+  assert.equal(report.suspect.length, 1);
+  assert.equal(report.suspect[0]?.allowed, false);
+  assert.equal(report.suspect[0]?.votes, 1);
+  assert.deepEqual(report.rollback, [{ name: sealedName, from: sealedVersion, to: "1.4.0" }]);
+  assert.ok(report.advice.some((line) => line.includes(`--allow-suspect ${sealedName}@${sealedVersion}`)));
+});
+
+test("--allow-suspect lets that one Suspect version through with a warning", async () => {
+  const dir = tempDir();
+  writeLockfile(dir, { [`node_modules/${sealedName}`]: { version: sealedVersion } });
+  const report = await checkLockfile(settingsFor(dir, { transport: suspectChain, allowSuspect: [`${sealedName}@${sealedVersion}`] }));
+  assert.equal(report.outcome, "allowed");
+  assert.equal(report.suspect[0]?.allowed, true);
+  assert.ok(report.advice.some((line) => line.startsWith("Warning:") && line.includes("Suspect")));
+  const other = await checkLockfile(settingsFor(dir, { transport: suspectChain, allowSuspect: [`${sealedName}@1.4.0`] }));
+  assert.equal(other.outcome, "blocked");
+});
+
+test("a Sealed version is never treated as Suspect even with live votes", async () => {
+  const dir = tempDir();
+  writeLockfile(dir, { [`node_modules/${sealedName}`]: { version: sealedVersion } });
+  const transport = chainTransport([{ key: sealedKey, status: 1 }], { flagged: [{ key: sealedKey, status: 0, votes: 1 }] });
+  const report = await checkLockfile(settingsFor(dir, { transport, allowSuspect: [`${sealedName}@${sealedVersion}`] }));
+  assert.equal(report.outcome, "blocked");
+  assert.equal(report.blocked.length, 1);
+  assert.deepEqual(report.suspect, []);
+});

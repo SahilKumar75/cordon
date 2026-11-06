@@ -1,8 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Address } from "viem";
 import { scanResponseSchema, type Attestation, type DetectorId, type Hex32, type ScanRequest, type ScanResponse } from "@cordon/shared";
+import { snapshotEntries } from "./publisher.ts";
 import type { FetchLike } from "./registryPoller.ts";
-import { cursorOf, inTransaction, setCursor } from "./timeline.ts";
+import { cursorOf, inTransaction, setCursor, timelineOf } from "./timeline.ts";
 
 type PendingPublish = { seq: number; name: string; version: string; published_at: string; tarball_url: string; integrity: string };
 
@@ -45,6 +46,31 @@ export async function runScheduler(db: DatabaseSync, detectorsUrl: string, fetch
     for (const failure of scan.failures) reportFailure(`${failure.detector} on ${scan.name}@${scan.version}: ${failure.error}`);
   }
   return pending.length;
+}
+
+export type RescanSettings = { voteLifetimeSeconds: number; now: Date };
+
+function lastScanAt(db: DatabaseSync, key: Hex32): number {
+  const rescan = db.prepare("SELECT scanned_at FROM rescans WHERE seal_key = ?").get(key) as { scanned_at: string } | undefined;
+  const verdictTimes = timelineOf(db, key).filter((event) => event.kind === "verdict").map((event) => Date.parse(event.at));
+  return Math.max(rescan ? Date.parse(rescan.scanned_at) : 0, ...verdictTimes);
+}
+
+export async function rescanSuspects(db: DatabaseSync, detectorsUrl: string, fetchImpl: FetchLike, settings: RescanSettings, reportFailure: (message: string) => void): Promise<number> {
+  const intervalMs = (settings.voteLifetimeSeconds * 1000) / 4;
+  const due = snapshotEntries(db, settings.now, settings.voteLifetimeSeconds).filter(
+    (entry) => entry.status === "Suspect" && settings.now.getTime() - lastScanAt(db, entry.key as Hex32) >= intervalMs,
+  );
+  for (const entry of due) {
+    const publish = db.prepare("SELECT * FROM publishes WHERE seal_key = ? ORDER BY seq DESC LIMIT 1").get(entry.key) as PendingPublish;
+    const scan = await scanPublish(publish, detectorsUrl, fetchImpl);
+    inTransaction(db, () => {
+      storeVerdicts(db, scan);
+      db.prepare("INSERT INTO rescans (seal_key, scanned_at) VALUES (?, ?) ON CONFLICT (seal_key) DO UPDATE SET scanned_at = excluded.scanned_at").run(entry.key, settings.now.toISOString());
+    });
+    for (const failure of scan.failures) reportFailure(`${failure.detector} on rescan of ${scan.name}@${scan.version}: ${failure.error}`);
+  }
+  return due.length;
 }
 
 type AttestationRow = {

@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type {
   detectorIds,
+  entryStatusNames,
   guardOutcomes,
   listSources,
   sealStatusNames,
@@ -13,6 +14,7 @@ import type {
   evidenceSchema,
   findingSchema,
   guardBlockSchema,
+  guardSuspectSchema,
   guardReportSchema,
   packageVersionSchema,
   registryChangeSchema,
@@ -32,6 +34,7 @@ import type {
 
 export type Hex32 = `0x${string}`;
 export type SealStatusName = (typeof sealStatusNames)[number];
+export type EntryStatusName = (typeof entryStatusNames)[number];
 export type DetectorId = (typeof detectorIds)[number];
 export type TimelineKind = (typeof timelineKinds)[number];
 export type GuardOutcome = (typeof guardOutcomes)[number];
@@ -53,6 +56,7 @@ export type SignedSnapshot = z.infer<typeof signedSnapshotSchema>;
 export type TimelineEvent = z.infer<typeof timelineEventSchema>;
 export type Stopwatch = z.infer<typeof stopwatchSchema>;
 export type GuardBlock = z.infer<typeof guardBlockSchema>;
+export type GuardSuspect = z.infer<typeof guardSuspectSchema>;
 export type GuardReport = z.infer<typeof guardReportSchema>;
 export type SignedGuardReport = z.infer<typeof signedGuardReportSchema>;
 export type ReportAck = z.infer<typeof reportAckSchema>;

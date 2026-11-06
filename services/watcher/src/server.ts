@@ -5,6 +5,7 @@ import { createPublicClient, http, type Address, type Hex, type LocalAccount } f
 import { privateKeyToAccount } from "viem/accounts";
 import {
   addressSchema,
+  sealRegistryAbi,
   defineAppChain,
   hex32Schema,
   signedGuardReportSchema,
@@ -14,7 +15,7 @@ import { pollChain, type ChainPollSettings } from "./chainPoller.ts";
 import { publishSnapshot, type SnapshotSettings } from "./publisher.ts";
 import { pollRegistry } from "./registryPoller.ts";
 import { acceptReport, ReportRefused, serviceStatuses } from "./reports.ts";
-import { attestations, runScheduler } from "./scheduler.ts";
+import { attestations, rescanSuspects, runScheduler } from "./scheduler.ts";
 import { openDatabase, stopwatches, stopwatchOf, verifiedTimelineOf } from "./timeline.ts";
 
 export type WatcherDeps = {
@@ -110,13 +111,16 @@ async function main() {
   const db = openDatabase(required("DATABASE_PATH"));
   const startBlock = BigInt(process.env.REGISTRY_START_BLOCK || 0);
   const chainSettings: ChainPollSettings = { registry, startBlock, maxBlockRange: 2000n };
-  const snapshotSettings: SnapshotSettings = { chainId, registry, startBlock };
+  const voteLifetimeSeconds = Number(await client.readContract({ address: registry, abi: sealRegistryAbi, functionName: "voteLifetime" }));
+  const snapshotSettings: SnapshotSettings = { chainId, registry, startBlock, voteLifetimeSeconds };
+  const reportScanFailure = (failure: string) => console.error(`scan failure: ${failure}`);
   let latest: SignedSnapshot | null = null;
 
   scheduleTicks(
     [
       ["registry poller", () => pollRegistry(db, registryUrl, fetch)],
-      ["scheduler", () => runScheduler(db, detectorsUrl, fetch, (failure) => console.error(`scan failure: ${failure}`))],
+      ["scheduler", () => runScheduler(db, detectorsUrl, fetch, reportScanFailure)],
+      ["rescan", () => rescanSuspects(db, detectorsUrl, fetch, { voteLifetimeSeconds, now: new Date() }, reportScanFailure)],
       ["chain poller", () => pollChain(db, client, chainSettings, new Date())],
       ["publisher", async () => (latest = await publishSnapshot(db, snapshotSettings, account, snapshotPath))],
     ],

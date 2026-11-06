@@ -50,7 +50,7 @@ export function sealedLog(blockNumber: number, logIndex = 0): ChainLog {
   return chainLog("Sealed", { key: demoKey, ecosystem: "npm", name: demoName, version: demoVersion, votes: 2, at: 0n }, blockNumber, logIndex);
 }
 
-export function guardianLog(eventName: "Unsealed" | "Resealed", blockNumber: number): ChainLog {
+export function guardianLog(eventName: "Unsealed" | "Resealed" | "Promoted" | "Cleared", blockNumber: number): ChainLog {
   return chainLog(eventName, { key: demoKey, guardian: guardianAddress, reasonHash: keccak256(toHex(eventName)), at: 0n }, blockNumber, 0);
 }
 
@@ -97,6 +97,7 @@ export function guardReport(overrides: Partial<GuardReport> = {}): GuardReport {
     fallback: null,
     packagesChecked: 12,
     blocked: [{ name: demoName, version: demoVersion, key: demoKey, lockfilePath: "node_modules/@cordondemo/colorkit", alreadyInstalled: false }],
+    suspect: [],
     snapshotAgeSeconds: null,
     nonRegistrySources: [],
     hookFiles: [],

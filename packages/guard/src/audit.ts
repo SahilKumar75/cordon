@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { Parser, list as listTar, type ReadEntry } from "tar";
 import { productName, sealKeyOf, type GuardReport } from "@cordon/shared";
-import { adviceFor, nonRegistryVerdict, type GuardSettings } from "./check.ts";
+import { adviceFor, nonRegistryVerdict, suspectAdvice, type GuardSettings } from "./check.ts";
 import {
   defaultRegistryUrl,
   hiddenLockfileName,
@@ -227,6 +227,11 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     return list.keys.has(key) ? [{ name, version, key, lockfilePath: source, alreadyInstalled: true }] : [];
   });
   const blocked = [...new Map(hits.map((block) => [`${block.key}${block.lockfilePath}`, block])).values()];
+  const suspect = found.flatMap(({ name, version, source }) => {
+    const key = sealKeyOf(name, version);
+    const info = list.suspects.get(key);
+    return info && !list.keys.has(key) ? [{ name, version, key, lockfilePath: source, ...info, allowed: true }] : [];
+  });
   const limits = { sealedKeys: list.keys, minAgeDays: settings.minAgeDays, now: settings.now() };
   const rollback = await proposeRollbacks(blocked, limits, packumentReader(settings.registryUrl, settings.fetchFn, settings.warn));
   return {
@@ -239,11 +244,12 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     fallback: null,
     packagesChecked: found.length,
     blocked,
+    suspect,
     nonRegistrySources: sources,
     hookFiles,
     tooYoung: [],
     rollback,
-    advice: [...problems, ...git.advice, ...(hookFiles.length ? [hookAdvice] : []), ...adviceFor(blocked)],
+    advice: [...problems, ...git.advice, ...(hookFiles.length ? [hookAdvice] : []), ...suspectAdvice(suspect), ...adviceFor(blocked)],
     outcome: blocked.length || git.blocks ? "blocked" : problems.length ? "unavailable" : "allowed",
   };
 }

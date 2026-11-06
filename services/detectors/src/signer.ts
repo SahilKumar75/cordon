@@ -25,7 +25,7 @@ export type SignerConfig = {
 
 type Attempt = { landed: boolean; txHash: Hex | null };
 
-const settledReverts = new Set(["DuplicateVote", "AlreadySealed", "KeyUnsealed"]);
+const settledReverts = new Set(["DuplicateVote", "AlreadySealed", "KeyUnsealed", "KeyCleared"]);
 
 export function createSigner({ chain, transport, registry, keys, pendingDir }: SignerConfig) {
   const publicClient = createPublicClient({ chain, transport, pollingInterval: 1_000 });
@@ -36,11 +36,8 @@ export function createSigner({ chain, transport, registry, keys, pendingDir }: S
     const account = accounts[evidence.detector];
     const key = sealKeyOf(evidence.name, evidence.version);
     const read = { address: registry, abi: sealRegistryAbi } as const;
-    const [sealed, voted] = await Promise.all([
-      publicClient.readContract({ ...read, functionName: "isSealed", args: [key] }),
-      publicClient.readContract({ ...read, functionName: "hasVoted", args: [key, account.address] }),
-    ]);
-    if (sealed || voted) return { landed: true, txHash: null };
+    const open = await publicClient.readContract({ ...read, functionName: "canVote", args: [key, account.address] });
+    if (!open) return { landed: true, txHash: null };
     const { request } = await publicClient.simulateContract({
       ...read,
       account,

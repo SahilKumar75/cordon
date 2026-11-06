@@ -9,7 +9,7 @@ import { startSidecar } from "./sidecar.ts";
 
 type Env = Record<string, string | undefined>;
 
-const usage = "usage: cordon <check|install|audit|rollback|sidecar> [--lockfile path] [--service name] [--path dir]... [--cache dir]... [--docker image.tar]... [--port n]";
+const usage = "usage: cordon <check|install|audit|rollback|sidecar> [--lockfile path] [--service name] [--path dir]... [--cache dir]... [--docker image.tar]... [--port n] [--allow-suspect name@version]...";
 
 function numberFrom(env: Env, name: string, minimum: number): number | null {
   const raw = env[name];
@@ -29,7 +29,7 @@ function flagFrom(env: Env, name: string): boolean {
   return raw === "true";
 }
 
-export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: string }): GuardSettings {
+export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: string; "allow-suspect"?: string[] }): GuardSettings {
   return {
     lockfile: flags.lockfile ?? process.cwd(),
     service: flags.service ?? null,
@@ -37,6 +37,8 @@ export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: 
     minAgeDays: numberFrom(env, "GUARD_MIN_AGE_DAYS", 0) ?? 0,
     registryUrl: textFrom(env, "NPM_REGISTRY_URL"),
     allowNonRegistrySources: flagFrom(env, "GUARD_ALLOW_NON_REGISTRY_SOURCES"),
+    allowSuspect: flags["allow-suspect"] ?? [],
+    suspectBlocks: true,
     chainId: numberFrom(env, "CHAIN_ID", 1),
     rpcUrl: textFrom(env, "RPC_URL"),
     registryAddress: textFrom(env, "REGISTRY_ADDRESS") as Address | null,
@@ -85,6 +87,7 @@ export async function run(argv: string[], env: Env, npm: Npm = systemNpm): Promi
       cache: { type: "string", multiple: true },
       docker: { type: "string", multiple: true },
       port: { type: "string" },
+      "allow-suspect": { type: "string", multiple: true },
     },
   });
   const settings = settingsFromEnv(env, values);

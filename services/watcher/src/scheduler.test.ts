@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ScanRequest, ScanResponse } from "@cordon/shared";
 import { pollRegistry } from "./registryPoller.ts";
-import { attestations, runScheduler } from "./scheduler.ts";
-import { demoKey, demoName, demoVersion, detectorAddress, tempDatabasePath } from "./testSupport.ts";
+import { pollChain } from "./chainPoller.ts";
+import { attestations, rescanSuspects, runScheduler } from "./scheduler.ts";
+import { blockTimeOf, demoKey, demoName, demoVersion, detectorAddress, fakeChain, guardianLog, registryAddress, tempDatabasePath, verdictLog } from "./testSupport.ts";
 import { openDatabase } from "./timeline.ts";
 
 const registryUrl = "http://127.0.0.1:4873";
@@ -79,4 +80,25 @@ test("scan verdicts become attestations, simulated on the demo registry", async 
   assert.equal(attestation?.detector, "staticScripts");
   assert.equal(attestation?.simulated, true);
   assert.equal(attestation?.txHash, null);
+});
+
+test("a Suspect version is rescanned once per quarter of the vote lifetime and a cleared one is not", async () => {
+  const db = await seeded();
+  const lifetime = 4 * 3600;
+  const votedAt = blockTimeOf(2) * 1000;
+  await pollChain(db, fakeChain([verdictLog(2)], () => 8).client, { registry: registryAddress, startBlock: 1n, maxBlockRange: 100n }, new Date(votedAt));
+  const scanned: string[] = [];
+  const fetchImpl = async (_url: string, init?: RequestInit) => {
+    const request = JSON.parse(String(init?.body)) as ScanRequest;
+    scanned.push(request.version);
+    return Response.json(scanResponseFor(request));
+  };
+  const at = (offsetMs: number) => ({ voteLifetimeSeconds: lifetime, now: new Date(votedAt + offsetMs) });
+  assert.equal(await rescanSuspects(db, detectorsUrl, fetchImpl, at(60_000), () => {}), 0);
+  assert.equal(await rescanSuspects(db, detectorsUrl, fetchImpl, at(3600_000), () => {}), 1);
+  assert.equal(await rescanSuspects(db, detectorsUrl, fetchImpl, at(3600_000 + 60_000), () => {}), 0);
+  assert.equal(await rescanSuspects(db, detectorsUrl, fetchImpl, at(7200_000), () => {}), 1);
+  assert.deepEqual(scanned, [demoVersion, demoVersion]);
+  await pollChain(db, fakeChain([guardianLog("Cleared", 9)], () => 10).client, { registry: registryAddress, startBlock: 1n, maxBlockRange: 100n }, new Date(votedAt));
+  assert.equal(await rescanSuspects(db, detectorsUrl, fetchImpl, at(3 * 3600_000), () => {}), 0);
 });

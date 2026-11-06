@@ -6,7 +6,7 @@ import { keccak256, toHex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Hex32 } from "@cordon/shared";
 import { loadSealedList } from "./sealedList.ts";
-import { chainTransport, failingTransport, now, sealedKey, settingsFor, sign, snapshotOf, stubFetch, tempDir } from "./testFixtures.ts";
+import { chainTransport, failingTransport, now, sealedKey, sealedName, sealedVersion, settingsFor, sign, snapshotOf, stubFetch, tempDir } from "./testFixtures.ts";
 
 const signer = privateKeyToAccount(generatePrivateKey());
 const forger = privateKeyToAccount(generatePrivateKey());
@@ -29,7 +29,26 @@ test("chain pages through every sealed key and keeps only status Sealed", async 
   assert.equal(list.source, "chain");
   assert.equal(list.keys.size, 1200);
   assert.equal(list.keys.has(seals[7]!.key), false);
-  assert.equal(calls.filter((method) => method === "eth_call").length, 4);
+  assert.equal(calls.filter((method) => method === "eth_call").length, 5);
+});
+
+test("chain lists a flagged key as Suspect only while it has live votes and status None", async () => {
+  const flagged = [
+    { key: sealedKey, status: 0, votes: 1 },
+    { key: keccak256(toHex("expired")) as Hex32, status: 0, votes: 0 },
+    { key: keccak256(toHex("cleared")) as Hex32, status: 3, votes: 1 },
+    { key: keccak256(toHex("sealed")) as Hex32, status: 1, votes: 2 },
+  ];
+  const list = await loadSealedList(settingsFor("", { transport: chainTransport([], { flagged }) }));
+  assert.deepEqual([...list.suspects.entries()], [[sealedKey, { votes: 1, suspectUntil: null }]]);
+});
+
+test("a signed snapshot carries Suspect entries with their expiry", async () => {
+  const suspectUntil = new Date(now.getTime() + 3600_000).toISOString();
+  const signed = await sign(signer, snapshotOf({ entries: [{ name: sealedName, version: sealedVersion, key: sealedKey, status: "Suspect", sealedAt: null, votes: 1, suspectUntil }] }));
+  const list = await loadSealedList(snapshotSettings(signed));
+  assert.equal(list.keys.size, 0);
+  assert.deepEqual(list.suspects.get(sealedKey), { votes: 1, suspectUntil });
 });
 
 test("an RPC on the wrong chain is not trusted", async () => {

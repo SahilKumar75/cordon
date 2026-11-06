@@ -1,10 +1,10 @@
 import { z } from "zod";
 import {
   detectorIds,
+  entryStatusNames,
   guardOutcomes,
   listSources,
   productName,
-  sealStatusNames,
   timelineKinds,
 } from "./constants.ts";
 
@@ -93,8 +93,10 @@ export const scanResponseSchema = packageVersionSchema.extend({
 
 export const sealEntrySchema = packageVersionSchema.extend({
   key: hex32Schema,
-  status: z.enum(sealStatusNames),
+  status: z.enum(entryStatusNames),
   sealedAt: z.string().datetime().nullable(),
+  votes: z.number().int().nonnegative(),
+  suspectUntil: z.string().datetime().nullable(),
 });
 
 export const sealedSnapshotSchema = z.object({
@@ -138,6 +140,14 @@ export const guardBlockSchema = packageVersionSchema.extend({
   alreadyInstalled: z.boolean(),
 });
 
+export const guardSuspectSchema = packageVersionSchema.extend({
+  key: hex32Schema,
+  lockfilePath: z.string(),
+  votes: z.number().int().nonnegative(),
+  suspectUntil: z.string().datetime().nullable(),
+  allowed: z.boolean(),
+});
+
 export const guardReportSchema = z.object({
   product: z.literal(productName),
   service: z.string().nullable(),
@@ -147,6 +157,7 @@ export const guardReportSchema = z.object({
   fallback: z.object({ minAgeDays: z.number().int().positive(), placeholder: z.boolean() }).nullable(),
   packagesChecked: z.number().int().nonnegative(),
   blocked: z.array(guardBlockSchema),
+  suspect: z.array(guardSuspectSchema),
   snapshotAgeSeconds: z.number().int().nonnegative().nullable(),
   nonRegistrySources: z.array(
     packageVersionSchema.extend({

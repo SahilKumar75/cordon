@@ -60,10 +60,9 @@ function revertData(name: string, key: Hex, from: Hex): Hex {
 
 function answerCall(state: RegistryState, call: { data: Hex; from?: Hex }): Hex {
   const { functionName, args } = decodeFunctionData({ abi: sealRegistryAbi, data: call.data });
-  if (functionName === "isSealed") return encodeFunctionResult({ abi: sealRegistryAbi, functionName, result: state.sealed.has(args[0]) });
-  if (functionName === "hasVoted") {
+  if (functionName === "canVote") {
     const voted = state.voters.get(args[0])?.has(args[1].toLowerCase()) ?? false;
-    return encodeFunctionResult({ abi: sealRegistryAbi, functionName, result: voted });
+    return encodeFunctionResult({ abi: sealRegistryAbi, functionName, result: !voted && !state.sealed.has(args[0]) });
   }
   if (functionName === "submitVerdict") {
     const key = sealKeyOf(args[1], args[2]);

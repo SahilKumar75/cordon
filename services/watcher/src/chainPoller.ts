@@ -11,6 +11,12 @@ function fetchLogs(client: PublicClient, registry: Address, fromBlock: bigint, t
   return client.getContractEvents({ address: registry, abi: sealRegistryAbi, fromBlock, toBlock, strict: true });
 }
 
+function rememberSeal(db: DatabaseSync, key: string): void {
+  db.prepare("INSERT OR IGNORE INTO seals (seal_key, name, version) SELECT seal_key, name, version FROM publishes WHERE seal_key = ? LIMIT 1").run(key);
+}
+
+const guardianKinds = { Unsealed: "unsealed", Resealed: "resealed", Promoted: "promoted", Cleared: "cleared" } as const;
+
 function applyLog(db: DatabaseSync, log: RegistryLog, at: string): void {
   const ref = log.transactionHash;
   if (log.eventName === "VerdictSubmitted") {
@@ -21,9 +27,9 @@ function applyLog(db: DatabaseSync, log: RegistryLog, at: string): void {
     db.prepare("INSERT OR IGNORE INTO seals (seal_key, name, version) VALUES (?, ?, ?)").run(log.args.key, log.args.name, log.args.version);
     appendEvent(db, { key: log.args.key, kind: "sealed", at, actor: "registry", ref });
   }
-  if (log.eventName === "Unsealed" || log.eventName === "Resealed") {
-    const kind = log.eventName === "Unsealed" ? "unsealed" : "resealed";
-    appendEvent(db, { key: log.args.key, kind, at, actor: log.args.guardian.toLowerCase(), ref });
+  if (log.eventName === "Unsealed" || log.eventName === "Resealed" || log.eventName === "Promoted" || log.eventName === "Cleared") {
+    if (log.eventName === "Promoted" || log.eventName === "Resealed") rememberSeal(db, log.args.key);
+    appendEvent(db, { key: log.args.key, kind: guardianKinds[log.eventName], at, actor: log.args.guardian.toLowerCase(), ref });
   }
 }
 

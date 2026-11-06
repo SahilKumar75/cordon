@@ -14,7 +14,7 @@ function listen(server: Server, port: number): Promise<number> {
 export async function startSidecar(settings: SidecarSettings): Promise<Sidecar> {
   let status: ServiceStatus | null = null;
   const refresh = async () => {
-    const report = await checkLockfile({ ...settings, assumeInstalled: true });
+    const report = await checkLockfile({ ...settings, assumeInstalled: true, suspectBlocks: false });
     const changed = status?.report.outcome !== report.outcome;
     status = { service: settings.service, healthy: report.outcome === "allowed", report, updatedAt: report.checkedAt };
     if (changed) await sendReport(report, settings);

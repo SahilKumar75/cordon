@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { run } from "./cli.ts";
+import { run, settingsFromEnv } from "./cli.ts";
 import { tempDir, writeLockfile } from "./testFixtures.ts";
 
 const quietEnv = { GUARD_FALLBACK_MIN_AGE_DAYS: "3" };
@@ -44,4 +44,11 @@ test("invalid configuration and unknown commands are rejected", async () => {
   await assert.rejects(run(["check"], { GUARD_ALLOW_NON_REGISTRY_SOURCES: "yes" }), /GUARD_ALLOW_NON_REGISTRY_SOURCES must be true or false/);
   await assert.rejects(run(["sidecar", "--lockfile", "x", "--service", "s", "--port", "0"], quietEnv), /POLL_INTERVAL_SECONDS/);
   await assert.rejects(run(["sidecar", "--lockfile", "x", "--service", "s", "--port", "80a"], quietEnv), /--port must be an integer/);
+});
+
+test("each --allow-suspect flag names one version and the CLI always blocks other Suspect versions", () => {
+  const settings = settingsFromEnv({}, { "allow-suspect": ["a@1.0.0", "b@2.0.0"] });
+  assert.deepEqual(settings.allowSuspect, ["a@1.0.0", "b@2.0.0"]);
+  assert.equal(settings.suspectBlocks, true);
+  assert.deepEqual(settingsFromEnv({}, {}).allowSuspect, []);
 });

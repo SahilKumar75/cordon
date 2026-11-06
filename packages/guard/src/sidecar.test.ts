@@ -33,3 +33,18 @@ test("sidecar health follows the lockfile and reports only changes", async () =>
     await sidecar.close();
   }
 });
+
+test("sidecar keeps serving a Suspect version and warns", async () => {
+  const dir = tempDir();
+  const lockfile = writeLockfile(dir, { [`node_modules/${sealedName}`]: { version: sealedVersion } });
+  const settings = settingsFor(lockfile, { transport: chainTransport([], { flagged: [{ key: sealedKey, status: 0, votes: 1 }] }) });
+  const sidecar = await startSidecar({ ...settings, service: "ordersApi", port: 0, intervalSeconds: 3600 });
+  try {
+    assert.equal((await fetch(`${sidecar.url}/health`)).status, 200);
+    const status = serviceStatusSchema.parse(await (await fetch(`${sidecar.url}/status`)).json());
+    assert.equal(status.report.suspect[0]?.allowed, true);
+    assert.ok(status.report.advice.some((line) => line.startsWith("Warning:") && line.includes("Suspect")));
+  } finally {
+    await sidecar.close();
+  }
+});
