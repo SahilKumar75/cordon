@@ -78,6 +78,20 @@ Without `--hold` the same script runs the whole flow on its own, including the R
 
 To run the parts by hand against a deployed chain, load the root .env (`set -a; . ./.env; set +a`) and start each one: `sh demo/setup.sh`, `sh demo/start.sh`, `pnpm --filter @cordon/detectors start`, `pnpm --filter @cordon/watcher start`, `pnpm --filter @cordon/dashboard dev`. docs/demo.md lists the order for a recorded take.
 
+## Evidence on Arkiv
+
+Each detector's evidence is also stored on the Arkiv testnet Rabdi (chain id 7794095) as an entity of schema cordon.evidence, written by the wallet 0xDe760446b5a7fFf40f17625f77d4165BaA013Fc9. The detectors service and the dashboard read it back by evidenceHash, the same hash each SealRegistry vote carries, so a verdict can be checked without our server. Details in [arkiv/](arkiv/schema.md).
+
+Entities appear only after that wallet is funded with tGLM and a scan runs with ARKIV_PRIVATE_KEY set; until then the query below returns an empty list. Replace the hash with an evidenceHash from a vote:
+
+```sh
+curl -s https://rpc.rabdi.db-chain.testnet.arkiv.network -H 'content-type: application/json' --data @- <<'JSON'
+{"jsonrpc":"2.0","id":1,"method":"arkiv_query","params":["arkiv.schema = str('cordon.evidence') AND evidenceHash = str('0x0000000000000000000000000000000000000000000000000000000000000000')",{"select":{"key":true,"owner":true,"attributes":true},"limit":"0x5"}]}
+JSON
+```
+
+The body attribute is the evidence JSON as hex. Recompute its hash before trusting it: anyone can write an entity under the same schema name.
+
 ## Environment
 
 Every variable is listed with an empty value in [.env.example](.env.example); demo defaults are in demo/demo.env.example. What each variable does and which part reads it is in the Environment section of [docs/architecture.md](docs/architecture.md#environment). The chain comes only from env; the default is Base Sepolia (chain id 84532).

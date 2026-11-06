@@ -39,7 +39,7 @@ If time runs short, cut in this order: Chainlink CRE, the minimum age option, th
 5. dashboard: apps/dashboard/.
 6. demo: demo/ (mockRegistry, poisonedPackage, canarySink, services). Built by the orchestrator: poisonedPackage and canarySink in Phase 1, mockRegistry and services in Phase 2.
 7. research: docs/research/.
-8. docs: README.md, docs/demo.md, docs/limits.md, docs/rules.md.
+8. docs: README.md, docs/demo.md, docs/limits.md, docs/rules.md, arkiv/.
 9. reviewer: reads everything, edits nothing.
 10. orchestrator: packages/shared/, tests/, docs/architecture.md, docs/ai_usage.md, CLAUDE.md, .claude/agents/, and root config files (package.json, pnpm-workspace.yaml, .npmrc, .nvmrc, tsconfig.base.json, .gitignore, .env.example).
 
@@ -132,9 +132,12 @@ interface ISealRegistry {
 
 1. POST /scan, body ScanRequest, response ScanResponse. Detectors run independently: one that fails (for example OSV unreachable) is listed under failures and the others still report and vote. Runs staticScripts on the tarball, sandboxCanary only when the tarball comes from the demo registry (below), and advisoryFeed on the name and version. Writes each Evidence to EVIDENCE_DIR/{evidenceHash}.json. Each malicious result goes to the signer.
 2. POST /replay, body replayRequestSchema ({ advisoryId }), response ReplayTimeline. Timeline only, for a real historical advisory: every event comes from a machine readable public source (OSV advisory published and modified times, and publish times from the public npm registry, never NPM_REGISTRY_URL) and carries its sourceUrl. Reading registry metadata never downloads a tarball. It never downloads or runs the real package, never submits a verdict, and never writes to REGISTRY_ADDRESS or any other chain. Every replay is labelled as a replay wherever it is shown.
-3. GET /evidence/:evidenceHash, response Evidence.
+3. GET /evidence/:evidenceHash, response Evidence. Reads EVIDENCE_DIR first; when the file is missing, reads the evidence from Arkiv by evidenceHash (below).
 4. GET /detectors, response DetectorInfo[]. Every demo detector has simulated true.
 5. GET /health, response { ok: true }.
+6. GET /evidence/:evidenceHash/arkiv, response { entityKey, txHash, owner }: the reference saved after publishing, or the entity found on Arkiv (txHash null), or 404.
+
+Evidence on Arkiv (services/detectors/src/arkiv.ts): when ARKIV_PRIVATE_KEY is set, every evidence written by /scan is also published to the Arkiv testnet Rabdi (chain id 7794095) as one entity of schema cordon.evidence: evidenceHash, detector, name and version as indexed strings (a name over 128 bytes is left out and stays in the body), malicious as a bool, and body as the exact bytes of the evidence file. Publishing runs in the background after the files are written, so votes never wait for it. On success the service writes EVIDENCE_DIR/{evidenceHash}.arkiv.json with { entityKey, txHash, owner }; on failure it logs the error once per evidence and goes on. Entities use the longest lifetime the SDK allows (ExpirationTime.max, about 182 days). Reading needs no key: the reader queries by schema and evidenceHash and keeps only a body that hashes back to evidenceHash, so a forged entity under the same hash is ignored. ARKIV_ACCESS_KEY is optional; without it the SDK uses the public, rate limited endpoint. SealRegistry votes and the watcher timeline stay where they are.
 
 staticScripts: downloads the tarball and reads package.json and the files its scripts call, without executing anything. Flags preinstall, install, postinstall and prepare scripts that touch the network (http, https, net, dns, fetch, curl, wget), environment variables (process.env, shell variables) or a shell (child_process, exec, spawn, sh). Also flags scripts and loaders that start another runtime (bun, deno, python, or a downloaded binary), git dependencies and optionalDependencies pointing at git, and payload files that are not JavaScript (native binaries, shell scripts, or files the scripts call that are not plain JavaScript). Only install time rules make the verdict malicious: install scripts (or files they call) that touch the network, environment variables or a shell, start another runtime, or run non JavaScript, and git dependencies. Prebuilt binaries, wasm and shell files that no install script runs are recorded as findings only, because many legitimate packages ship them and a false seal is an outage.
 
@@ -252,7 +255,7 @@ Whenever a blocked version has alreadyInstalled true (audit, sidecar, or a lockf
 
 1. /: stopwatch for the latest seal (publish, first verdict, quorum, first block, and the gap between each) and the live attestation feed. Data: watcher /stopwatch, /attestations.
 2. /sealed: every sealed key with status. Data: SealRegistry sealedKeys, watcher /snapshot for names.
-3. /seal/[key]: evidence per detector, timeline with hash chain check in the browser against the signed head, tx links. Data: watcher /timeline and /snapshot, detectors /evidence.
+3. /seal/[key]: evidence per detector, timeline with hash chain check in the browser against the signed head, tx links. Data: watcher /timeline and /snapshot, detectors /evidence and /evidence/:evidenceHash/arkiv. When the detectors service is unreachable or has no copy, the browser reads the evidence straight from Arkiv by evidenceHash with the public client (NEXT_PUBLIC_ARKIV_ACCESS_KEY optional) and still recomputes the hash. A Stored on Arkiv label with the entity key shows whenever an Arkiv reference exists.
 4. /services: guard sidecar status per service. Data: watcher /services.
 5. /guardian: the Suspect queue (name, live votes, expiry, evidence link), then promote, clear, unseal and reseal through the connected wallet, with the dispute window countdown. Data: SealRegistry, watcher /snapshot.
 6. /demo, only when NEXT_PUBLIC_DEMO is true: publish the poisoned demo version, reset, and show a historical replay timeline labelled as a replay, kept visually apart from the live stopwatch. Data: mockRegistry /_demo routes, detectors /replay.
@@ -295,14 +298,14 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 2. DEPLOYER_PRIVATE_KEY, GUARDIAN_ADDRESS, DETECTOR_ADDRESSES, QUORUM, DISPUTE_WINDOW_SECONDS, VOTE_LIFETIME_SECONDS, MAX_SEALS_PER_DAY: contracts.
 3. REGISTRY_ADDRESS: detectors, watcher, guard.
 4. STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CANARY_PRIVATE_KEY, ADVISORY_FEED_PRIVATE_KEY, DETECTORS_PORT, EVIDENCE_DIR, SANDBOX_IMAGE, OSV_API_URL: detectors.
-5. MOCK_REGISTRY_URL: detectors (sandbox allow rule).
+5. MOCK_REGISTRY_URL: detectors (sandbox allow rule). ARKIV_PRIVATE_KEY (optional, turns on publishing evidence to Arkiv) and ARKIV_ACCESS_KEY (optional): detectors.
 6. CANARY_SINK_URL: detectors, poisonedPackage.
 7. DETECTORS_URL, WATCHER_PORT, DATABASE_PATH, SNAPSHOT_SIGNER_PRIVATE_KEY, SNAPSHOT_PATH, GUARD_REPORTER_ADDRESSES, DASHBOARD_ORIGIN, REGISTRY_START_BLOCK: watcher. MOCK_REGISTRY_URL is also read by the watcher to mark demo publishes simulated.
 8. NPM_REGISTRY_URL: watcher, guard.
 9. POLL_INTERVAL_SECONDS: watcher, guard sidecar.
 10. GUARD_FALLBACK_MIN_AGE_DAYS, GUARD_ALLOW_NON_REGISTRY_SOURCES, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY, GUARD_HTTP_TIMEOUT_MS (default 5000, applied to the RPC, the snapshot fetch, registry metadata and reports): guard. The guard also reads REGISTRY_START_BLOCK for its Unsealed event query.
 11. MOCK_REGISTRY_PORT, MOCK_REGISTRY_STORAGE, MOCK_REGISTRY_DIST, CANARY_SINK_PORT, HOST, SERVICE_PORT, GUARD_SIDECAR_URL: demo. CORDON_DOCKER_TESTS=1 turns on the real Docker sandbox test in services/detectors.
-12. NEXT_PUBLIC_*: dashboard.
+12. NEXT_PUBLIC_*: dashboard. NEXT_PUBLIC_ARKIV_ACCESS_KEY is optional; without it the browser reads Arkiv through the public endpoint.
 
 ## Open decisions for the team
 
