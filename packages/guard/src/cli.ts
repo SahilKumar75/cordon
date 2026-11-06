@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import type { GuardReport, Hex32 } from "@cordon/shared";
 import { audit } from "./audit.ts";
 import { checkLockfile, exitCodes, installChecked, sendReport, type GuardSettings, type Npm } from "./check.ts";
+import { defaultRegistryUrl } from "./lockfile.ts";
 import { overridesOf } from "./rollback.ts";
 import { startSidecar } from "./sidecar.ts";
 
@@ -37,7 +38,7 @@ export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: 
     service: flags.service ?? null,
     fallbackMinAgeDays: numberFrom(env, "GUARD_FALLBACK_MIN_AGE_DAYS", 1),
     minAgeDays: numberFrom(env, "GUARD_MIN_AGE_DAYS", 0) ?? 0,
-    registryUrl: textFrom(env, "NPM_REGISTRY_URL"),
+    registryUrl: textFrom(env, "NPM_REGISTRY_URL") ?? defaultRegistryUrl,
     allowNonRegistrySources: flagFrom(env, "GUARD_ALLOW_NON_REGISTRY_SOURCES"),
     allowSuspect: flags["allow-suspect"] ?? [],
     suspectBlocks: true,

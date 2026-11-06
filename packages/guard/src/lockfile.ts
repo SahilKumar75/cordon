@@ -67,12 +67,27 @@ export function readJson(path: string): unknown {
   }
 }
 
+const tarballPathPattern = /\/((?:@[^/]+\/)?[^/@][^/]*)\/-\/([^/]+)\.tgz$/;
+
+export function tarballIdentityOf(resolved: string | null): { name: string; version: string } | null {
+  if (!resolved || !URL.canParse(resolved)) return null;
+  const match = tarballPathPattern.exec(decodeURIComponent(new URL(resolved).pathname));
+  if (!match) return null;
+  const name = match[1] as string;
+  const file = match[2] as string;
+  const unscoped = name.slice(name.lastIndexOf("/") + 1);
+  if (!file.startsWith(`${unscoped}-`)) return null;
+  return { name, version: file.slice(unscoped.length + 1) };
+}
+
 function entriesOf(packages: Record<string, PackageEntry>): LockEntry[] {
   return Object.entries(packages).flatMap(([path, entry]) => {
     if (!path.includes("node_modules/") || entry.link === true) return [];
     if (typeof entry.version !== "string") return [];
-    const name = typeof entry.name === "string" ? entry.name : path.slice(path.lastIndexOf("node_modules/") + "node_modules/".length);
-    return [{ name, version: entry.version, path, resolved: typeof entry.resolved === "string" ? entry.resolved : null }];
+    const declared = typeof entry.name === "string" ? entry.name : path.slice(path.lastIndexOf("node_modules/") + "node_modules/".length);
+    const resolved = typeof entry.resolved === "string" ? entry.resolved : null;
+    const fetched = tarballIdentityOf(resolved);
+    return [{ name: fetched?.name ?? declared, version: fetched?.version ?? entry.version, path, resolved }];
   });
 }
 

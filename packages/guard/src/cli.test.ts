@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { run, settingsFromEnv } from "./cli.ts";
 import { tempDir, writeLockfile } from "./testFixtures.ts";
 
-const quietEnv = { GUARD_FALLBACK_MIN_AGE_DAYS: "3" };
+const quietEnv = { GUARD_FALLBACK_MIN_AGE_DAYS: "3", NPM_REGISTRY_URL: "http://127.0.0.1:9" };
 
 test("exit codes are 0 for allowed, 1 for blocked and 2 for unavailable", async (context) => {
   const output = context.mock.method(process.stdout, "write", () => true);
@@ -51,4 +51,9 @@ test("each --allow-suspect flag names one version and the CLI always blocks othe
   assert.deepEqual(settings.allowSuspect, ["a@1.0.0", "b@2.0.0"]);
   assert.equal(settings.suspectBlocks, true);
   assert.deepEqual(settingsFromEnv({}, {}).allowSuspect, []);
+});
+
+test("the registry defaults to the public npm registry and NPM_REGISTRY_URL overrides it", () => {
+  assert.equal(settingsFromEnv({}, {}).registryUrl, "https://registry.npmjs.org");
+  assert.equal(settingsFromEnv({ NPM_REGISTRY_URL: "http://localhost:4873" }, {}).registryUrl, "http://localhost:4873");
 });

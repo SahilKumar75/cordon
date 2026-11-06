@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, truncateSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { maxLockfileBytes, nonRegistrySourcesOf, readLockfile, resolveLockfilePath } from "./lockfile.ts";
+import { maxLockfileBytes, nonRegistrySourcesOf, readLockfile, resolveLockfilePath, tarballIdentityOf } from "./lockfile.ts";
 import { tempDir, writeLockfile } from "./testFixtures.ts";
 
 test("npm-shrinkwrap.json is chosen before package-lock.json", () => {
@@ -117,4 +117,23 @@ test("read errors other than a missing file or bad JSON surface", () => {
   const directory = join(dir, "package-lock.json");
   mkdirSync(directory);
   assert.throws(() => readLockfile(directory), /cannot read .*package-lock\.json: EISDIR/);
+});
+
+test("the seal key identity comes from the resolved tarball, so a forged name, case or build tag does not dodge it", () => {
+  const registry = "https://registry.npmjs.org";
+  const dir = tempDir();
+  const path = writeLockfile(dir, {
+    "node_modules/rtsealed": { name: "RTsealed", version: "1.0.0", resolved: `${registry}/rtsealed/-/rtsealed-1.0.0.tgz` },
+    "node_modules/@cordondemo/colorkit": { version: "1.4.1+build", resolved: `${registry}/@cordondemo/colorkit/-/colorkit-1.4.1.tgz` },
+    "node_modules/other": { name: "other", version: "9.9.9", resolved: `${registry}/sealedpkg/-/sealedpkg-2.0.0.tgz` },
+    "node_modules/plain": { version: "3.0.0" },
+  });
+  const read = readLockfile(path);
+  assert.ok(read.ok);
+  assert.deepEqual(
+    read.entries.map(({ name, version }) => `${name}@${version}`),
+    ["rtsealed@1.0.0", "@cordondemo/colorkit@1.4.1", "sealedpkg@2.0.0", "plain@3.0.0"],
+  );
+  assert.deepEqual(tarballIdentityOf(`${registry}/@scope%2fpkg/-/pkg-1.2.3-beta.1.tgz`), { name: "@scope/pkg", version: "1.2.3-beta.1" });
+  assert.equal(tarballIdentityOf("git+https://github.com/a/b.git#abc"), null);
 });
