@@ -15,16 +15,16 @@ Shorthand used below: `cordon` means `node packages/guard/bin/cordon.js`, and `L
 | Time | Beat | On screen | Say |
 | --- | --- | --- | --- |
 | 0:00 | Problem | Dashboard home | On 11 May 2026 an attacker published 84 malicious versions of 42 TanStack packages. They carried valid npm provenance, and installing them ran a payload that stole credentials. Cordon stops a version like that before it runs. |
-| 0:15 | Publish | /demo, click publish for @cordondemo/colorkit 1.4.1 | This is our own demo package. Its install script sends a fake canary token to a sink on this machine, nothing else. |
-| 0:30 | Detectors vote | Attestation feed: staticScripts, sandboxCanary, advisoryFeed, each tagged simulated | Three detectors that fail in different ways: one reads the install script, one installs it in a throwaway container and watches the canary, one checks public advisories. In this demo all three are run by us, so they are labelled simulated. |
-| 0:55 | Sealed | /sealed, then the explorer tab on the Sealed event | Two of three agreed, so SealRegistry on Base Sepolia sealed exactly version 1.4.1. Anyone can check the votes and evidence hashes on the explorer. |
-| 1:10 | Stopwatch | Home: publish, first verdict, quorum, first block, with the gap between each | From publish to first verdict to quorum to first block. Read the gaps as they appear on screen; quote no number in advance. |
+| 0:15 | Publish | /demo, click Publish 1.4.1 for @cordondemo/colorkit | This is our own demo package. Its install script sends a fake canary token to a sink on this machine, nothing else. |
+| 0:30 | Detectors vote | Home, Detector votes: staticScripts, sandboxCanary, advisoryFeed, each tagged simulated | Three detectors that fail in different ways: one reads the install script, one installs it in a throwaway container and watches the canary, one checks public advisories. In this demo all three are run by us, so they are labelled simulated. |
+| 0:55 | Sealed | /sealed (The vault), then the explorer tab on the Sealed event | Two of three agreed, so SealRegistry on Base Sepolia sealed exactly version 1.4.1. Anyone can check the votes and evidence hashes on the explorer. |
+| 1:10 | Stopwatch | Home: the stage strip (published, first vote, sealed, blocked), times from publish | From publish to first verdict to quorum to first block. Read the gaps as they appear on screen; quote no number in advance. |
 | 1:25 | Install blocked | Terminal A: `cordon install --lockfile LOCK` | The guard reads the lockfile and the Sealed list before npm runs. Outcome blocked, exit code 1, and npm ci never starts, so nothing is downloaded. |
 | 1:40 | Services stopped | `curl -s localhost:4101`, `curl -s localhost:4103`, `curl -s localhost:4102`; dashboard /services | ordersApi and notifyWorker answer 503 with `Stopped by the guard: @cordondemo/colorkit@1.4.1 is sealed`. searchApi is on 1.4.0 and keeps serving, because seals are per version. |
 | 1:55 | Rollback | `cordon rollback --lockfile LOCK` | It proposes 1.4.0 as an npm overrides snippet. It never edits files. |
 | 2:05 | Rotation advice | The advice lines in the install report | 1.4.1 is already installed in this service, so the advice comes in order: remove persistence daemons and editor or coding agent hooks first, then rotate credentials. A runtime stop cannot undo theft at install time. |
 | 2:15 | Censorship resistance | See the next section | |
-| 2:40 | Replay | /demo, Historical replay panel, MAL-2026-3465 | See the replay section. |
+| 2:40 | Replay | /demo, Replay: TanStack, May 2026, MAL-2026-3465 | See the replay section. |
 | 2:55 | Close | Dashboard home | Cordon: seal one version, block it everywhere before it runs. |
 
 ## Censorship resistance scene (2:15 to 2:40)
@@ -49,7 +49,7 @@ Do not show the cached snapshot being accepted when it is older than GUARD_SNAPS
 
 ## Historical replay (2:40 to 2:55)
 
-On /demo, open the Historical replay panel and run it for MAL-2026-3465 (@tanstack/react-router). The panel is tagged Replay and sits apart from the live stopwatch. Say "replay" out loud; never call it a seal. It is a timeline only, built from public data, and it never writes to any chain.
+On /demo, scroll to Replay: TanStack, May 2026 and press Build replay for MAL-2026-3465 (@tanstack/react-router). The panel is tagged Replay and sits apart from the live stopwatch. Say "replay" out loud; never call it a seal. It is a timeline only, built from public data, and it never writes to any chain.
 
 What the viewer should see, all from [docs/research/replay_candidates.md](research/replay_candidates.md#1-mal-2026-3465-tanstackreact-router-recommended), times in UTC on 11 May 2026:
 
