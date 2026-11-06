@@ -30,7 +30,8 @@ const magicNumbers = [
 
 type Manifest = Partial<Record<string, Record<string, string>>>;
 
-export async function downloadTarball(url: string, integrity: string, fetchImpl: FetchLike): Promise<Buffer> {
+export async function downloadTarball(request: ScanRequest, fetchImpl: FetchLike): Promise<Buffer> {
+  const { tarballUrl: url, integrity } = request;
   const response = await fetchImpl(url);
   if (!response.ok) throw new Error(`tarball download failed with status ${response.status} for ${url}`);
   const tarball = Buffer.from(await response.arrayBuffer());
@@ -38,6 +39,10 @@ export async function downloadTarball(url: string, integrity: string, fetchImpl:
   if (!algorithm || !expected) throw new Error(`integrity value is not in algorithm and base64 form: ${integrity}`);
   const actual = createHash(algorithm).update(tarball).digest("base64");
   if (actual !== expected) throw new Error(`tarball integrity mismatch for ${url}`);
+  const manifest = JSON.parse((await readTarballFiles(tarball)).get("package.json")?.toString() ?? "{}");
+  if (manifest.name !== request.name || manifest.version !== request.version) {
+    throw new Error(`tarball package.json is ${manifest.name}@${manifest.version}, the scan asked for ${request.name}@${request.version}`);
+  }
   return tarball;
 }
 

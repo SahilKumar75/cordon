@@ -144,11 +144,18 @@ test("a shell script called by an install hook is flagged as a non JavaScript ca
 test("download rejects a tarball whose integrity does not match", async () => {
   const tarball = await packFixture({ "package.json": cleanManifest });
   const fakeFetch = async () => new Response(new Uint8Array(tarball));
-  const { tarballUrl, integrity } = requestFor("1.4.0", tarball);
-  assert.deepEqual(await downloadTarball(tarballUrl, integrity, fakeFetch), tarball);
-  await assert.rejects(downloadTarball(tarballUrl, "sha512-AAAA", fakeFetch), /integrity mismatch/);
+  const request = requestFor("1.4.0", tarball);
+  assert.deepEqual(await downloadTarball(request, fakeFetch), tarball);
+  await assert.rejects(downloadTarball({ ...request, integrity: "sha512-AAAA" }, fakeFetch), /integrity mismatch/);
   await assert.rejects(
-    downloadTarball(tarballUrl, integrity, async () => new Response("gone", { status: 404 })),
+    downloadTarball(request, async () => new Response("gone", { status: 404 })),
     /status 404/,
   );
+});
+
+test("download rejects a tarball whose package.json names a different version than the scan", async () => {
+  const tarball = await packFixture({ "package.json": cleanManifest });
+  const fakeFetch = async () => new Response(new Uint8Array(tarball));
+  await assert.rejects(downloadTarball(requestFor("1.4.1", tarball), fakeFetch), /package.json is @cordondemo\/colorkit@1.4.0, the scan asked for @cordondemo\/colorkit@1.4.1/);
+  await assert.rejects(downloadTarball({ ...requestFor("1.4.0", tarball), name: "react" }, fakeFetch), /the scan asked for react@1.4.0/);
 });

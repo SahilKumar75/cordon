@@ -48,7 +48,7 @@ export function buildServer(deps: DetectorsDeps) {
 
   app.post("/scan", async (request): Promise<ScanResponse> => {
     const scan = scanRequestSchema.parse(request.body);
-    const tarball = downloadTarball(scan.tarballUrl, scan.integrity, deps.fetchImpl);
+    const tarball = downloadTarball(scan, deps.fetchImpl);
     const sandbox = isSandboxEligible(scan.tarballUrl, deps.mockRegistryUrl);
     const runs: [DetectorId, Promise<Evidence>][] = [
       ["staticScripts", tarball.then((bytes) => scanStatic(scan, bytes))],
