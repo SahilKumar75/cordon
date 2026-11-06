@@ -34,40 +34,49 @@ Full design: [docs/architecture.md](docs/architecture.md).
 
 ## Run locally
 
-Requires Node 22, pnpm, Docker and Foundry.
+Requirements, on macOS or Linux:
+1. Node 22 through nvm (the repo has .nvmrc).
+2. pnpm 10, for example through `corepack enable`.
+3. Docker, running.
+4. Foundry installed with foundryup, so forge, cast and anvil are in ~/.foundry/bin. The tests and scripts call them from there.
+5. git, curl and lsof.
+
+Clone, install and test:
 
 ```sh
+git clone --recursive https://github.com/SahilKumar75/cordon.git
+cd cordon
 source ~/.nvm/nvm.sh && nvm use 22
 pnpm install
+(cd contracts && ~/.foundry/bin/forge build && ~/.foundry/bin/forge test)
 pnpm typecheck
 pnpm test
-git submodule update --init
-(cd contracts && forge build && forge test)
 ```
 
-Demo stack (mock registry, canary sink, three demo services with guard sidecars):
+pnpm keeps its store inside the repo and never runs install scripts (.npmrc). The first install downloads about 500 packages and took two minutes on our machine. `pnpm test` runs every package and the fitness and chaos tests, which start their own anvil chains. The Docker sandbox test is skipped unless you ask for it:
 
 ```sh
-sh demo/setup.sh    # packs demo tarballs, builds the canary sink image, installs services with scripts disabled
-sh demo/start.sh    # starts everything on 127.0.0.1, logs in demo/logs
-sh demo/stop.sh
-sh demo/reset.sh    # clears demo registry storage, sink data, logs, watcher database and snapshot
+CORDON_DOCKER_TESTS=1 pnpm --filter @cordon/detectors test
 ```
 
-Detectors, watcher and dashboard:
+## Local demo, no testnet and no keys needed
 
 ```sh
-pnpm --filter @cordon/detectors start
-pnpm --filter @cordon/watcher start
-pnpm --filter @cordon/dashboard dev
+bash ops/e2eLocal.sh --hold
 ```
 
-Guard CLI (exit codes: allowed 0, blocked 1, unavailable 2):
+This starts a local anvil chain, generates throwaway keys into ops/keys/local.env (ignored by git), deploys SealRegistry, packs the demo package, builds the canary sink image, and starts the mock registry, canary sink, three demo services with guard sidecars, the detectors, the watcher and the dashboard. When it prints that the stack is up, open http://127.0.0.1:3000/demo and publish @cordondemo/colorkit 1.4.1. To run guard commands against the same stack, open a second terminal in the repo:
 
 ```sh
-node packages/guard/bin/cordon.js check --lockfile path/to/package-lock.json
-node packages/guard/bin/cordon.js install --lockfile path/to/package-lock.json
+set -a; . demo/demo.env; set +a
+node packages/guard/bin/cordon.js check --lockfile demo/services/ordersApi/package-lock.json
 ```
+
+Exit codes: allowed 0, blocked 1, unavailable 2. Press Ctrl+C in the first terminal to stop everything; it clears the demo state and the generated demo/demo.env. It needs ports 3000, 4101 to 4103, 4201 to 4203, 4301, 4302, 4873, 4880 and 8546 free.
+
+Without `--hold` the same script runs the whole flow on its own, including the RPC off and watcher off checks, and prints pass or fail for each step and the stopwatch.
+
+To run the parts by hand against a deployed chain, load the root .env (`set -a; . ./.env; set +a`) and start each one: `sh demo/setup.sh`, `sh demo/start.sh`, `pnpm --filter @cordon/detectors start`, `pnpm --filter @cordon/watcher start`, `pnpm --filter @cordon/dashboard dev`. docs/demo.md lists the order for a recorded take.
 
 ## Environment
 
@@ -75,13 +84,13 @@ Every variable is listed with an empty value in [.env.example](.env.example); de
 
 ## Demo
 
-1. Run demo/setup.sh and demo/start.sh, then the detectors, watcher and dashboard.
+1. Start the local demo above, or the testnet stack as in docs/demo.md.
 2. On the dashboard /demo page, publish @cordondemo/colorkit 1.4.1. Its postinstall sends a fake canary token to the local sink and nothing else.
 3. The detectors vote, SealRegistry seals 1.4.1 at quorum 2 of 3, and the stopwatch fills in.
 4. ordersApi and notifyWorker (on 1.4.1) go unhealthy; searchApi (on 1.4.0) keeps serving.
 5. Show the TanStack replay: a timeline only, built from OSV and npm registry times, labelled as a replay, never written to the chain.
 
-The full script will be in docs/demo.md.
+The full script is in [docs/demo.md](docs/demo.md). Screenshots of every dashboard page in loading, empty, error and normal states are in [docs/screenshots](docs/screenshots).
 
 ## Deployment
 
@@ -101,11 +110,11 @@ Lead property: censorship resistant. What the demo shows: with the chain RPC swi
 
 C: we run the watcher and, in the demo, all three detectors; users also depend on an RPC provider and Base Sepolia. Without the RPC and the watcher the guard uses its cached signed snapshot until GUARD_SNAPSHOT_MAX_AGE_SECONDS, then blocks versions younger than N days and says so.
 
-O: MIT license (LICENSE). Everything builds and runs from this repo with Node 22, pnpm, Foundry and Docker, using the commands above.
+O: MIT license (LICENSE). Everything builds and runs from this repo with Node 22, pnpm, Foundry and Docker, using the commands above; the local demo needs no testnet and no hosted service of ours.
 
-P: the guard downloads every sealed key and matches the lockfile locally, so it sends no package name to the RPC provider or the watcher. The minimum age check, the age fallback and rollback ask the npm registry about named packages (docs/limits.md). Guard reports are sent only when GUARD_REPORT_URL and a reporter key are set. The dashboard has no trackers or analytics.
+P: the guard downloads every sealed key and matches the lockfile locally, so the sealed list lookup sends no package name to the RPC provider or the watcher. Guard reports are sent only when GUARD_REPORT_URL and a reporter key are set, and then they carry the blocked package names and the lockfile path to the watcher. The minimum age check, the age fallback and rollback ask the npm registry about named packages (docs/limits.md). The dashboard has no trackers or analytics.
 
-S: private keys stay in the local .env, which git ignores and the fitness tests check. A seal needs a quorum of distinct detector keys, and a snapshot is trusted only when its signer, chain, registry and age check out.
+S: private keys stay in local files that git ignores, which the fitness tests check: .env, demo/demo.env (the guard reporter key) and ops/keys/local.env (throwaway keys for the local demo). A seal needs a quorum of distinct detector keys, and a snapshot is trusted only when its signer, chain, registry and age check out.
 
 Limits that weaken these properties:
 1. In the demo all three detectors are run by us, so a quorum of distinct keys is not a quorum of independent operators.
@@ -152,4 +161,4 @@ Hacking began Thu 5 Nov 2026, 21:00 IST. Before that, between 16:51 and 17:02 IS
 
 ## AI usage
 
-We built Cordon with Claude Code as an orchestrator with one subagent per area. The team wrote the product, safety and design rules and made every decision recorded in docs/decisions.md; AI generated most code and docs, and an AI reviewer audited each phase. Every prompt, agent file and generated file is listed in [docs/ai_usage.md](docs/ai_usage.md).
+We built Cordon with Claude Code as an orchestrator with one subagent per area. The team wrote the product, safety and design rules and made the decisions on chain, target prizes, fail mode, scope and license, which CLAUDE.md, docs/rules.md and docs/ai_usage.md record; docs/decisions.md is the team's own file and is still empty; AI generated most code and docs, and an AI reviewer audited each phase. Every prompt, agent file and generated file is listed in [docs/ai_usage.md](docs/ai_usage.md).

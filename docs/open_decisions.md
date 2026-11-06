@@ -19,7 +19,7 @@ Suggested: 2 of 3.
 Trade off: 1 of 3 seals faster but lets one faulty or compromised detector cause an outage; 3 of 3 is safest against false seals but stops sealing when any detector is down.
 
 ## Fail mode when the Sealed list is unavailable
-Suggested: the age fallback, as decided on 6 Nov 2026, rather than open or closed.
+Suggested: the age fallback rather than fail open or fail closed. The team chose it on 6 Nov 2026 and CLAUDE.md design rule 8 records it; N stays for docs/decisions.md.
 Trade off: fail open lets every install through during an outage; fail closed stops all installs; the fallback stops only fresh versions and depends on N above.
 
 ## Seal rate limit (MAX_SEALS_PER_DAY)
