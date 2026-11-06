@@ -108,7 +108,9 @@ The full script is in [docs/demo.md](docs/demo.md). Screenshots of every dashboa
 
 ## Deployment
 
-The testnet deployment is pending. Contract addresses and explorer links will be added here.
+SealRegistry on Base Sepolia (chain id 84532): [0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F](https://sepolia.basescan.org/address/0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F), start block 55415999, source verified on Sourcify. One demo version, @cordondemo/colorkit 1.4.1, is sealed there by two of our detector keys voting by hand. The transactions and the guard runs against the public RPC are in [docs/testnet_proof.md](docs/testnet_proof.md).
+
+For the Try it section: CHAIN_ID=84532, RPC_URL=https://sepolia.base.org, REGISTRY_ADDRESS=0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F, REGISTRY_START_BLOCK=55415999.
 
 One command deploys to the chain in .env once the deployer holds at least 0.012 ETH:
 

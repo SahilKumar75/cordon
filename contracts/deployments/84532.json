@@ -1,0 +1,15 @@
+{
+  "blockNumber": 55415999,
+  "chainId": 84532,
+  "detectors": [
+    "0x486402FbcbFDaf3c7D6D0c1D4FBd4577a4400473",
+    "0xFFea032301c37968aFEEa4119c80dbdBeb947E5E",
+    "0x07e1A7b86ECa1aE0D35eb6c4967a7e86505a3A53"
+  ],
+  "disputeWindow": 3600,
+  "guardian": "0xd2B488f4CaDf1A75Cf37f160c6277C7506Bb0616",
+  "maxSealsPerDay": 10,
+  "quorum": 2,
+  "sealRegistry": "0x07DCC100d48fBA912fEf3e14F61d1162596a0E8F",
+  "voteLifetime": 86400
+}
