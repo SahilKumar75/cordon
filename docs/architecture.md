@@ -109,7 +109,7 @@ interface ISealRegistry {
 4. GET /detectors, response DetectorInfo[]. Every demo detector has simulated true.
 5. GET /health, response { ok: true }.
 
-staticScripts: downloads the tarball and reads package.json and the files its scripts call, without executing anything. Flags preinstall, install, postinstall and prepare scripts that touch the network (http, https, net, dns, fetch, curl, wget), environment variables (process.env, shell variables) or a shell (child_process, exec, spawn, sh). Also flags scripts and loaders that start another runtime (bun, deno, python, or a downloaded binary), git dependencies and optionalDependencies pointing at git, and payload files that are not JavaScript (native binaries, shell scripts, or files the scripts call that are not plain JavaScript).
+staticScripts: downloads the tarball and reads package.json and the files its scripts call, without executing anything. Flags preinstall, install, postinstall and prepare scripts that touch the network (http, https, net, dns, fetch, curl, wget), environment variables (process.env, shell variables) or a shell (child_process, exec, spawn, sh). Also flags scripts and loaders that start another runtime (bun, deno, python, or a downloaded binary), git dependencies and optionalDependencies pointing at git, and payload files that are not JavaScript (native binaries, shell scripts, or files the scripts call that are not plain JavaScript). Only install time rules make the verdict malicious: install scripts (or files they call) that touch the network, environment variables or a shell, start another runtime, or run non JavaScript, and git dependencies. Prebuilt binaries, wasm and shell files that no install script runs are recorded as findings only, because many legitimate packages ship them and a false seal is an outage.
 
 sandboxCanary:
 1. Runs only when the tarball URL's origin equals MOCK_REGISTRY_URL. Any other tarball gets no sandbox run and no sandbox verdict, so real public packages are never executed here.
@@ -117,7 +117,7 @@ sandboxCanary:
 3. Network: an internal Docker network with no route out, holding only the sandbox, the mockRegistry container and the canarySink container.
 4. Fake secrets in env only, including CANARY_TOKEN, a random value per run injected by the sandbox and never set anywhere else.
 5. All capabilities dropped, the no new privileges option set, memory and process limits, 60 second timeout. A blocked or killed run destroys only the disposable container.
-6. Every process spawned inside the container during the run is recorded and kept in the evidence as findings, so a payload that starts another runtime shows up even when it sends nothing.
+6. Every process spawned inside the container during the run (polled with docker top) is recorded in the evidence as informational findings, so a payload that starts another runtime shows up even when it sends nothing. Only the canary decides the verdict.
 7. Malicious when canarySink reports that run's CANARY_TOKEN as received. The service asks the sink through docker exec, because the internal network is not reachable from the host. The sink container gets the same limits and no published ports. The demo setup script builds the sink image before the first run.
 
 advisoryFeed: queries OSV (OSV_API_URL is the base URL, the service appends the v1 paths) for malicious package advisories (MAL ids) matching the exact npm name and version. Evidence keeps the advisory URL. Sources are verified by the research agent before use.

@@ -125,6 +125,14 @@ test("payload files are recognised by magic bytes and shebang, plain JavaScript 
     "payloadNonJavaScript:scripts/run",
     "payloadNonJavaScript:scripts/setup.sh",
   ]);
+  assert.equal(result.malicious, false);
+});
+
+test("an ELF binary without install scripts is kept as a finding but is not malicious", async () => {
+  const elf = new Uint8Array([0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00]);
+  const result = await findingsFor({ "package.json": cleanManifest, "prebuilds/addon.node": elf });
+  assert.deepEqual(result.rules, ["payloadNonJavaScript:prebuilds/addon.node"]);
+  assert.equal(result.malicious, false);
 });
 
 test("a shell script called by an install hook is flagged as a non JavaScript call", async () => {

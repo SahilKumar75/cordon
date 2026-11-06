@@ -129,7 +129,7 @@ export async function scanStatic(request: ScanRequest, tarball: Buffer): Promise
     version: request.version,
     detector: "staticScripts",
     integrity: request.integrity,
-    malicious: findings.length > 0,
+    malicious: findings.some(({ rule }) => rule !== "payloadNonJavaScript"),
     simulated: true,
     findings,
     advisoryUrl: null,
