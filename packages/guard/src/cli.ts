@@ -1,9 +1,9 @@
-import { spawn } from "node:child_process";
-import { parseArgs } from "node:util";
+import { execFile, spawn } from "node:child_process";
+import { parseArgs, promisify } from "node:util";
 import type { Address } from "viem";
 import type { GuardReport, Hex32 } from "@bulkhead/shared";
 import { audit } from "./audit.ts";
-import { checkLockfile, exitCodes, installChecked, sendReport, type GuardSettings, type Spawner } from "./check.ts";
+import { checkLockfile, exitCodes, installChecked, sendReport, type GuardSettings, type Npm } from "./check.ts";
 import { overridesOf } from "./rollback.ts";
 import { startSidecar } from "./sidecar.ts";
 
@@ -23,6 +23,12 @@ function textFrom(env: Env, name: string): string | null {
   return env[name] ? (env[name] as string) : null;
 }
 
+function flagFrom(env: Env, name: string): boolean {
+  const raw = env[name] ?? "";
+  if (!["", "true", "false"].includes(raw)) throw new Error(`${name} must be true or false, got ${raw}`);
+  return raw === "true";
+}
+
 export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: string }): GuardSettings {
   return {
     lockfile: flags.lockfile ?? process.cwd(),
@@ -30,6 +36,7 @@ export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: 
     fallbackMinAgeDays: numberFrom(env, "GUARD_FALLBACK_MIN_AGE_DAYS", 1),
     minAgeDays: numberFrom(env, "GUARD_MIN_AGE_DAYS", 0) ?? 0,
     registryUrl: textFrom(env, "NPM_REGISTRY_URL"),
+    allowGitDependencies: flagFrom(env, "GUARD_ALLOW_GIT_DEPENDENCIES"),
     chainId: numberFrom(env, "CHAIN_ID", 1),
     rpcUrl: textFrom(env, "RPC_URL"),
     registryAddress: textFrom(env, "REGISTRY_ADDRESS") as Address | null,
@@ -46,12 +53,15 @@ export function settingsFromEnv(env: Env, flags: { lockfile?: string; service?: 
   };
 }
 
-const runNpm: Spawner = (command, args, cwd) =>
-  new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: "inherit" });
-    child.on("error", reject);
-    child.on("exit", (code) => resolve(code ?? 1));
-  });
+const systemNpm: Npm = {
+  run: (command, args, cwd) =>
+    new Promise((resolve, reject) => {
+      const child = spawn(command, args, { cwd, stdio: "inherit" });
+      child.on("error", reject);
+      child.on("exit", (code) => resolve(code ?? 1));
+    }),
+  version: async () => (await promisify(execFile)("npm", ["--version"])).stdout.trim(),
+};
 
 function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -63,7 +73,7 @@ async function reported(report: GuardReport, settings: GuardSettings): Promise<n
   return exitCodes[report.outcome];
 }
 
-export async function run(argv: string[], env: Env, spawner: Spawner = runNpm): Promise<number> {
+export async function run(argv: string[], env: Env, npm: Npm = systemNpm): Promise<number> {
   const { positionals, values } = parseArgs({
     args: argv,
     allowPositionals: true,
@@ -80,7 +90,7 @@ export async function run(argv: string[], env: Env, spawner: Spawner = runNpm): 
   const command = positionals[0];
   if (command === "check") return reported(await checkLockfile(settings), settings);
   if (command === "install") {
-    const { report, exitCode } = await installChecked(settings, spawner);
+    const { report, exitCode } = await installChecked(settings, npm);
     await reported(report, settings);
     return exitCode;
   }

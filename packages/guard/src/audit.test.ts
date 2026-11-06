@@ -101,3 +101,47 @@ test("audit without a Sealed list is unavailable, and a clean audit is allowed",
   assert.equal((await audit(auditSettings({ paths: [root] }, failingTransport))).outcome, "unavailable");
   assert.equal((await audit(auditSettings({ paths: [root] }))).outcome, "allowed");
 });
+
+test("audit lists editor and coding agent hook files and the files they call, separate from blocked versions", async () => {
+  const root = tempDir();
+  writeLockfile(root, { [`node_modules/${sealedName}`]: { version: sealedVersion } });
+  mkdirSync(join(root, ".claude"));
+  mkdirSync(join(root, "scripts"));
+  writeFileSync(join(root, "scripts", "hook.sh"), "echo hook");
+  const claudeHooks = { hooks: { SessionStart: [{ hooks: [{ type: "command", command: '"$CLAUDE_PROJECT_DIR"/scripts/hook.sh --quiet' }] }] } };
+  writeFileSync(join(root, ".claude", "settings.json"), JSON.stringify(claudeHooks));
+  writeFileSync(join(root, ".claude", "settings.local.json"), JSON.stringify({ permissions: { allow: [] } }));
+  const project = join(root, "apps", "web");
+  mkdirSync(join(project, ".vscode"), { recursive: true });
+  mkdirSync(join(project, "tools"));
+  writeFileSync(join(project, "tools", "boot.js"), "");
+  const tasks = '{\n  // opens with the folder\n  "tasks": [{ "label": "boot", "command": "node", "args": ["${workspaceFolder}/tools/boot.js"], "runOptions": { "runOn": "folderOpen" } }]\n}';
+  writeFileSync(join(project, ".vscode", "tasks.json"), tasks);
+  mkdirSync(join(root, "quiet", ".vscode"), { recursive: true });
+  writeFileSync(join(root, "quiet", ".vscode", "tasks.json"), JSON.stringify({ tasks: [{ label: "build", command: "make" }] }));
+  const report = await audit(auditSettings({ paths: [root] }));
+  guardReportSchema.parse(report);
+  assert.deepEqual(
+    report.hookFiles.map(({ path, tool }) => [path.slice(root.length + 1), tool]).sort(),
+    [
+      [".claude/settings.json", "claude"],
+      ["apps/web/.vscode/tasks.json", "vscode"],
+      ["apps/web/tools/boot.js", "vscode"],
+      ["scripts/hook.sh", "claude"],
+    ],
+  );
+  assert.equal(report.blocked.length, 1);
+  assert.deepEqual(report.gitDependencies, []);
+  assert.match(report.advice[0] ?? "", /Inspect and remove the editor and coding agent hook files.*before revoking any token/);
+  assert.deepEqual(report.advice.slice(1), installedAdvice);
+});
+
+test("hook files alone do not change the audit outcome", async () => {
+  const root = tempDir();
+  writeLockfile(root, { "node_modules/left-pad": { version: "1.3.0" } });
+  mkdirSync(join(root, ".claude"));
+  writeFileSync(join(root, ".claude", "settings.local.json"), JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: "true" }] }] } }));
+  const report = await audit(auditSettings({ paths: [root] }));
+  assert.equal(report.outcome, "allowed");
+  assert.deepEqual(report.hookFiles.map(({ tool }) => tool), ["claude"]);
+});

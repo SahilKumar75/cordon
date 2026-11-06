@@ -3,7 +3,14 @@ import { test } from "node:test";
 import { verifyMessage } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { guardReportDigestOf, guardReportSchema, signedGuardReportSchema } from "@bulkhead/shared";
-import { checkLockfile, installChecked, installedAdvice, placeholderFallbackMinAgeDays, sendReport, type Spawner } from "./check.ts";
+import {
+  checkLockfile,
+  installChecked,
+  installedAdvice,
+  npmGitSettingMinimumVersion,
+  npmGitSettingName,
+  placeholderFallbackMinAgeDays,
+  sendReport, type Npm } from "./check.ts";
 import {
   chainTransport,
   daysAgo,
@@ -25,12 +32,20 @@ import {
 const sealedChain = chainTransport([{ key: sealedKey, status: 1 }]);
 const registryUrl = "http://registry.test";
 
-function recordingSpawner(): Spawner & { calls: { command: string; args: string[]; cwd: string }[] } {
-  const calls: { command: string; args: string[]; cwd: string }[] = [];
-  return Object.assign(async (command: string, args: string[], cwd: string) => {
-    calls.push({ command, args, cwd });
-    return 0;
-  }, { calls });
+function recordingNpm(version = "10.9.0"): Npm & { calls: { command: string; args: string[]; cwd: string }[]; versionReads: number } {
+  const npm = {
+    calls: [] as { command: string; args: string[]; cwd: string }[],
+    versionReads: 0,
+    run: async (command: string, args: string[], cwd: string) => {
+      npm.calls.push({ command, args, cwd });
+      return 0;
+    },
+    version: async () => {
+      npm.versionReads += 1;
+      return version;
+    },
+  };
+  return npm;
 }
 
 test("a Sealed transitive version blocks", async () => {
@@ -175,7 +190,7 @@ test("install never runs npm ci when blocked or unavailable", async () => {
   writeLockfile(blocked, { [`node_modules/${sealedName}`]: { version: sealedVersion } });
   const legacy = tempDir();
   writeLockfile(legacy, {}, 1);
-  const spawner = recordingSpawner();
+  const spawner = recordingNpm();
   assert.equal((await installChecked(settingsFor(blocked, { transport: sealedChain }), spawner)).exitCode, 1);
   assert.equal((await installChecked(settingsFor(legacy, { transport: sealedChain }), spawner)).exitCode, 2);
   assert.deepEqual(spawner.calls, []);
@@ -185,7 +200,7 @@ test("install runs npm ci with scripts disabled when allowed, against the lockfi
   const dir = tempDir();
   const packageLock = writeLockfile(dir, { "node_modules/widget": { version: "3.0.0" } });
   writeLockfile(dir, { [`node_modules/${sealedName}`]: { version: sealedVersion } }, 3, "npm-shrinkwrap.json");
-  const spawner = recordingSpawner();
+  const spawner = recordingNpm();
   const shadowed = await installChecked(settingsFor(packageLock, { transport: sealedChain }), spawner);
   assert.equal(shadowed.report.outcome, "blocked");
   assert.deepEqual(spawner.calls, []);
@@ -194,6 +209,61 @@ test("install runs npm ci with scripts disabled when allowed, against the lockfi
   const allowed = await installChecked(settingsFor(clean, { transport: sealedChain }), spawner);
   assert.equal(allowed.exitCode, 0);
   assert.deepEqual(spawner.calls, [{ command: "npm", args: ["ci", "--ignore-scripts"], cwd: clean }]);
+  assert.equal(spawner.versionReads, 0);
+});
+
+test("install passes the npm git setting only when the installed npm supports it, reading the version once", async () => {
+  const clean = tempDir();
+  writeLockfile(clean, { "node_modules/widget": { version: "3.0.0" } });
+  const setting = { name: "exampleGitSetting", minimumVersion: "11.2.0" };
+  const older = recordingNpm("11.1.9");
+  await installChecked(settingsFor(clean, { transport: sealedChain }), older, setting);
+  assert.deepEqual(older.calls[0]?.args, ["ci", "--ignore-scripts"]);
+  const newer = recordingNpm("11.2.0");
+  await installChecked(settingsFor(clean, { transport: sealedChain }), newer, setting);
+  assert.deepEqual(newer.calls[0]?.args, ["ci", "--ignore-scripts", "--exampleGitSetting=none"]);
+  assert.equal(newer.versionReads, 1);
+});
+
+test("the npm git setting stays unset until the verified name and version are supplied", () => {
+  assert.equal(npmGitSettingName, null);
+  assert.equal(npmGitSettingMinimumVersion, null);
+});
+
+function gitLockfile(): string {
+  const dir = tempDir();
+  writeLockfile(dir, {
+    "node_modules/widget": { version: "3.0.0" },
+    "node_modules/widget/node_modules/fromGit": { version: "1.0.0", resolved: "git+ssh://git@github.com/org/fromGit.git#abc" },
+  });
+  return dir;
+}
+
+test("git dependencies are listed and block by default", async () => {
+  const spawner = recordingNpm();
+  const { report, exitCode } = await installChecked(settingsFor(gitLockfile(), { transport: sealedChain }), spawner);
+  guardReportSchema.parse(report);
+  assert.equal(report.outcome, "blocked");
+  assert.equal(exitCode, 1);
+  assert.deepEqual(report.gitDependencies.map(({ name, resolved }) => [name, resolved]), [["fromGit", "git+ssh://git@github.com/org/fromGit.git#abc"]]);
+  assert.match(report.advice[0] ?? "", /block the install/);
+  assert.deepEqual(spawner.calls, []);
+});
+
+test("GUARD_ALLOW_GIT_DEPENDENCIES turns the git block into a warning", async () => {
+  const report = await checkLockfile(settingsFor(gitLockfile(), { transport: sealedChain, allowGitDependencies: true }));
+  assert.equal(report.outcome, "allowed");
+  assert.equal(report.gitDependencies.length, 1);
+  assert.match(report.advice[0] ?? "", /allowed by GUARD_ALLOW_GIT_DEPENDENCIES/);
+});
+
+test("every check report carries empty gitDependencies and hookFiles when there are none", async () => {
+  const dir = tempDir();
+  writeLockfile(dir, { "node_modules/widget": { version: "3.0.0" } });
+  const report = await checkLockfile(settingsFor(dir, { transport: sealedChain }));
+  assert.deepEqual([report.gitDependencies, report.hookFiles], [[], []]);
+  const unavailable = await checkLockfile(settingsFor(tempDir(), { transport: sealedChain }));
+  assert.deepEqual([unavailable.gitDependencies, unavailable.hookFiles], [[], []]);
 });
 
 test("nothing is sent anywhere unless both report settings are set", async () => {

@@ -10,8 +10,8 @@ import {
   type Hex32,
   type PackageVersion,
 } from "@bulkhead/shared";
-import { directoryOf, readJson, readLockfile, resolveLockfilePath, type LockEntry } from "./lockfile.ts";
-import { isOlderThan, packumentReader, publishedAtOf, type PackumentReader } from "./registry.ts";
+import { directoryOf, isGitSource, readJson, readLockfile, resolveLockfilePath, type LockEntry } from "./lockfile.ts";
+import { compareCores, isOlderThan, packumentReader, publishedAtOf, type PackumentReader } from "./registry.ts";
 import { proposeRollbacks } from "./rollback.ts";
 import { loadSealedList, type ListSettings, type SealedList } from "./sealedList.ts";
 
@@ -28,10 +28,22 @@ export type GuardSettings = ListSettings &
     fallbackMinAgeDays: number | null;
     minAgeDays: number;
     registryUrl: string | null;
+    allowGitDependencies: boolean;
     assumeInstalled: boolean;
   };
 
 export type Spawner = (command: string, args: string[], cwd: string) => Promise<number>;
+
+export type Npm = { run: Spawner; version: () => Promise<string> };
+
+export type NpmGitSetting = { name: string; minimumVersion: string };
+
+export const npmGitSettingName: string | null = null;
+
+export const npmGitSettingMinimumVersion: string | null = null;
+
+const verifiedNpmGitSetting: NpmGitSetting | null =
+  npmGitSettingName && npmGitSettingMinimumVersion ? { name: npmGitSettingName, minimumVersion: npmGitSettingMinimumVersion } : null;
 
 export const installedAdvice = [
   "First remove persistence: background daemons or services the package installed, and IDE or coding agent hooks, extensions and config it added. Some payloads destroy files when a stolen token is revoked, so do this before revoking anything.",
@@ -92,6 +104,8 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
     fallback: null,
     packagesChecked: 0,
     blocked: [],
+    gitDependencies: [],
+    hookFiles: [],
     tooYoung: [],
     rollback: [],
     advice: [],
@@ -106,6 +120,15 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
   const { tooYoung, unreadable } = ageLimit > 0 ? await findTooYoung(read.entries, ageLimit, readPackument, now) : { tooYoung: [], unreadable: [] };
   const limits = { sealedKeys: list.keys, minAgeDays: ageLimit, now };
   const rollback = await proposeRollbacks([...blocked, ...tooYoung], limits, readPackument);
+  const gitDependencies = read.entries
+    .filter(isGitSource)
+    .map(({ name, version, resolved }) => ({ name, version, resolved: resolved ?? version, lockfilePath: path }));
+  const gitBlocks = gitDependencies.length > 0 && !settings.allowGitDependencies;
+  const gitAdvice = gitDependencies.length
+    ? [
+        `Warning: ${gitDependencies.map(({ name }) => name).join(", ")} ${gitBlocks ? "are resolved from git and block the install" : "are resolved from git and were allowed by GUARD_ALLOW_GIT_DEPENDENCIES"}. Git dependencies can run prepare scripts even with scripts disabled and bypass the Sealed list.`,
+      ]
+    : [];
   const unreadableAdvice = unreadable.length ? [`Publish time could not be read for ${unreadable.join(", ")}, so these count as too young.`] : [];
   const fallbackAdvice = fallback
     ? [
@@ -120,10 +143,11 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
     fallback,
     packagesChecked: read.entries.length,
     blocked,
+    gitDependencies,
     tooYoung,
     rollback,
-    advice: [...fallbackAdvice, ...unreadableAdvice, ...adviceFor(blocked)],
-    outcome: blocked.length || tooYoung.length ? "blocked" : "allowed",
+    advice: [...fallbackAdvice, ...gitAdvice, ...unreadableAdvice, ...adviceFor(blocked)],
+    outcome: blocked.length || tooYoung.length || gitBlocks ? "blocked" : "allowed",
   };
 }
 
@@ -139,8 +163,14 @@ export async function sendReport(report: GuardReport, settings: GuardSettings): 
   return response.ok;
 }
 
-export async function installChecked(settings: GuardSettings, spawn: Spawner): Promise<{ report: GuardReport; exitCode: number }> {
+export async function installChecked(
+  settings: GuardSettings,
+  npm: Npm,
+  gitSetting: NpmGitSetting | null = verifiedNpmGitSetting,
+): Promise<{ report: GuardReport; exitCode: number }> {
   const report = await checkLockfile({ ...settings, lockfile: directoryOf(settings.lockfile) });
   if (report.outcome !== "allowed") return { report, exitCode: exitCodes[report.outcome] };
-  return { report, exitCode: await spawn("npm", ["ci", "--ignore-scripts"], directoryOf(report.lockfile)) };
+  const supported = gitSetting !== null && compareCores(await npm.version(), gitSetting.minimumVersion) >= 0;
+  const gitFlags = supported ? [`--${gitSetting.name}=none`] : [];
+  return { report, exitCode: await npm.run("npm", ["ci", "--ignore-scripts", ...gitFlags], directoryOf(report.lockfile)) };
 }

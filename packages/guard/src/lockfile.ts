@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
-export type LockEntry = { name: string; version: string; path: string };
+export type LockEntry = { name: string; version: string; path: string; resolved: string | null };
 
 export type LockfileRead =
   | { ok: true; path: string; entries: LockEntry[] }
@@ -9,7 +9,17 @@ export type LockfileRead =
 
 export const lockfileNames = ["npm-shrinkwrap.json", "package-lock.json"] as const;
 
-type PackageEntry = { name?: unknown; version?: unknown; link?: unknown };
+export const hiddenLockfileName = ".package-lock.json";
+
+export const maxLockfileBytes = 64 * 1024 * 1024;
+
+const gitSourcePattern = /^(git\+|git:|github:|https?:\/\/codeload\.github\.com\/)/;
+
+type PackageEntry = { name?: unknown; version?: unknown; link?: unknown; resolved?: unknown };
+
+export function isGitSource(entry: LockEntry): boolean {
+  return gitSourcePattern.test(entry.resolved ?? "") || gitSourcePattern.test(entry.version);
+}
 
 export function resolveLockfilePath(target: string): string {
   if (!existsSync(target) || !statSync(target).isDirectory()) return target;
@@ -35,12 +45,16 @@ function entriesOf(packages: Record<string, PackageEntry>): LockEntry[] {
     if (!path.includes("node_modules/") || entry.link === true) return [];
     if (typeof entry.version !== "string") return [];
     const name = typeof entry.name === "string" ? entry.name : path.slice(path.lastIndexOf("node_modules/") + "node_modules/".length);
-    return [{ name, version: entry.version, path }];
+    return [{ name, version: entry.version, path, resolved: typeof entry.resolved === "string" ? entry.resolved : null }];
   });
 }
 
 export function readLockfile(path: string): LockfileRead {
   if (!existsSync(path)) return { ok: false, path, reason: `no lockfile at ${path}` };
+  if (![...lockfileNames, hiddenLockfileName].includes(basename(path))) {
+    return { ok: false, path, reason: `${path} is not npm-shrinkwrap.json or package-lock.json, the only formats supported` };
+  }
+  if (statSync(path).size > maxLockfileBytes) return { ok: false, path, reason: `${path} is larger than ${maxLockfileBytes} bytes` };
   const parsed = readJson(path) as { lockfileVersion?: unknown; packages?: unknown } | null;
   if (parsed === null || typeof parsed !== "object") return { ok: false, path, reason: `${path} is not valid JSON` };
   if (parsed.lockfileVersion !== 2 && parsed.lockfileVersion !== 3) {

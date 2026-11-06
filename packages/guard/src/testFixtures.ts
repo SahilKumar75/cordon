@@ -110,6 +110,7 @@ export function settingsFor(lockfile: string, overrides: Partial<GuardSettings> 
     fallbackMinAgeDays: null,
     minAgeDays: 0,
     registryUrl: null,
+    allowGitDependencies: false,
     chainId,
     rpcUrl: null,
     registryAddress,

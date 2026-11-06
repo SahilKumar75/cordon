@@ -1,9 +1,9 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { Parser, list as listTar, type ReadEntry } from "tar";
 import { productName, sealKeyOf, type GuardReport } from "@bulkhead/shared";
 import { adviceFor, type GuardSettings } from "./check.ts";
-import { lockfileNames, readLockfile } from "./lockfile.ts";
+import { hiddenLockfileName, lockfileNames, readJson, readLockfile } from "./lockfile.ts";
 import { packumentReader } from "./registry.ts";
 import { proposeRollbacks } from "./rollback.ts";
 import { loadSealedList } from "./sealedList.ts";
@@ -12,26 +12,83 @@ export type AuditSettings = GuardSettings & { paths: string[]; cacheDirs: string
 
 type Found = { name: string; version: string; source: string };
 
-type Scan = { found: Found[]; problems: string[] };
+type HookFile = GuardReport["hookFiles"][number];
+
+type Scan = { found: Found[]; problems: string[]; hookFiles: HookFile[] };
+
+type ClaudeSettings = { hooks?: Record<string, { hooks?: { command?: unknown }[] }[]> };
+
+type VscodeTasks = { tasks?: { command?: unknown; args?: unknown; runOptions?: { runOn?: unknown } }[] };
 
 const skippedDirs = new Set(["node_modules", ".git", ".pnpm_store"]);
 const tarballPattern = /\/((?:@[^/]+(?:\/|%2[fF]))?([^/]+))\/-\/([^/]+)\.tgz$/;
+const claudeSettingsPattern = /(?:^|\/)\.claude\/settings(?:\.local)?\.json$/;
+const vscodeTasksPattern = /(?:^|\/)\.vscode\/tasks\.json$/;
+const folderOpenPattern = /"runOn"\s*:\s*"folderOpen"/;
+const hookAdvice =
+  "Inspect and remove the editor and coding agent hook files listed under hookFiles before revoking any token: they can run again when the project opens and some payloads destroy files when a token is revoked.";
 const installedManifestPattern = /(?:^|\/)node_modules\/(?:@[^/]+\/)?[^/@.][^/]*\/package\.json$/;
 
-function lockfilesUnder(dir: string): string[] {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  const here = entries.filter((entry) => entry.isFile() && (lockfileNames as readonly string[]).includes(entry.name));
-  const hidden = existsSync(join(dir, "node_modules", ".package-lock.json")) ? [join(dir, "node_modules", ".package-lock.json")] : [];
-  const nested = entries.filter((entry) => entry.isDirectory() && !skippedDirs.has(entry.name));
-  return [...here.map((entry) => join(dir, entry.name)), ...hidden, ...nested.flatMap((entry) => lockfilesUnder(join(dir, entry.name)))];
+function filesUnder(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (!entry.isDirectory()) return [path];
+    if (entry.name === "node_modules") return existsSync(join(path, hiddenLockfileName)) ? [join(path, hiddenLockfileName)] : [];
+    return skippedDirs.has(entry.name) ? [] : filesUnder(path);
+  });
+}
+
+function referencedFiles(root: string, words: string[]): string[] {
+  return words.flatMap((word) => {
+    const token = word.replace(/["']/g, "").replace(/^\$\{?(CLAUDE_PROJECT_DIR|workspaceFolder)\}?/, root);
+    if (!token || token.startsWith("-")) return [];
+    const path = isAbsolute(token) ? token : join(root, token);
+    return existsSync(path) && statSync(path).isFile() ? [path] : [];
+  });
+}
+
+function claudeHookFiles(file: string): HookFile[] {
+  const settings = readJson(file) as ClaudeSettings | null;
+  const groups = Object.values(settings?.hooks ?? {}).flat();
+  if (!groups.length) return [];
+  const commands = groups.flatMap((group) => group.hooks ?? []).flatMap((hook) => (typeof hook.command === "string" ? [hook.command] : []));
+  const root = dirname(dirname(file));
+  return [file, ...referencedFiles(root, commands.flatMap((command) => command.split(/\s+/)))].map((path) => ({ path, tool: "claude" }));
+}
+
+function tasksOf(text: string): NonNullable<VscodeTasks["tasks"]> {
+  try {
+    return (JSON.parse(text) as VscodeTasks).tasks ?? [];
+  } catch (error) {
+    if (error instanceof SyntaxError) return [];
+    throw error;
+  }
+}
+
+function vscodeHookFiles(file: string): HookFile[] {
+  const text = readFileSync(file, "utf8");
+  if (!folderOpenPattern.test(text)) return [];
+  const tasks = tasksOf(text.replace(/^\s*\/\/.*$/gm, ""));
+  const words = tasks
+    .filter((task) => task.runOptions?.runOn === "folderOpen")
+    .flatMap((task) => [task.command, ...(Array.isArray(task.args) ? task.args : [])])
+    .flatMap((word) => (typeof word === "string" ? word.split(/\s+/) : []));
+  return [file, ...referencedFiles(dirname(dirname(file)), words)].map((path) => ({ path, tool: "vscode" }));
 }
 
 function scanPath(dir: string): Scan {
-  if (!existsSync(dir)) return { found: [], problems: [`no directory at ${dir}`] };
-  const reads = lockfilesUnder(dir).map(readLockfile);
+  if (!existsSync(dir)) return { found: [], problems: [`no directory at ${dir}`], hookFiles: [] };
+  const files = filesUnder(dir);
+  const lockfiles = files.filter((file) => [...lockfileNames, hiddenLockfileName].includes(basename(file)));
+  const reads = lockfiles.map(readLockfile);
+  const hookFiles = files.flatMap((file) => {
+    if (claudeSettingsPattern.test(file)) return claudeHookFiles(file);
+    return vscodeTasksPattern.test(file) ? vscodeHookFiles(file) : [];
+  });
   return {
     found: reads.flatMap((read) => (read.ok ? read.entries.map(({ name, version }) => ({ name, version, source: read.path })) : [])),
     problems: reads.flatMap((read) => (read.ok ? [] : [read.reason])),
+    hookFiles,
   };
 }
 
@@ -39,12 +96,6 @@ export function packageFromTarballUrl(url: string): { name: string; version: str
   const match = tarballPattern.exec(url);
   if (!match?.[1] || !match[2] || !match[3]?.startsWith(`${match[2]}-`)) return null;
   return { name: decodeURIComponent(match[1]), version: match[3].slice(match[2].length + 1) };
-}
-
-function filesUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-    entry.isDirectory() ? filesUnder(join(dir, entry.name)) : [join(dir, entry.name)],
-  );
 }
 
 function cacheKeysOf(file: string): string[] {
@@ -65,14 +116,14 @@ function cacheKeysOf(file: string): string[] {
 
 function scanCache(dir: string): Scan {
   const index = [join(dir, "_cacache", "index-v5"), join(dir, "index-v5")].find((path) => existsSync(path));
-  if (!index) return { found: [], problems: [`no npm cache index under ${dir}`] };
+  if (!index) return { found: [], problems: [`no npm cache index under ${dir}`], hookFiles: [] };
   const found = filesUnder(index).flatMap((file) =>
     cacheKeysOf(file).flatMap((key) => {
       const pkg = packageFromTarballUrl(key);
       return pkg ? [{ ...pkg, source: file }] : [];
     }),
   );
-  return { found, problems: [] };
+  return { found, problems: [], hookFiles: [] };
 }
 
 function readBody(entry: ReadEntry): Promise<string> {
@@ -134,10 +185,10 @@ async function layersOf(file: string): Promise<Set<string> | null> {
 }
 
 async function scanImage(file: string): Promise<Scan> {
-  if (!existsSync(file)) return { found: [], problems: [`no saved image at ${file}`] };
+  if (!existsSync(file)) return { found: [], problems: [`no saved image at ${file}`], hookFiles: [] };
   const layers = await layersOf(file);
-  if (!layers) return { found: [], problems: [`no readable manifest.json in ${file}`] };
-  const scan: Scan = { found: [], problems: [] };
+  if (!layers) return { found: [], problems: [`no readable manifest.json in ${file}`], hookFiles: [] };
+  const scan: Scan = { found: [], problems: [], hookFiles: [] };
   const scans: Promise<void>[] = [];
   await listTar({
     file,
@@ -157,6 +208,7 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     ...(await Promise.all(settings.dockerImages.map(scanImage))),
   ];
   const found = scans.flatMap((scan) => scan.found);
+  const hookFiles = [...new Map(scans.flatMap((scan) => scan.hookFiles).map((hook) => [hook.path, hook])).values()];
   const list = await loadSealedList(settings);
   const problems = [...scans.flatMap((scan) => scan.problems), ...(list.source === "none" ? ["The Sealed list was unavailable, so installed versions could not be checked."] : [])];
   const hits = found.flatMap(({ name, version, source }) => {
@@ -176,9 +228,11 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     fallback: null,
     packagesChecked: found.length,
     blocked,
+    gitDependencies: [],
+    hookFiles,
     tooYoung: [],
     rollback,
-    advice: [...problems, ...adviceFor(blocked)],
+    advice: [...problems, ...(hookFiles.length ? [hookAdvice] : []), ...adviceFor(blocked)],
     outcome: blocked.length ? "blocked" : problems.length ? "unavailable" : "allowed",
   };
 }
