@@ -1,14 +1,25 @@
 import { createServer } from "node:http";
 
-const sealedMessage = "Stopped by Bulkhead: a sealed dependency version is installed\n";
-const unreachableMessage = "Stopped by Bulkhead: the guard sidecar is unreachable, so this service fails closed\n";
+const uncheckedReason = "the guard could not check this service";
 
-async function sidecarState(sidecarUrl) {
+function stopReasonOf(report) {
+  const [sealed] = report.blocked;
+  const [young] = report.tooYoung;
+  if (report.outcome === "unavailable") return uncheckedReason;
+  if (sealed) return `${sealed.name}@${sealed.version} is sealed`;
+  if (report.gitDependencies.length > 0) return "a git dependency is installed";
+  if (young) return `${young.name}@${young.version} is newer than the age limit and the sealed list is unavailable`;
+  return uncheckedReason;
+}
+
+async function stopReason(sidecarUrl) {
   try {
-    const response = await fetch(`${sidecarUrl}/health`, { signal: AbortSignal.timeout(2000) });
-    return response.ok ? "healthy" : "sealed";
+    const response = await fetch(`${sidecarUrl}/status`, { signal: AbortSignal.timeout(2000) });
+    if (!response.ok) return uncheckedReason;
+    const status = await response.json();
+    return status.healthy ? null : stopReasonOf(status.report);
   } catch {
-    return "unreachable";
+    return uncheckedReason;
   }
 }
 
@@ -17,10 +28,10 @@ export function serve(service, answer) {
   const sidecarUrl = process.env.GUARD_SIDECAR_URL;
   if (!Number.isInteger(port) || !sidecarUrl) throw new Error(`${service} needs SERVICE_PORT and GUARD_SIDECAR_URL`);
   const server = createServer(async (request, response) => {
-    const state = await sidecarState(sidecarUrl);
-    if (state !== "healthy") {
+    const reason = await stopReason(sidecarUrl);
+    if (reason !== null) {
       response.writeHead(503, { "content-type": "text/plain" });
-      return response.end(state === "sealed" ? sealedMessage : unreachableMessage);
+      return response.end(`Stopped by Bulkhead: ${reason}\n`);
     }
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ service, ...answer(request) }));
