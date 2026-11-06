@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {ISealRegistry} from "./interfaces/ISealRegistry.sol";
 
 contract SealRegistry is ISealRegistry, AccessControl {
@@ -58,8 +59,22 @@ contract SealRegistry is ISealRegistry, AccessControl {
         if (seal.status == Status.Sealed) revert AlreadySealed(key);
         if (seal.status == Status.Unsealed) revert KeyUnsealed(key);
         if (votedBy[key][msg.sender]) revert DuplicateVote(key, msg.sender);
-        recordVote(seal, key, evidenceHash);
-        if (seal.votes == quorum) sealKey(seal, key, ecosystem, name, version);
+        votedBy[key][msg.sender] = true;
+        if (seal.votes == 0) seal.firstVoteAt = uint64(block.timestamp);
+        seal.votes += 1;
+        emit VerdictSubmitted(key, msg.sender, evidenceHash, seal.votes, uint64(block.timestamp));
+        if (seal.votes < quorum) return key;
+        uint64 day = uint64(block.timestamp / 1 days);
+        if (sealsOnDay[day] == maxSealsPerDay) revert SealRateLimited(day);
+        sealsOnDay[day] += 1;
+        seal.status = Status.Sealed;
+        seal.sealedAt = uint64(block.timestamp);
+        sealedKeyList.push(key);
+        emit Sealed(key, ecosystem, name, version, quorum, uint64(block.timestamp));
+    }
+
+    function renounceRole(bytes32, address) public pure override(AccessControl, IAccessControl) {
+        revert RolesFrozen();
     }
 
     function unseal(bytes32 key, bytes32 reasonHash) external onlyRole(GUARDIAN_ROLE) {
@@ -109,28 +124,5 @@ contract SealRegistry is ISealRegistry, AccessControl {
             keys[i] = sealedKeyList[offset + i];
             statuses[i] = seals[keys[i]].status;
         }
-    }
-
-    function recordVote(Seal storage seal, bytes32 key, bytes32 evidenceHash) private {
-        votedBy[key][msg.sender] = true;
-        if (seal.votes == 0) seal.firstVoteAt = uint64(block.timestamp);
-        seal.votes += 1;
-        emit VerdictSubmitted(key, msg.sender, evidenceHash, seal.votes, uint64(block.timestamp));
-    }
-
-    function sealKey(
-        Seal storage seal,
-        bytes32 key,
-        string calldata ecosystem,
-        string calldata name,
-        string calldata version
-    ) private {
-        uint64 day = uint64(block.timestamp / 1 days);
-        if (sealsOnDay[day] == maxSealsPerDay) revert SealRateLimited(day);
-        sealsOnDay[day] += 1;
-        seal.status = Status.Sealed;
-        seal.sealedAt = uint64(block.timestamp);
-        sealedKeyList.push(key);
-        emit Sealed(key, ecosystem, name, version, quorum, uint64(block.timestamp));
     }
 }

@@ -33,6 +33,7 @@ interface ISealRegistry is IAccessControl {
     error NotUnsealed(bytes32 key);
     error DisputeWindowOpen(uint64 opensAt);
     error SealRateLimited(uint64 day);
+    error RolesFrozen();
 
     function DETECTOR_ROLE() external view returns (bytes32);
     function GUARDIAN_ROLE() external view returns (bytes32);

@@ -315,6 +315,38 @@ contract SealRegistryTest is Test {
         registry.reseal(key, reason);
     }
 
+    function test_guardianCannotGrantRole() public {
+        bytes32 detectorRole = registry.DETECTOR_ROLE();
+        expectUnauthorized(guardian, registry.DEFAULT_ADMIN_ROLE());
+        vm.prank(guardian);
+        registry.grantRole(detectorRole, stranger);
+        assertFalse(registry.hasRole(detectorRole, stranger));
+    }
+
+    function test_guardianCannotRevokeRole() public {
+        bytes32 detectorRole = registry.DETECTOR_ROLE();
+        expectUnauthorized(guardian, registry.DEFAULT_ADMIN_ROLE());
+        vm.prank(guardian);
+        registry.revokeRole(detectorRole, detectorA);
+        assertTrue(registry.hasRole(detectorRole, detectorA));
+    }
+
+    function test_detectorCannotRenounceRole() public {
+        bytes32 detectorRole = registry.DETECTOR_ROLE();
+        vm.prank(detectorA);
+        vm.expectRevert(ISealRegistry.RolesFrozen.selector);
+        registry.renounceRole(detectorRole, detectorA);
+        assertTrue(registry.hasRole(detectorRole, detectorA));
+    }
+
+    function test_guardianCannotRenounceRole() public {
+        bytes32 guardianRole = registry.GUARDIAN_ROLE();
+        vm.prank(guardian);
+        vm.expectRevert(ISealRegistry.RolesFrozen.selector);
+        registry.renounceRole(guardianRole, guardian);
+        assertTrue(registry.hasRole(guardianRole, guardian));
+    }
+
     function test_sealedKeysPaging() public {
         bytes32 first = sealVersion("1.0.0");
         bytes32 second = sealVersion("1.0.1");

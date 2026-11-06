@@ -17,10 +17,6 @@ contract Deploy is Script {
         registry = new SealRegistry(guardian, detectors, quorum, disputeWindow, maxSealsPerDay);
         vm.stopBroadcast();
 
-        writeDeployment(registry, guardian, detectors);
-    }
-
-    function writeDeployment(SealRegistry registry, address guardian, address[] memory detectors) internal {
         string memory entry = "deployment";
         vm.serializeUint(entry, "chainId", block.chainid);
         vm.serializeUint(entry, "blockNumber", block.number);

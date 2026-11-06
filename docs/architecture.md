@@ -72,6 +72,7 @@ interface ISealRegistry {
     error NotUnsealed(bytes32 key);
     error DisputeWindowOpen(uint64 opensAt);
     error SealRateLimited(uint64 day);
+    error RolesFrozen();
     error AccessControlUnauthorizedAccount(address account, bytes32 neededRole);
 
     function DETECTOR_ROLE() external view returns (bytes32);
@@ -91,7 +92,7 @@ interface ISealRegistry {
 }
 ```
 
-1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint16 maxSealsPerDay). The guardian (a multisig) gets GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. Nobody gets DEFAULT_ADMIN_ROLE, so the detector set and quorum are frozen for the life of the deployment; rotating a detector key means a new deployment. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, the guardian is zero, or maxSealsPerDay is 0.
+1. Constructor: (address guardian, address[] detectors, uint16 quorum, uint64 disputeWindow, uint16 maxSealsPerDay). The guardian (a multisig) gets GUARDIAN_ROLE. Each detector address gets DETECTOR_ROLE. Nobody gets DEFAULT_ADMIN_ROLE, so the detector set and quorum are frozen for the life of the deployment; rotating a detector key means a new deployment. renounceRole always reverts with RolesFrozen, so no detector or guardian can drop out and make the quorum unreachable. InvalidConfig when quorum is 0, quorum exceeds the number of detectors, a detector address repeats or is zero, the guardian is zero, or maxSealsPerDay is 0.
 2. submitVerdict, DETECTOR_ROLE only, in this order: ecosystem other than "npm" reverts InvalidEcosystem; evidenceHash zero reverts EmptyEvidence; status Sealed reverts AlreadySealed; status Unsealed reverts KeyUnsealed (only the guardian can reseal); a repeat vote reverts DuplicateVote. Then the vote is recorded, firstVoteAt is set on the first vote, votes goes up by one, and VerdictSubmitted is emitted.
 3. When votes reach quorum: if seals already made in the current UTC day (block.timestamp / 1 days) equal maxSealsPerDay, the whole call reverts SealRateLimited and the signer retries later (see Detectors). Otherwise status becomes Sealed, sealedAt is set, the key is appended to the sealed key list once, and Sealed is emitted.
 4. unseal, GUARDIAN_ROLE only: status must be Sealed (else NotSealed) and block.timestamp at least sealedAt + disputeWindow (else DisputeWindowOpen with the opening time). Sets Unsealed and unsealedAt, emits Unsealed.
