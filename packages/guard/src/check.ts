@@ -38,9 +38,9 @@ export type Npm = { run: Spawner; version: () => Promise<string> };
 
 export type NpmGitSetting = { name: string; minimumVersion: string };
 
-export const npmGitSettingName: string | null = null;
+export const npmGitSettingName: string | null = "allow-git";
 
-export const npmGitSettingMinimumVersion: string | null = null;
+export const npmGitSettingMinimumVersion: string | null = "11.9.0";
 
 const verifiedNpmGitSetting: NpmGitSetting | null =
   npmGitSettingName && npmGitSettingMinimumVersion ? { name: npmGitSettingName, minimumVersion: npmGitSettingMinimumVersion } : null;
@@ -86,6 +86,16 @@ async function findTooYoung(entries: LockEntry[], days: number, readPackument: P
   return { tooYoung, unreadable };
 }
 
+export function gitVerdict(gitDependencies: GuardReport["gitDependencies"], allow: boolean): { blocks: boolean; advice: string[] } {
+  if (!gitDependencies.length) return { blocks: false, advice: [] };
+  const names = [...new Set(gitDependencies.map(({ name }) => name))].join(", ");
+  const effect = allow ? "were allowed by GUARD_ALLOW_GIT_DEPENDENCIES" : "block the outcome";
+  return {
+    blocks: !allow,
+    advice: [`Warning: ${names} are resolved from git and ${effect}. Git dependencies can run prepare scripts even with scripts disabled and bypass the Sealed list.`],
+  };
+}
+
 export function adviceFor(blocked: GuardBlock[]): string[] {
   return blocked.some((block) => block.alreadyInstalled) ? installedAdvice : [];
 }
@@ -123,12 +133,7 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
   const gitDependencies = read.entries
     .filter(isGitSource)
     .map(({ name, version, resolved }) => ({ name, version, resolved: resolved ?? version, lockfilePath: path }));
-  const gitBlocks = gitDependencies.length > 0 && !settings.allowGitDependencies;
-  const gitAdvice = gitDependencies.length
-    ? [
-        `Warning: ${gitDependencies.map(({ name }) => name).join(", ")} ${gitBlocks ? "are resolved from git and block the install" : "are resolved from git and were allowed by GUARD_ALLOW_GIT_DEPENDENCIES"}. Git dependencies can run prepare scripts even with scripts disabled and bypass the Sealed list.`,
-      ]
-    : [];
+  const git = gitVerdict(gitDependencies, settings.allowGitDependencies);
   const unreadableAdvice = unreadable.length ? [`Publish time could not be read for ${unreadable.join(", ")}, so these count as too young.`] : [];
   const fallbackAdvice = fallback
     ? [
@@ -146,8 +151,8 @@ export async function checkLockfile(settings: GuardSettings): Promise<GuardRepor
     gitDependencies,
     tooYoung,
     rollback,
-    advice: [...fallbackAdvice, ...gitAdvice, ...unreadableAdvice, ...adviceFor(blocked)],
-    outcome: blocked.length || tooYoung.length || gitBlocks ? "blocked" : "allowed",
+    advice: [...fallbackAdvice, ...git.advice, ...unreadableAdvice, ...adviceFor(blocked)],
+    outcome: blocked.length || tooYoung.length || git.blocks ? "blocked" : "allowed",
   };
 }
 

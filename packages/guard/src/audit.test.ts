@@ -145,3 +145,18 @@ test("hook files alone do not change the audit outcome", async () => {
   assert.equal(report.outcome, "allowed");
   assert.deepEqual(report.hookFiles.map(({ tool }) => tool), ["claude"]);
 });
+
+test("audit lists installed git dependencies, blocks by default and honours the override", async () => {
+  const root = tempDir();
+  const worker = join(root, "worker");
+  mkdirSync(join(worker, "node_modules"), { recursive: true });
+  writeLockfile(join(worker, "node_modules"), { "node_modules/fromGit": { version: "1.0.0", resolved: "github:org/fromGit#abc" } }, 3, ".package-lock.json");
+  const blocked = await audit(auditSettings({ paths: [root] }));
+  guardReportSchema.parse(blocked);
+  assert.equal(blocked.outcome, "blocked");
+  assert.deepEqual(blocked.gitDependencies.map(({ name, resolved }) => [name, resolved]), [["fromGit", "github:org/fromGit#abc"]]);
+  assert.match(blocked.advice[0] ?? "", /resolved from git and block the outcome/);
+  const allowed = await audit({ ...auditSettings({ paths: [root] }), allowGitDependencies: true });
+  assert.equal(allowed.outcome, "allowed");
+  assert.match(allowed.advice[0] ?? "", /allowed by GUARD_ALLOW_GIT_DEPENDENCIES/);
+});

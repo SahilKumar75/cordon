@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { Parser, list as listTar, type ReadEntry } from "tar";
 import { productName, sealKeyOf, type GuardReport } from "@bulkhead/shared";
-import { adviceFor, type GuardSettings } from "./check.ts";
-import { hiddenLockfileName, lockfileNames, readJson, readLockfile } from "./lockfile.ts";
+import { adviceFor, gitVerdict, type GuardSettings } from "./check.ts";
+import { hiddenLockfileName, isGitSource, lockfileNames, readJson, readLockfile } from "./lockfile.ts";
 import { packumentReader } from "./registry.ts";
 import { proposeRollbacks } from "./rollback.ts";
 import { loadSealedList } from "./sealedList.ts";
@@ -14,7 +14,7 @@ type Found = { name: string; version: string; source: string };
 
 type HookFile = GuardReport["hookFiles"][number];
 
-type Scan = { found: Found[]; problems: string[]; hookFiles: HookFile[] };
+type Scan = { found: Found[]; problems: string[]; hookFiles: HookFile[]; git?: GuardReport["gitDependencies"] };
 
 type ClaudeSettings = { hooks?: Record<string, { hooks?: { command?: unknown }[] }[]> };
 
@@ -87,6 +87,11 @@ function scanPath(dir: string): Scan {
   });
   return {
     found: reads.flatMap((read) => (read.ok ? read.entries.map(({ name, version }) => ({ name, version, source: read.path })) : [])),
+    git: reads.flatMap((read) =>
+      read.ok
+        ? read.entries.filter(isGitSource).map(({ name, version, resolved }) => ({ name, version, resolved: resolved ?? version, lockfilePath: read.path }))
+        : [],
+    ),
     problems: reads.flatMap((read) => (read.ok ? [] : [read.reason])),
     hookFiles,
   };
@@ -208,6 +213,8 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     ...(await Promise.all(settings.dockerImages.map(scanImage))),
   ];
   const found = scans.flatMap((scan) => scan.found);
+  const gitDependencies = scans.flatMap((scan) => scan.git ?? []);
+  const git = gitVerdict(gitDependencies, settings.allowGitDependencies);
   const hookFiles = [...new Map(scans.flatMap((scan) => scan.hookFiles).map((hook) => [hook.path, hook])).values()];
   const list = await loadSealedList(settings);
   const problems = [...scans.flatMap((scan) => scan.problems), ...(list.source === "none" ? ["The Sealed list was unavailable, so installed versions could not be checked."] : [])];
@@ -228,11 +235,11 @@ export async function audit(settings: AuditSettings): Promise<GuardReport> {
     fallback: null,
     packagesChecked: found.length,
     blocked,
-    gitDependencies: [],
+    gitDependencies,
     hookFiles,
     tooYoung: [],
     rollback,
-    advice: [...problems, ...(hookFiles.length ? [hookAdvice] : []), ...adviceFor(blocked)],
-    outcome: blocked.length ? "blocked" : problems.length ? "unavailable" : "allowed",
+    advice: [...problems, ...git.advice, ...(hookFiles.length ? [hookAdvice] : []), ...adviceFor(blocked)],
+    outcome: blocked.length || git.blocks ? "blocked" : problems.length ? "unavailable" : "allowed",
   };
 }

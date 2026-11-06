@@ -209,7 +209,7 @@ test("install runs npm ci with scripts disabled when allowed, against the lockfi
   const allowed = await installChecked(settingsFor(clean, { transport: sealedChain }), spawner);
   assert.equal(allowed.exitCode, 0);
   assert.deepEqual(spawner.calls, [{ command: "npm", args: ["ci", "--ignore-scripts"], cwd: clean }]);
-  assert.equal(spawner.versionReads, 0);
+  assert.equal(spawner.versionReads, 1);
 });
 
 test("install passes the npm git setting only when the installed npm supports it, reading the version once", async () => {
@@ -225,9 +225,23 @@ test("install passes the npm git setting only when the installed npm supports it
   assert.equal(newer.versionReads, 1);
 });
 
-test("the npm git setting stays unset until the verified name and version are supplied", () => {
-  assert.equal(npmGitSettingName, null);
-  assert.equal(npmGitSettingMinimumVersion, null);
+test("install sets allow-git to none on npm 11.9.0 and later, and npm 10 gets no flag", async () => {
+  assert.deepEqual([npmGitSettingName, npmGitSettingMinimumVersion], ["allow-git", "11.9.0"]);
+  const clean = tempDir();
+  writeLockfile(clean, { "node_modules/widget": { version: "3.0.0" } });
+  const runs = await Promise.all(
+    ["10.9.2", "11.8.0", "11.9.0", "12.0.0"].map(async (version) => {
+      const npm = recordingNpm(version);
+      await installChecked(settingsFor(clean, { transport: sealedChain }), npm);
+      return [version, npm.calls[0]?.args.join(" ")];
+    }),
+  );
+  assert.deepEqual(runs, [
+    ["10.9.2", "ci --ignore-scripts"],
+    ["11.8.0", "ci --ignore-scripts"],
+    ["11.9.0", "ci --ignore-scripts --allow-git=none"],
+    ["12.0.0", "ci --ignore-scripts --allow-git=none"],
+  ]);
 });
 
 function gitLockfile(): string {
@@ -246,7 +260,7 @@ test("git dependencies are listed and block by default", async () => {
   assert.equal(report.outcome, "blocked");
   assert.equal(exitCode, 1);
   assert.deepEqual(report.gitDependencies.map(({ name, resolved }) => [name, resolved]), [["fromGit", "git+ssh://git@github.com/org/fromGit.git#abc"]]);
-  assert.match(report.advice[0] ?? "", /block the install/);
+  assert.match(report.advice[0] ?? "", /block the outcome/);
   assert.deepEqual(spawner.calls, []);
 });
 
