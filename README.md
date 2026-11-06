@@ -137,28 +137,26 @@ What Cordon does not do is in [docs/limits.md](docs/limits.md). In short:
 
 ## Chainlink CRE, simulation only (branch cre)
 
-On this branch the advisoryFeed check (an OSV lookup for MAL ids) is also written as a Chainlink CRE workflow in cre/cordonAdvisory, and contracts/src/CordonCreReceiver.sol turns a CRE report into a vote on SealRegistry. The design and its trade offs are in docs/cre_design.md.
+On this branch the advisoryFeed check (an OSV lookup for MAL ids) is also a Chainlink CRE workflow in cre/cordonAdvisory, and contracts/src/CordonCreReceiver.sol turns a CRE report into a vote on SealRegistry. Design and trade offs: docs/cre_design.md.
 
-1. This is simulation only unless Chainlink approves deployment for this project. It is not deployed on the CRE network.
-2. When a workflow is deployed, Chainlink chooses and runs the node operators; we do not.
-3. On chain, a CRE report is still one detector vote, so quorum still needs a second detector.
-4. Run the detectors service with OFF_CHAIN_DETECTORS=advisoryFeed so the local advisory check keeps its evidence but stops voting; the CRE workflow becomes the only advisory vote. In simulation the workflow runs in one local process, so the multi node agreement applies only to a deployed workflow.
-5. Tests that run without the CRE CLI: `cd cre/cordonAdvisory && bun install --ignore-scripts && bun test`, and `cd contracts && forge test --match-contract CordonCreReceiver`.
-6. A dry run simulation (no transaction, no funds): `cd cre && cre workflow simulate cordonAdvisory --target staging-settings --non-interactive --trigger-index 0 --http-payload @cordonAdvisory/payload.tanstack.json`.
+1. Deployment access is pending: we requested it from Chainlink and it has not been granted. Nothing here is deployed on the CRE network; everything below is simulation only.
+2. When a workflow is deployed, Chainlink chooses and runs its node operators. We do not choose them.
+3. Simulation runs the workflow in one local process, so the agreement between many nodes applies only to a deployed workflow.
+4. On chain, a CRE report is one detector vote, so quorum still needs a second detector. Run the detectors service with OFF_CHAIN_DETECTORS=advisoryFeed so the local advisory check keeps its evidence but no longer votes.
+5. Each node parses the OSV answer itself and only the sorted MAL ids and the advisory's modified time go to consensus; the raw OSV answer (44 KB for the TanStack advisory) exceeds the 25 KB observation limit.
+6. The CRE CLI v1.39.0 was installed from the official release script after we checked its source repository, smartcontractkit/cre-cli.
 
-Install the CRE CLI with the official script, or download it manually and check its SHA256 against the release checksums (macOS on Apple silicon shown):
-
-```sh
-curl -sSL https://app.chain.link/cre/install.sh | bash
-```
+What ran on 6 Nov 2026, as a dry run with no transaction and no funds:
 
 ```sh
-curl -sSLO https://github.com/smartcontractkit/cre-cli/releases/download/v1.39.0/cre_darwin_arm64.zip
-curl -sSLO https://github.com/smartcontractkit/cre-cli/releases/download/v1.39.0/checksums.txt
-grep ' cre_darwin_arm64.zip$' checksums.txt | shasum -a 256 -c
-unzip cre_darwin_arm64.zip && chmod +x cre && xattr -c cre && mkdir -p ~/.cre/bin && mv cre ~/.cre/bin/
-~/.cre/bin/cre version
+cd cre
+cre workflow simulate cordonAdvisory --target staging-settings --non-interactive --trigger-index 0 --http-payload '{"name":"@tanstack/react-router","version":"1.169.5"}'
+cre workflow simulate cordonAdvisory --target staging-settings --non-interactive --trigger-index 0 --http-payload '{"name":"ms","version":"2.1.3"}'
 ```
+
+The first called OSV, found MAL-2026-3465, built and signed the report and ran writeReport as a dry run; the second came back clean and wrote nothing. Simulation needs CRE_ETH_PRIVATE_KEY in cre/.env (ignored by git); a dry run never spends it. A broadcast simulation needs that key funded with Base Sepolia ETH and a receiver deployed with contracts/script/DeployCre.s.sol.
+
+Tests without the CLI: `cd cre/cordonAdvisory && bun install --ignore-scripts && bun test`, and `cd contracts && forge test --match-contract CordonCreReceiver`.
 
 ## Scale roadmap
 
