@@ -148,6 +148,8 @@ export const guardReportSchema = z.object({
   packagesChecked: z.number().int().nonnegative(),
   blocked: z.array(guardBlockSchema),
   snapshotAgeSeconds: z.number().int().nonnegative().nullable(),
+  gitDependencies: z.array(packageVersionSchema.extend({ resolved: z.string(), lockfilePath: z.string() })),
+  hookFiles: z.array(z.object({ path: z.string(), tool: z.string() })),
   tooYoung: z.array(packageVersionSchema.extend({ publishedAt: z.string().datetime().nullable() })),
   rollback: z.array(z.object({ name: z.string(), from: z.string(), to: z.string().nullable() })),
   advice: z.array(z.string()),

@@ -30,7 +30,7 @@ If time runs short, cut in this order: Chainlink CRE, the minimum age option, th
 7. research: docs/research/.
 8. docs: README.md, docs/demo.md, docs/limits.md, docs/rules.md.
 9. reviewer: reads everything, edits nothing.
-10. orchestrator: packages/shared/, docs/architecture.md, docs/ai_usage.md, CLAUDE.md, .claude/agents/, and root config files (package.json, pnpm-workspace.yaml, .npmrc, .nvmrc, tsconfig.base.json, .gitignore, .env.example).
+10. orchestrator: packages/shared/, tests/, docs/architecture.md, docs/ai_usage.md, CLAUDE.md, .claude/agents/, and root config files (package.json, pnpm-workspace.yaml, .npmrc, .nvmrc, tsconfig.base.json, .gitignore, .env.example).
 
 docs/decisions.md belongs to the team and no agent edits it.
 
@@ -109,7 +109,7 @@ interface ISealRegistry {
 4. GET /detectors, response DetectorInfo[]. Every demo detector has simulated true.
 5. GET /health, response { ok: true }.
 
-staticScripts: downloads the tarball and reads package.json and the files its scripts call, without executing anything. Flags preinstall, install, postinstall and prepare scripts that touch the network (http, https, net, dns, fetch, curl, wget), environment variables (process.env, shell variables) or a shell (child_process, exec, spawn, sh).
+staticScripts: downloads the tarball and reads package.json and the files its scripts call, without executing anything. Flags preinstall, install, postinstall and prepare scripts that touch the network (http, https, net, dns, fetch, curl, wget), environment variables (process.env, shell variables) or a shell (child_process, exec, spawn, sh). Also flags scripts and loaders that start another runtime (bun, deno, python, or a downloaded binary), git dependencies and optionalDependencies pointing at git, and payload files that are not JavaScript (native binaries, shell scripts, or files the scripts call that are not plain JavaScript).
 
 sandboxCanary:
 1. Runs only when the tarball URL's origin equals MOCK_REGISTRY_URL. Any other tarball gets no sandbox run and no sandbox verdict, so real public packages are never executed here.
@@ -117,7 +117,8 @@ sandboxCanary:
 3. Network: an internal Docker network with no route out, holding only the sandbox, the mockRegistry container and the canarySink container.
 4. Fake secrets in env only, including CANARY_TOKEN, a random value per run injected by the sandbox and never set anywhere else.
 5. All capabilities dropped, the no new privileges option set, memory and process limits, 60 second timeout. A blocked or killed run destroys only the disposable container.
-6. Malicious when canarySink reports that run's CANARY_TOKEN as received. The service asks the sink through docker exec, because the internal network is not reachable from the host. The sink container gets the same limits and no published ports. The demo setup script builds the sink image before the first run.
+6. Every process spawned inside the container during the run is recorded and kept in the evidence as findings, so a payload that starts another runtime shows up even when it sends nothing.
+7. Malicious when canarySink reports that run's CANARY_TOKEN as received. The service asks the sink through docker exec, because the internal network is not reachable from the host. The sink container gets the same limits and no published ports. The demo setup script builds the sink image before the first run.
 
 advisoryFeed: queries OSV (OSV_API_URL is the base URL, the service appends the v1 paths) for malicious package advisories (MAL ids) matching the exact npm name and version. Evidence keeps the advisory URL. Sources are verified by the research agent before use.
 
@@ -129,7 +130,7 @@ signer: one viem wallet per detector key (STATIC_SCRIPTS_PRIVATE_KEY, SANDBOX_CA
 2. scheduler: sends each new publish to POST {DETECTORS_URL}/scan, one at a time, and retries a failed request on the next tick.
 3. chain poller: reads VerdictSubmitted, Sealed, Unsealed and Resealed logs from REGISTRY_ADDRESS and appends verdict, sealed, unsealed and resealed events with the tx hash as ref and the block time as at.
 4. publisher: every POLL_INTERVAL_SECONDS builds a SealedSnapshot (CHAIN_ID, REGISTRY_ADDRESS, latest block, entries, timeline heads), signs it with SNAPSHOT_SIGNER_PRIVATE_KEY, writes SNAPSHOT_PATH and serves it. Fresh signatures keep generatedAt meaningful for the guard's age limit.
-5. Guard reports: POST /reports accepts only a SignedGuardReport whose signer is in GUARD_REPORTER_ADDRESSES. Each blocked entry appends a guardBlocked event with the service name (or "ci") as actor.
+5. Guard reports: POST /reports accepts only a SignedGuardReport whose signer is in GUARD_REPORTER_ADDRESSES, whose digest it has not seen before, and whose checkedAt is no more than 10 minutes old. A replayed or unsigned report is refused with 401 and records nothing. Each blocked entry appends a guardBlocked event with the service name (or "ci") as actor.
 6. simulated on Verdict, Attestation and Stopwatch is true when the detector reports simulated or the registry is the demo registry.
 
 HTTP API:
@@ -195,9 +196,9 @@ Loading the Sealed list, in order:
 3. Neither (chain unreachable, and no snapshot that passes every check, including one older than GUARD_SNAPSHOT_MAX_AGE_SECONDS): listSource none, and the age fallback runs. The guard reads publish times from NPM_REGISTRY_URL and blocks every version younger than N days, listing them under tooYoung. Versions older than N days are allowed. A version whose publish time cannot be read is treated as younger than N and blocked, listed in tooYoung with publishedAt null. The report carries fallback { minAgeDays, placeholder } and a warning in advice that the Sealed list was not checked. When the list loads, fallback is null.
 
 Reading lockfiles:
-1. npm-shrinkwrap.json first, then package-lock.json, matching what npm ci uses.
-2. Lockfile versions 2 and 3: every entry under packages, transitive ones included. For an npm alias the entry's name field is the real package and is used for the key.
-3. Lockfile version 1, a missing lockfile, or an unreadable one gives outcome unavailable, never allowed.
+1. The guard supports only formats it knows: npm-shrinkwrap.json and package-lock.json with lockfileVersion 2 or 3. npm-shrinkwrap.json is read first, then package-lock.json. Any other format or version (1, 4 or later, a missing file, unreadable or malformed JSON, a file larger than the guard's size limit) gives outcome unavailable, never allowed. The guard makes no claim about npm 12.
+2. Every entry under packages is checked, transitive ones included. For an npm alias the entry's name field is the real package and is used for the key.
+3. Git dependencies: any entry resolved from git or GitHub (a resolved value starting with git+, git:, github: or a GitHub codeload URL, or a version that is a git URL) is high risk. It is listed under gitDependencies and blocks the outcome by default. GUARD_ALLOW_GIT_DEPENDENCIES=true turns the block into a warning. When the installed npm supports a setting that disallows git dependencies, install sets it to none; the setting name and the first npm version that has it come from docs/research/edge_cases.md, never from memory. The mechanisms behind this rule are documented in docs/research/edge_cases.md and docs/limits.md: a fake npmrc that replaces the git binary for a nested git dependency, and pnpm running prepare scripts when it fetches a git dependency.
 
 Commands (exit codes: allowed 0, blocked 1, unavailable 2):
 1. bulkhead check [--lockfile path] [--service name]: reads the lockfile, computes each seal key and matches locally. With a minimum age, reads publish times from NPM_REGISTRY_URL and lists versions younger than the limit under tooYoung, which blocks. Prints the GuardReport and sends it signed when reporting is configured.
@@ -205,6 +206,8 @@ Commands (exit codes: allowed 0, blocked 1, unavailable 2):
 3. bulkhead audit [--path dir]... [--cache dir]... [--docker image.tar]...: scans lockfiles under each path (the current directory when no path is given), each npm cache index, and node_modules package.json files inside the layers of each image saved with docker save. Every hit has alreadyInstalled true. Audit needs the Sealed list: with listSource none its outcome is unavailable and no age fallback runs, because it inspects what is already installed. A layer or manifest it cannot read also makes the outcome unavailable.
 4. bulkhead rollback [--lockfile path]: for each blocked package, reads its registry metadata and proposes the highest earlier version that is neither Sealed nor too young, as an npm overrides snippet. Writes no files.
 5. bulkhead sidecar --lockfile path --service name --port n: rechecks every POLL_INTERVAL_SECONDS. GET /health answers 200 when allowed and 503 when blocked or unavailable. GET /status answers ServiceStatus. Sends changes signed when reporting is configured.
+
+Audit also scans each path for editor and coding agent hook files (for example .claude/settings.json, .vscode/tasks.json and the scripts they call) and lists them under hookFiles, separate from blocked versions. When any are found, advice says to inspect and remove them before revoking any token.
 
 Whenever a blocked version has alreadyInstalled true (audit, sidecar, or a lockfile whose node_modules already holds it), advice includes, in this order:
 1. First remove persistence: background daemons or services the package installed, and IDE or coding agent hooks, extensions and config it added. Some payloads destroy files when a stolen token is revoked, so this comes before any revocation.
@@ -231,6 +234,25 @@ Every simulated detector, verdict, stopwatch and exfiltration is labelled simula
 
 Demo quorum is 2 of 3 detectors.
 
+## Tests plan
+
+Unit tests live next to the code in each package. Two cross cutting suites live in tests/ (workspace package @bulkhead/tests, owned by the orchestrator, run by pnpm test):
+
+tests/fitness, structural rules that must always hold:
+1. The guard never runs install scripts: every npm invocation in packages/guard passes --ignore-scripts, and none runs when the outcome is not allowed.
+2. The sandbox mounts no host path: no docker argument in services/detectors uses -v, --volume or --mount, and no published ports.
+3. packages/shared depends on nothing in the workspace and on no service, app or demo code.
+4. SealRegistry.keyOf equals sealKeyOf for the same name and version (computed with cast against the compiled contract or a local anvil deployment).
+
+tests/chaos, failure behaviour end to end on a local anvil chain:
+1. Chain unreachable: guard falls back to a signed snapshot, then to the age fallback.
+2. Stale snapshot: guard refuses it and uses the age fallback.
+3. Detector offline: scan lists it under failures and the other detectors still vote.
+4. Malformed lockfile and oversized lockfile: outcome unavailable.
+5. Single detector seal attempt: one vote with quorum 2 leaves the version unsealed, and a second vote from the same key reverts.
+6. Replayed signature: a snapshot signed for another chain or registry is refused by the guard; a guard report posted twice is refused by the watcher the second time.
+7. Unsigned guard report: the watcher refuses it and records nothing.
+
 ## Environment
 
 All variables are listed with empty values in .env.example. For Base Sepolia: chain id 84532, explorer sepolia.basescan.org, native symbol ETH. Changing chain means changing env only.
@@ -244,7 +266,7 @@ All variables are listed with empty values in .env.example. For Base Sepolia: ch
 7. DETECTORS_URL, WATCHER_PORT, DATABASE_PATH, SNAPSHOT_SIGNER_PRIVATE_KEY, SNAPSHOT_PATH, GUARD_REPORTER_ADDRESSES: watcher.
 8. NPM_REGISTRY_URL: watcher, guard.
 9. POLL_INTERVAL_SECONDS: watcher, guard sidecar.
-10. GUARD_FALLBACK_MIN_AGE_DAYS, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard.
+10. GUARD_FALLBACK_MIN_AGE_DAYS, GUARD_ALLOW_GIT_DEPENDENCIES, GUARD_MIN_AGE_DAYS, GUARD_SNAPSHOT_URL, GUARD_SNAPSHOT_SIGNER, GUARD_SNAPSHOT_MAX_AGE_SECONDS, GUARD_CACHE_DIR, GUARD_REPORT_URL, GUARD_REPORTER_PRIVATE_KEY: guard.
 11. MOCK_REGISTRY_PORT, CANARY_SINK_PORT: demo.
 12. NEXT_PUBLIC_*: dashboard.
 

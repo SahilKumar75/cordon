@@ -3,6 +3,7 @@ packages:
   - services/*
   - apps/*
   - demo/mockRegistry
+  - tests
   - "!demo/poisonedPackage"
   - "!demo/canarySink"
   - "!demo/services/**"
